@@ -1,6 +1,7 @@
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 42) In your
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
+from sklearn.model_selection import train_test_split
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
 from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier
@@ -20,10 +21,27 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, f
 patch_sklearn()
 
 
+def split(X, y, strat=False, sizeOfTest=0.2):
+
+    if isinstance(X, int) or isinstance(y, int):
+        raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
+                         f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y}")
+    elif isinstance(strat, bool) is False:
+        raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
+
+    else:
+        if strat is True:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest,
+                                                                stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest)
+        return X_train, X_test, y_train, y_test
+
+
 class Models:
 
     def __init__(self, lr=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 index=0, highest_acc=0, check_best_model=[]) -> None:
+                 dtc=0) -> None:
         """
         :param lr = Logistic Regression
         :param sgdc = Stochastic Gradient Descent Classifier
@@ -38,6 +56,7 @@ class Models:
         :param mlp = MLPClassifier
         :param svc = Support Vector Classifier
         """
+
         self.lr = lr
         self.sgdc = sgdc
         self.pagg = pagg
@@ -50,6 +69,7 @@ class Models:
         self.knc = knc
         self.mlp = mlp
         self.svc = svc
+        self.dtc = dtc
 
     def initialize(self):
         self.lr = LogisticRegression(random_state=42, warm_start=True)
@@ -67,21 +87,17 @@ class Models:
         self.mlp = MLPClassifier(batch_size=10, shuffle=True, random_state=42, warm_start=True,
                                  early_stopping=True, n_iter_no_change=20)
         self.svc = SVC(random_state=42)
+        self.dtc = DecisionTreeClassifier(random_state=42)
+        return self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.cat, self.xgb, self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc
 
-        return self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.cat, self.xgb, self.gnb, self.lda, self.knc, self.mlp, self.svc
+    def fit_eval_models(self, splitting=False, X_train="X_train", X_test="X_test", y_train="y_train", y_test="y_test"):
 
-    def fit_eval_models(self, X_train="X_train", X_test="X_test", y_train="y_train", y_test="y_test"):
-        """
-        This function takes in the training and testing data and fits the model to the training data. It then predicts the
-        testing data and compares the predicted values to the actual values.
+        if splitting is False:
+            pass
+        elif splitting is True:
+            X_train, X_test, y_train, y_test = data_split[0], data_split[1], data_split[2], data_split[3]
 
-        :param X_train: The training data, defaults to X_train (optional)
-        :param X_test: The test data, defaults to X_test (optional)
-        :param y_train: The target variable for supervised learning, defaults to y_train (optional)
-        :param y_test: The actual values of the target variable, defaults to y_test (optional)
-        """
         model = self.initialize()
-        check_best_model = []
         for i in range(len(model)):
             model[i].fit(X_train, y_train)
             pred = model[i].predict(X_test)
@@ -94,7 +110,7 @@ class Models:
             clr = classification_report(true, pred)
             cfm = confusion_matrix(true, pred)
             r2 = r2_score(true, pred)
-            check_best_model.append(acc)
+
             print("The model used is ", model[i])
             print("The Accuracy of the Model is ", acc)
             # print("The f1 score of the Model is ", f1)
@@ -108,10 +124,5 @@ class Models:
             print("The Confusion Matrix of the Model is")
             print(cfm)
             print("\n")
-        highest_acc = max(check_best_model)
-        index = check_best_model.index(highest_acc)
 
 
-# create an instance of the class and run fit_eval_models to begin training.
-fire = Models()
-fire.fit_eval_models()
