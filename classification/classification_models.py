@@ -21,7 +21,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 patch_sklearn()
 
 
-def split(X, y, strat=False, sizeOfTest=0.2):
+def split(X, y, strat=False, sizeOfTest=0.2, randomState=None, shuffle_data=True):
     if isinstance(X, int) or isinstance(y, int):
         raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                          f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y}")
@@ -33,11 +33,21 @@ def split(X, y, strat=False, sizeOfTest=0.2):
 
     else:
         if strat is True:
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest,
-                                                                stratify=y)
+
+            if shuffle_data is False:
+                raise TypeError("shuffle_data can only be False if strat is False")
+
+            elif shuffle_data is True:
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                    train_size=1 - sizeOfTest,
+                                                                    stratify=y, random_state=randomState,
+                                                                    shuffle=shuffle_data)
+
+                return X_train, X_test, y_train, y_test
+
         else:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest)
-        return X_train, X_test, y_train, y_test
+            return X_train, X_test, y_train, y_test
 
 
 class Models:
@@ -74,7 +84,7 @@ class Models:
         self.dtc = dtc
 
     def initialize(self):
-        self.lr = LogisticRegression(random_state=42, warm_start=True)
+        self.lr = LogisticRegression(random_state=42, warm_start=True, max_iter=400)
         self.sgdc = SGDClassifier(random_state=42)
         self.pagg = PassiveAggressiveClassifier(shuffle=True, fit_intercept=True, early_stopping=True,
                                                 validation_fraction=0.1, n_iter_no_change=20, n_jobs=-1)
@@ -132,4 +142,3 @@ class Models:
             print("The Confusion Matrix of the Model is")
             print(cfm)
             print("\n")
-
