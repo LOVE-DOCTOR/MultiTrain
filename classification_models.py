@@ -45,18 +45,18 @@ class Models:
     def __init__(self, lr=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
                  dtc=0) -> None:
         """
-        :param lr = Logistic Regression
-        :param sgdc = Stochastic Gradient Descent Classifier
-        :param pagg = Passive Aggressive Classifier
-        :param rfc = Random Forest Classifier
-        :param gbc = Gradient Boosting Classifier
-        :param cat = CatBoostClassifier
-        :param xgb = XGBoost Classifier
-        :param gnb = GaussianNB Classifier
-        :param lda = Linear Discriminant Analysis
-        :param knc = KNeighborsClassifier
-        :param mlp = MLPClassifier
-        :param svc = Support Vector Classifier
+        :param lr: Logistic Regression
+        :param sgdc: Stochastic Gradient Descent Classifier
+        :param pagg: Passive Aggressive Classifier
+        :param rfc: Random Forest Classifier
+        :param gbc: Gradient Boosting Classifier
+        :param cat: CatBoostClassifier
+        :param xgb: XGBoost Classifier
+        :param gnb: GaussianNB Classifier
+        :param lda: Linear Discriminant Analysis
+        :param knc: KNeighborsClassifier
+        :param mlp: MLPClassifier
+        :param svc: Support Vector Classifier
         """
 
         self.lr = lr
