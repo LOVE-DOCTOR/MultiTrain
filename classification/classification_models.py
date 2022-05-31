@@ -21,10 +21,10 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 patch_sklearn()
 
 
-def split(X, y, strat=False, sizeOfTest=0.2, randomState=None, shuffle_data=True):
+def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None, shuffle_data: bool = True) -> tuple[any, any, any, any]:
     if isinstance(X, int) or isinstance(y, int):
         raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
-                         f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y}")
+                         f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
     elif isinstance(strat, bool) is False:
         raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
 
