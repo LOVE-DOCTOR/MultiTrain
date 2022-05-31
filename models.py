@@ -16,18 +16,20 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, f1_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 patch_sklearn()
 
 
 def split(X, y, strat=False, sizeOfTest=0.2):
-
     if isinstance(X, int) or isinstance(y, int):
         raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                          f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y}")
     elif isinstance(strat, bool) is False:
         raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
+
+    elif sizeOfTest < 0 or sizeOfTest > 1:
+        raise ValueError("value of sizeOfTest should be between 0 and 1")
 
     else:
         if strat is True:
@@ -80,7 +82,7 @@ class Models:
         self.gbc = GradientBoostingClassifier(random_state=42, learning_rate=0.01, validation_fraction=0.1,
                                               n_iter_no_change=20)
         self.cat = CatBoostClassifier(random_state=42, learning_rate=0.01)
-        self.xgb = XGBClassifier()
+        self.xgb = XGBClassifier(use_label_encoder=False)
         self.gnb = GaussianNB()
         self.lda = LinearDiscriminantAnalysis()
         self.knc = KNeighborsClassifier(n_jobs=-1)
@@ -90,12 +92,18 @@ class Models:
         self.dtc = DecisionTreeClassifier(random_state=42)
         return self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.cat, self.xgb, self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc
 
-    def fit_eval_models(self, splitting=False, X_train="X_train", X_test="X_test", y_train="y_train", y_test="y_test"):
+    def fit_eval_models(self, X_train=None, X_test=None, y_train=None, y_test=None,
+                        split_data: str = None, splitting: bool = False):
 
-        if splitting is False:
+        if isinstance(splitting, bool) is False:
+            raise TypeError(
+                f"You can only declare object type 'bool' in splitting. Try splitting = False or splitting = True "
+                f"instead of splitting = {splitting}")
+
+        elif splitting is False:
             pass
-        elif splitting is True:
-            X_train, X_test, y_train, y_test = data_split[0], data_split[1], data_split[2], data_split[3]
+        elif splitting and split_data:
+            X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
 
         model = self.initialize()
         for i in range(len(model)):
@@ -124,5 +132,3 @@ class Models:
             print("The Confusion Matrix of the Model is")
             print(cfm)
             print("\n")
-
-
