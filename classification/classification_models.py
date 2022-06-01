@@ -1,21 +1,23 @@
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 42) In your
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
-from sklearn.model_selection import train_test_split
+from numpy import mean
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
-from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier
+from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier
 from sklearnex.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingClassifier, AdaBoostClassifier
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import ExtraTreesClassifier, BaggingClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
 from catboost import CatBoostClassifier
 from xgboost import XGBClassifier
 from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, CategoricalNB, ComplementNB
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearnex.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC, LinearSVC
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import warnings
@@ -27,6 +29,7 @@ patch_sklearn()
 
 def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
           shuffle_data: bool = True) -> tuple[any, any, any, any]:
+
     if isinstance(X, int) or isinstance(y, int):
         raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                          f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
@@ -58,8 +61,10 @@ def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomSt
 class Models:
 
     def __init__(self, lr=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etc=0) -> None:
+                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, etc=0, lsvc=0, bc=0, gpc=0,
+                 qda=0) -> None:
         """
+
         :param lr: Logistic Regression
         :param sgdc: Stochastic Gradient Descent Classifier
         :param pagg: Passive Aggressive Classifier
@@ -69,15 +74,21 @@ class Models:
         :param xgb: XGBoost Classifier
         :param gnb: GaussianNB Classifier
         :param lda: Linear Discriminant Analysis
-        :param knc: KNeighborsClassifier
-        :param mlp: MLPClassifier
+        :param knc: K Neighbors Classifier
+        :param mlp: MLP Classifier
         :param svc: Support Vector Classifier
-        :param dtc: DecisionTreeClassifier
+        :param dtc: Decision Tree Classifier
         :param cnb: CategoricalNB
         :param conb: ComplementNB
-        :param hgbc: HistGradientBoostingClassifier
-        :param abc: AdaBoostClassifier
-        :param etc: ExtraTreesClassifier
+        :param hgbc: Hist Gradient Boosting Classifier
+        :param abc: Ada Boost Classifier
+        :param etcs: Extra Trees Classifier
+        :param rcl: Ridge Classifier
+        :param etc: Extra TreesC lassifier
+        :param lsvc: Linear Support Vector Classifier
+        :param bc: Bagging Classifier
+        :param gpc: Gaussian Process Classifier
+        :param qda: Quadratic Discriminant Analysis
         """
 
         self.lr = lr
@@ -99,7 +110,13 @@ class Models:
         self.conb = conb
         self.hgbc = hgbc
         self.abc = abc
+        self.etcs = etcs
+        self.rcl = rcl
         self.etc = etc
+        self.lsvc = lsvc
+        self.bc = bc
+        self.gpc = gpc
+        self.qda = qda
 
     def initialize(self):
         """
@@ -129,17 +146,29 @@ class Models:
         self.mnb = MultinomialNB()
         self.cnb = CategoricalNB()
         self.conb = ComplementNB()
-        self.etc = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
+        self.etcs = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
+        self.rcl = RidgeClassifier(random_state=42, max_iter=300)
+        self.etc = ExtraTreeClassifier(random_state=42)
+        self.lsvc = LinearSVC(random_state=42, max_iter=300)
+        self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
+        self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
+        self.qda = QuadraticDiscriminantAnalysis()
 
         return (self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb, self.gnb,
-                self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etc)
+                self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etcs,
+                self.rcl, self.etc, self.lsvc, self.bc, self.gpc, self.qda)
 
-    def fit_eval_models(self, X_train=None, X_test=None, y_train=None, y_test=None, split_data: str = None,
-                        splitting: bool = False):
+    def fit_eval_models(self, X=None, y=None, X_train=None, X_test=None, y_train=None, y_test=None, split_data: str = None,
+                        splitting: bool = False, kf: bool = False, fold: list = [10, 1, True]):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the variables
         X_train, X_test, y_train, and y_test
 
+        :param y:
+        :param X:
+        :type fold: object
+        :param fold:
+        :param kf:
         :param X_train: The training data
         :param X_test: The test data
         :param y_train: The training set labels
@@ -155,12 +184,53 @@ class Models:
                 f"You can only declare object type 'bool' in splitting. Try splitting = False or splitting = True "
                 f"instead of splitting = {splitting}")
 
-        elif splitting is False:
-            pass
+        elif isinstance(kf, bool) is False:
+            raise TypeError(
+                f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
+                f"instead of kf = {kf}")
+
+        elif isinstance(fold, list) is False:
+            raise TypeError(
+                "param fold is of type list, pass a list to fold e.g fold = [10, 1, True], where 10 is number of "
+                "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
+                "is to allow shuffling.")
+
+        elif len(fold) != 3:
+            raise ValueError(
+                "all 3 values of fold have to be fulfilled e.g fold = [10, 1, True], where 10 is number of "
+                "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
+                "is to allow shuffling."
+            )
+
+        elif isinstance(fold[2], bool) is False:
+            raise TypeError("all 3 values of fold have to be fulfilled e.g fold = [10, 1, True], where 10 is number of "
+                            "splits you want to use for the cross validation procedure, where 1 is the random_state, "
+                            "where True is to allow shuffling. The third value of the list fold has to be a boolean "
+                            "value, e.g True or False.")
+
+        elif kf and splitting:
+            raise ValueError("KFold cross validation cannot be true, if splitting is true and splitting cannot be "
+                             "true if KFold is true")
+
+        elif kf and split_data:
+            raise ValueError("split_data cannot be used with kf(KFold cv), set splitting to True to use param "
+                             "split_data")
+
         elif splitting and split_data:
             X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
 
+        elif kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
+            raise ValueError("Set the values of features X and target y")
+
+        elif len(fold) == 3 and kf is True:
+            cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
         # Fitting the models and predicting the values of the test set.
+            KFoldModel = self.initialize()
+            cv_results = []
+            for i in range(len(KFoldModel)):
+                scores = cross_val_score(KFoldModel, X, y, scoring='accuracy', cv=cv, n_jobs=-1)
+                mean_ = mean(scores)
+
         model = self.initialize()
         for i in range(len(model)):
             model[i].fit(X_train, y_train)
@@ -186,3 +256,5 @@ class Models:
             print("The Confusion Matrix of the Model is")
             print(cfm)
             print("\n")
+
+
