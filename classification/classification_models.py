@@ -19,6 +19,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import warnings
+
 warnings.filterwarnings("ignore")
 
 patch_sklearn()
@@ -101,6 +102,9 @@ class Models:
         self.etc = etc
 
     def initialize(self):
+        """
+        It initializes all the models that we will be using in our ensemble
+        """
         self.lr = LogisticRegression(random_state=42, warm_start=True, max_iter=400)
         self.sgdc = SGDClassifier(random_state=42, early_stopping=True, validation_fraction=0.2,
                                   shuffle=True, n_iter_no_change=20)
@@ -130,8 +134,21 @@ class Models:
         return (self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb, self.gnb,
                 self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etc)
 
-    def fit_eval_models(self, X_train=None, X_test=None, y_train=None, y_test=None,
-                        split_data: str = None, splitting: bool = False):
+    def fit_eval_models(self, X_train=None, X_test=None, y_train=None, y_test=None, split_data: str = None,
+                        splitting: bool = False):
+        """
+        If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the variables
+        X_train, X_test, y_train, and y_test
+
+        :param X_train: The training data
+        :param X_test: The test data
+        :param y_train: The training set labels
+        :param y_test: The test set labels
+        :param split_data: str = None, splitting: bool = False
+        :type split_data: str
+        :param splitting: bool = False, defaults to False
+        :type splitting: bool (optional)
+        """
 
         if isinstance(splitting, bool) is False:
             raise TypeError(
@@ -143,6 +160,7 @@ class Models:
         elif splitting and split_data:
             X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
 
+        # Fitting the models and predicting the values of the test set.
         model = self.initialize()
         for i in range(len(model)):
             model[i].fit(X_train, y_train)
@@ -150,7 +168,6 @@ class Models:
             true = y_test
 
             acc = accuracy_score(true, pred)
-            # f1 = f1_score(true, pred)
             mae = mean_absolute_error(true, pred)
             mse = mean_squared_error(true, pred)
             clr = classification_report(true, pred)
@@ -159,7 +176,6 @@ class Models:
 
             print("The model used is ", model[i])
             print("The Accuracy of the Model is ", acc)
-            # print("The f1 score of the Model is ", f1)
             print("The r2 score of the Model is ", r2)
             print("The Mean Absolute Error of the Model is", mae)
             print("The Mean Squared Error of the Model is", mse)
