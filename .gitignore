@@ -130,3 +130,10 @@ dmypy.json
 
 # Anaconda
 .idea
+
+Mobile_Price_Classification/
+
+catboost_info/
+Phone_Classification.ipynb
+test.csv
+train.csv

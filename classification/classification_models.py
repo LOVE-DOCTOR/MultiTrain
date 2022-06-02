@@ -20,7 +20,9 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from LOGGING.log_message import PrintLog
 import warnings
+import time
 
 warnings.filterwarnings("ignore")
 
@@ -28,8 +30,7 @@ patch_sklearn()
 
 
 def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
-          shuffle_data: bool = True) -> tuple[any, any, any, any]:
-
+          shuffle_data: bool = True):
     if isinstance(X, int) or isinstance(y, int):
         raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                          f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
@@ -56,6 +57,17 @@ def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomSt
         else:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest)
             return X_train, X_test, y_train, y_test
+
+
+def classifier_model_names():
+    model_names = ["Logistic Regression", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
+                   "GradientBoostingClassifier", "HistGradientBoostingClassifier", "AdaBoostClassifier",
+                   "CatBoostClassifier", "XGBClassifier", "GaussianNB", "LinearDiscriminantAnalysis",
+                   "KNeighborsClassifier", "MLPClassifier", "SVC", "DecisionTreeClassifier", "BernoulliNB",
+                   "MultinomialNB", "CategoricalNB", "ComplementNB", "ExtraTreesClassifier", "RidgeClassifier",
+                   "ExtraTreeClassifier", "LinearSVC", "BaggingClassifier", "GaussianProcessClassifier",
+                   "QuadraticDiscriminantAnalysis"]
+    return model_names
 
 
 class Models:
@@ -153,16 +165,15 @@ class Models:
         self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
         self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.qda = QuadraticDiscriminantAnalysis()
-
         return (self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb, self.gnb,
                 self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etcs,
                 self.rcl, self.etc, self.lsvc, self.bc, self.gpc, self.qda)
 
-    def fit_eval_models(self, X=None, y=None, X_train=None, X_test=None, y_train=None, y_test=None, split_data: str = None,
-                        splitting: bool = False, kf: bool = False, fold: list = [10, 1, True]):
+    def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
+                        split_data: str = None, splitting: bool = False, kf: bool = False, fold: list = [10, 1, True]):
         """
-        If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the variables
-        X_train, X_test, y_train, and y_test
+        If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
+        variables X_train, X_test, y_train, and y_test
 
         :param y:
         :param X:
@@ -216,45 +227,49 @@ class Models:
             raise ValueError("split_data cannot be used with kf(KFold cv), set splitting to True to use param "
                              "split_data")
 
-        elif splitting and split_data:
-            X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
-
         elif kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
+        elif splitting and split_data:
+            X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
+
+            model = self.initialize()
+            names = classifier_model_names()
+            for i in range(len(model)):
+                model[i].fit(X_train, y_train)
+                pred = model[i].predict(X_test)
+                true = y_test
+
+                acc = accuracy_score(true, pred)
+                mae = mean_absolute_error(true, pred)
+                mse = mean_squared_error(true, pred)
+                clr = classification_report(true, pred)
+                cfm = confusion_matrix(true, pred)
+                r2 = r2_score(true, pred)
+
+                print("The model used is ", names[i])
+                print("The Accuracy of the Model is ", acc)
+                print("The r2 score of the Model is ", r2)
+                print("The Mean Absolute Error of the Model is", mae)
+                print("The Mean Squared Error of the Model is", mse)
+                print("\n")
+                print("The Classification Report of the Model is")
+                print(clr)
+                print("\n")
+                print("The Confusion Matrix of the Model is")
+                print(cfm)
+                print("\n")
+
         elif len(fold) == 3 and kf is True:
+            start = time.time()
             cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
-        # Fitting the models and predicting the values of the test set.
+            # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
-            cv_results = []
+            names = classifier_model_names()
             for i in range(len(KFoldModel)):
-                scores = cross_val_score(KFoldModel, X, y, scoring='accuracy', cv=cv, n_jobs=-1)
+                scores = cross_val_score(KFoldModel[i], X, y, scoring='accuracy', cv=cv, n_jobs=-1)
                 mean_ = mean(scores)
-
-        model = self.initialize()
-        for i in range(len(model)):
-            model[i].fit(X_train, y_train)
-            pred = model[i].predict(X_test)
-            true = y_test
-
-            acc = accuracy_score(true, pred)
-            mae = mean_absolute_error(true, pred)
-            mse = mean_squared_error(true, pred)
-            clr = classification_report(true, pred)
-            cfm = confusion_matrix(true, pred)
-            r2 = r2_score(true, pred)
-
-            print("The model used is ", model[i])
-            print("The Accuracy of the Model is ", acc)
-            print("The r2 score of the Model is ", r2)
-            print("The Mean Absolute Error of the Model is", mae)
-            print("The Mean Squared Error of the Model is", mse)
-            print("\n")
-            print("The Classification Report of the Model is")
-            print(clr)
-            print("\n")
-            print("The Confusion Matrix of the Model is")
-            print(cfm)
-            print("\n")
-
-
+                print(f"{names[i]}:", mean_)
+            end = time.time()
+            minutes = (end-start)/60
+            PrintLog(f"completed in {minutes} minutes")
