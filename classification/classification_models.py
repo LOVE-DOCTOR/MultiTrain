@@ -29,52 +29,11 @@ warnings.filterwarnings("ignore")
 patch_sklearn()
 
 
-def split(X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
-          shuffle_data: bool = True):
-    if isinstance(X, int) or isinstance(y, int):
-        raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
-                         f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
-    elif isinstance(strat, bool) is False:
-        raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
-
-    elif sizeOfTest < 0 or sizeOfTest > 1:
-        raise ValueError("value of sizeOfTest should be between 0 and 1")
-
-    else:
-        if strat is True:
-
-            if shuffle_data is False:
-                raise TypeError("shuffle_data can only be False if strat is False")
-
-            elif shuffle_data is True:
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                    train_size=1 - sizeOfTest,
-                                                                    stratify=y, random_state=randomState,
-                                                                    shuffle=shuffle_data)
-
-                return X_train, X_test, y_train, y_test
-
-        else:
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest, train_size=1 - sizeOfTest)
-            return X_train, X_test, y_train, y_test
-
-
-def classifier_model_names():
-    model_names = ["Logistic Regression", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
-                   "GradientBoostingClassifier", "HistGradientBoostingClassifier", "AdaBoostClassifier",
-                   "CatBoostClassifier", "XGBClassifier", "GaussianNB", "LinearDiscriminantAnalysis",
-                   "KNeighborsClassifier", "MLPClassifier", "SVC", "DecisionTreeClassifier", "BernoulliNB",
-                   "MultinomialNB", "CategoricalNB", "ComplementNB", "ExtraTreesClassifier", "RidgeClassifier",
-                   "ExtraTreeClassifier", "LinearSVC", "BaggingClassifier", "GaussianProcessClassifier",
-                   "QuadraticDiscriminantAnalysis"]
-    return model_names
-
-
 class Models:
 
     def __init__(self, lr=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, etc=0, lsvc=0, bc=0, gpc=0,
-                 qda=0) -> None:
+                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, etc=0, gpc=0, qda=0,
+                 lsvc=0, bc=0) -> None:
         """
 
         :param lr: Logistic Regression
@@ -96,11 +55,12 @@ class Models:
         :param abc: Ada Boost Classifier
         :param etcs: Extra Trees Classifier
         :param rcl: Ridge Classifier
-        :param etc: Extra TreesC lassifier
-        :param lsvc: Linear Support Vector Classifier
-        :param bc: Bagging Classifier
+        :param etc: Extra Trees Classifier
         :param gpc: Gaussian Process Classifier
         :param qda: Quadratic Discriminant Analysis
+        :param lsvc: Linear Support Vector Classifier
+        :param bc: Bagging Classifier
+
         """
 
         self.lr = lr
@@ -125,16 +85,66 @@ class Models:
         self.etcs = etcs
         self.rcl = rcl
         self.etc = etc
-        self.lsvc = lsvc
-        self.bc = bc
         self.gpc = gpc
         self.qda = qda
+        self.lsvc = lsvc
+        self.bc = bc
+
+    def split(self, X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
+              shuffle_data: bool = True):
+        """
+
+        :param X: features
+        :param y: labels
+        :param strat: used to initialize stratify = y in train_test_split if True
+        :param sizeOfTest: define size of test data
+        :param randomState: define random state
+        :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
+        :return:
+        """
+        if isinstance(X, int) or isinstance(y, int):
+            raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
+                             f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
+        elif isinstance(strat, bool) is False:
+            raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
+
+        elif sizeOfTest < 0 or sizeOfTest > 1:
+            raise ValueError("value of sizeOfTest should be between 0 and 1")
+
+        else:
+            if strat is True:
+
+                if shuffle_data is False:
+                    raise TypeError("shuffle_data can only be False if strat is False")
+
+                elif shuffle_data is True:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest,
+                                                                        stratify=y, random_state=randomState,
+                                                                        shuffle=shuffle_data)
+
+                    return X_train, X_test, y_train, y_test
+
+            else:
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                    train_size=1 - sizeOfTest)
+                return X_train, X_test, y_train, y_test
+
+    def classifier_model_names(self):
+        model_names = ["Logistic Regression", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
+                       "GradientBoostingClassifier", "HistGradientBoostingClassifier", "AdaBoostClassifier",
+                       "CatBoostClassifier", "XGBClassifier", "GaussianNB", "LinearDiscriminantAnalysis",
+                       "KNeighborsClassifier", "MLPClassifier", "SVC", "DecisionTreeClassifier", "BernoulliNB",
+                       "MultinomialNB", "CategoricalNB", "ComplementNB", "ExtraTreesClassifier", "RidgeClassifier",
+                       "ExtraTreeClassifier", "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis",
+                       "LinearSVC", "BaggingClassifier"]
+        return model_names
 
     def initialize(self):
         """
         It initializes all the models that we will be using in our ensemble
         """
-        self.lr = LogisticRegression(random_state=42, warm_start=True, max_iter=400)
+        self.lr = LogisticRegression(random_state=42, max_iter=1000, fit_intercept=True)
         self.sgdc = SGDClassifier(random_state=42, early_stopping=True, validation_fraction=0.2,
                                   shuffle=True, n_iter_no_change=20)
         self.pagg = PassiveAggressiveClassifier(shuffle=True, fit_intercept=True, early_stopping=True,
@@ -161,13 +171,14 @@ class Models:
         self.etcs = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.rcl = RidgeClassifier(random_state=42, max_iter=300)
         self.etc = ExtraTreeClassifier(random_state=42)
-        self.lsvc = LinearSVC(random_state=42, max_iter=300)
-        self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
         self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.qda = QuadraticDiscriminantAnalysis()
+        self.lsvc = LinearSVC(random_state=42, max_iter=300, fit_intercept=True)
+        self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
+
         return (self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb, self.gnb,
                 self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etcs,
-                self.rcl, self.etc, self.lsvc, self.bc, self.gpc, self.qda)
+                self.rcl, self.etc, self.gpc, self.qda, self.lsvc, self.bc)
 
     def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
                         split_data: str = None, splitting: bool = False, kf: bool = False, fold: tuple = (10, 1, True)):
@@ -235,7 +246,7 @@ class Models:
             X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
             start = time.time()
             model = self.initialize()
-            names = classifier_model_names()
+            names = self.classifier_model_names()
             for i in range(len(model)):
                 model[i].fit(X_train, y_train)
                 pred = model[i].predict(X_test)
@@ -248,16 +259,14 @@ class Models:
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
 
-                print("The model used is ", names[i])
-                print("The Accuracy of the Model is ", acc)
-                print("The r2 score of the Model is ", r2)
-                print("The Mean Absolute Error of the Model is", mae)
-                print("The Mean Squared Error of the Model is", mse)
-                print("\n")
-                print("The Classification Report of the Model is")
+                print(f"{names[i]}:")
+                print("Accuracy: ", acc)
+                print("r2 score: ", r2)
+                print("Mean Absolute Error: ", mae)
+                print("Mean Squared Error", mse)
+                print("CLASSIFICATION REPORT")
                 print(clr)
-                print("\n")
-                print("The Confusion Matrix of the Model is")
+                print("CONFUSION MATRIX")
                 print(cfm)
                 print("\n")
             end = time.time()
@@ -270,11 +279,11 @@ class Models:
 
             # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
-            names = classifier_model_names()
+            names = self.classifier_model_names()
             for i in range(len(KFoldModel)):
                 scores = cross_val_score(KFoldModel[i], X, y, scoring='accuracy', cv=cv, n_jobs=-1)
                 mean_ = mean(scores)
-                print(f"{names[i]}:", mean_)
+                print(f"{names[i]}: {mean_}")
             end = time.time()
-            minutes = (end-start)/60
+            minutes = (end - start) / 60
             PrintLog(f"completed in {minutes} minutes")

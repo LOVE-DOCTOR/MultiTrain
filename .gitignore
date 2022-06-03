@@ -135,5 +135,10 @@ Mobile_Price_Classification/
 
 catboost_info/
 Phone_Classification.ipynb
-test.csv
-train.csv
+Financial_Inclusion_in_Africa.ipynb
+test_phone.csv
+train_phone.csv
+
+
+Test_finance.csv
+Train_finance.csv
