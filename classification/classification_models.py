@@ -170,7 +170,7 @@ class Models:
                 self.rcl, self.etc, self.lsvc, self.bc, self.gpc, self.qda)
 
     def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
-                        split_data: str = None, splitting: bool = False, kf: bool = False, fold: list = [10, 1, True]):
+                        split_data: str = None, splitting: bool = False, kf: bool = False, fold: tuple = (10, 1, True)):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
@@ -195,44 +195,45 @@ class Models:
                 f"You can only declare object type 'bool' in splitting. Try splitting = False or splitting = True "
                 f"instead of splitting = {splitting}")
 
-        elif isinstance(kf, bool) is False:
+        if isinstance(kf, bool) is False:
             raise TypeError(
                 f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
                 f"instead of kf = {kf}")
 
-        elif isinstance(fold, list) is False:
+        if isinstance(fold, tuple) is False:
             raise TypeError(
-                "param fold is of type list, pass a list to fold e.g fold = [10, 1, True], where 10 is number of "
+                "param fold is of type tuple, pass a tuple to fold e.g fold = (10, 1, True), where 10 is number of "
                 "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
                 "is to allow shuffling.")
 
-        elif len(fold) != 3:
+        if len(fold) != 3:
             raise ValueError(
-                "all 3 values of fold have to be fulfilled e.g fold = [10, 1, True], where 10 is number of "
+                "all 3 values of fold have to be fulfilled e.g fold = (10, 1, True), where 10 is number of "
                 "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
                 "is to allow shuffling."
             )
 
-        elif isinstance(fold[2], bool) is False:
-            raise TypeError("all 3 values of fold have to be fulfilled e.g fold = [10, 1, True], where 10 is number of "
+        if isinstance(fold[2], bool) is False:
+            raise TypeError("all 3 values of fold have to be fulfilled e.g fold = (10, 1, True), where 10 is number of "
                             "splits you want to use for the cross validation procedure, where 1 is the random_state, "
                             "where True is to allow shuffling. The third value of the list fold has to be a boolean "
                             "value, e.g True or False.")
 
-        elif kf and splitting:
-            raise ValueError("KFold cross validation cannot be true, if splitting is true and splitting cannot be "
-                             "true if KFold is true")
+        if kf:
+            if splitting:
+                raise ValueError("KFold cross validation cannot be true, if splitting is true and splitting cannot be "
+                                 "true if KFold is true")
 
-        elif kf and split_data:
-            raise ValueError("split_data cannot be used with kf(KFold cv), set splitting to True to use param "
-                             "split_data")
+            elif split_data:
+                raise ValueError("split_data cannot be used with kf, set splitting to True to use param "
+                                 "split_data")
 
-        elif kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
+        if kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
-        elif splitting and split_data:
+        if splitting and split_data:
             X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
-
+            start = time.time()
             model = self.initialize()
             names = classifier_model_names()
             for i in range(len(model)):
@@ -259,10 +260,14 @@ class Models:
                 print("The Confusion Matrix of the Model is")
                 print(cfm)
                 print("\n")
+            end = time.time()
+            minutes = (end - start) / 60
+            PrintLog(f"completed in {minutes} minutes")
 
         elif len(fold) == 3 and kf is True:
             start = time.time()
             cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
+
             # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
             names = classifier_model_names()
