@@ -2,6 +2,7 @@
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
 from numpy import mean
+from IPython.display import display
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
@@ -21,6 +22,7 @@ from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from LOGGING.log_message import PrintLog
+import pandas as pd
 import warnings
 import time
 
@@ -155,8 +157,8 @@ class Models:
         self.hgbc = HistGradientBoostingClassifier(early_stopping=True, validation_fraction=0.2, random_state=42,
                                                    max_iter=300)
         self.abc = AdaBoostClassifier(random_state=42)
-        self.cat = CatBoostClassifier(random_state=42, learning_rate=0.01)
-        self.xgb = XGBClassifier(use_label_encoder=False)
+        self.cat = CatBoostClassifier(random_state=42, learning_rate=0.01, verbose=False)
+        self.xgb = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss")
         self.gnb = GaussianNB()
         self.lda = LinearDiscriminantAnalysis()
         self.knc = KNeighborsClassifier(n_jobs=-1)
@@ -247,6 +249,7 @@ class Models:
             start = time.time()
             model = self.initialize()
             names = self.classifier_model_names()
+            dataframe = {}
             for i in range(len(model)):
                 model[i].fit(X_train, y_train)
                 pred = model[i].predict(X_test)
@@ -258,17 +261,11 @@ class Models:
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
+                eval_ = [acc, mae, mse, r2]
+                dataframe.update({names[i]: eval_})
 
-                print(f"{names[i]}:")
-                print("Accuracy: ", acc)
-                print("r2 score: ", r2)
-                print("Mean Absolute Error: ", mae)
-                print("Mean Squared Error", mse)
-                print("CLASSIFICATION REPORT")
-                print(clr)
-                print("CONFUSION MATRIX")
-                print(cfm)
-                print("\n")
+            df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["acc", "mae", "mse", "r2"])
+            display(df)
             end = time.time()
             minutes = (end - start) / 60
             PrintLog(f"completed in {minutes} minutes")
@@ -280,10 +277,15 @@ class Models:
             # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
             names = self.classifier_model_names()
+            dataframe = {}
+            PrintLog("Training started")
             for i in range(len(KFoldModel)):
                 scores = cross_val_score(KFoldModel[i], X, y, scoring='accuracy', cv=cv, n_jobs=-1)
                 mean_ = mean(scores)
-                print(f"{names[i]}: {mean_}")
+                dataframe.update({names[i]: mean_})
+
+            df = pd.DataFrame(list(dataframe.items()), columns=['Model', 'Mean score'])
+            display(df)
             end = time.time()
             minutes = (end - start) / 60
-            PrintLog(f"completed in {minutes} minutes")
+            PrintLog(f"Training completed in {minutes} minutes")
