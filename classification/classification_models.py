@@ -1,7 +1,7 @@
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 42) In your
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
-from numpy import mean
+
 from IPython.display import display
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearnex import patch_sklearn
@@ -20,9 +20,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC, LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from LOGGING.log_message import PrintLog
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, f1_score
+from LOGGING.log_message import PrintLog, WarnLog
 import pandas as pd
+import numpy as np
 import warnings
 import time
 
@@ -102,7 +103,12 @@ class Models:
         :param sizeOfTest: define size of test data
         :param randomState: define random state
         :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
-        :return:
+
+        Example
+        df = pd.read_csv("nameOfFile.csv")
+        X = df.drop("nameOfLabelColumn", axis=1)
+        y = df["nameOfLabelColumn")
+        split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
         if isinstance(X, int) or isinstance(y, int):
             raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
@@ -182,6 +188,18 @@ class Models:
                 self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etcs,
                 self.rcl, self.etc, self.gpc, self.qda, self.lsvc, self.bc)
 
+    def startKFold(self, param, param_X, param_y, param_cv):
+        names = self.classifier_model_names()
+        dataframe = {}
+        for i in range(len(param)):
+            scores = cross_val_score(param[i], param_X, param_y, scoring='accuracy', cv=param_cv, n_jobs=-1)
+            mean_, stdev = scores.mean(), scores.std()
+            scores = scores.tolist()
+            scores.append(mean_)
+            scores.append(stdev)
+            dataframe.update({names[i]: scores})
+        return dataframe
+
     def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
                         split_data: str = None, splitting: bool = False, kf: bool = False, fold: tuple = (10, 1, True)):
         """
@@ -191,7 +209,7 @@ class Models:
         :param y:
         :param X:
         :type fold: object
-        :param fold:
+        :param fold: arguments for KFold where 10 is the n_splits, 1 is the random_state and True is to allow shuffling
         :param kf:
         :param X_train: The training data
         :param X_test: The test data
@@ -201,6 +219,17 @@ class Models:
         :type split_data: str
         :param splitting: bool = False, defaults to False
         :type splitting: bool (optional)
+
+        If using splitting = True
+        df = pd.read_csv("nameOfFile.csv")
+        X = df.drop("nameOfLabelColumn", axis=1)
+        y = df["nameOfLabelColumn")
+        the_split_data = split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
+        fit_eval_models(splitting = True, split_data = the_split_data)
+
+        If using kf = True
+
+        fit_eval_models(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
 
         if isinstance(splitting, bool) is False:
@@ -257,19 +286,21 @@ class Models:
 
                 acc = accuracy_score(true, pred)
                 mae = mean_absolute_error(true, pred)
-                mse = mean_squared_error(true, pred)
+                mse = np.sqrt(mean_absolute_error(true, pred))
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
+                # f1 = f1_score(true, pred)
                 eval_ = [acc, mae, mse, r2]
                 dataframe.update({names[i]: eval_})
 
-            df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["acc", "mae", "mse", "r2"])
+            df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["accuracy", "mean absolute error",
+                                                                            "mean squared error", "r2"])
             display(df)
             end = time.time()
             minutes = (end - start) / 60
             PrintLog(f"completed in {minutes} minutes")
-
+            return df
         elif len(fold) == 3 and kf is True:
             start = time.time()
             cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
@@ -277,15 +308,69 @@ class Models:
             # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
             names = self.classifier_model_names()
-            dataframe = {}
-            PrintLog("Training started")
-            for i in range(len(KFoldModel)):
-                scores = cross_val_score(KFoldModel[i], X, y, scoring='accuracy', cv=cv, n_jobs=-1)
-                mean_ = mean(scores)
-                dataframe.update({names[i]: mean_})
 
-            df = pd.DataFrame(list(dataframe.items()), columns=['Model', 'Mean score'])
-            display(df)
-            end = time.time()
-            minutes = (end - start) / 60
-            PrintLog(f"Training completed in {minutes} minutes")
+            PrintLog("Training started")
+            if fold[0] == 1:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "mean", "std"])
+                display(df)
+                return df
+            elif fold[0] == 2:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std"])
+                display(df)
+                return df
+            elif fold[0] == 3:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index',
+                                            columns=["fold1", "fold2", "fold3", "mean", "std"])
+                display(df)
+
+            elif fold[0] == 4:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "mean", "std"])
+                display(df)
+
+            elif fold[0] == 5:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "mean", "std"])
+                display(df)
+
+            elif fold[0] == 6:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "mean", "std"])
+                display(df)
+
+            elif fold[0] == 7:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "mean",
+                                                                                "std"])
+                display(df)
+
+            elif fold[0] == 8:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6","fold7", "fold8",
+                                                                                "mean", "std"])
+                display(df)
+
+            elif fold[0] == 9:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "fold9", "mean", "std"])
+                display(df)
+
+            elif fold[0] == 10:
+                dataframe = self.startKFold(KFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "fold9", "fold10", "mean", "std"])
+                display(df)
+
+            else:
+                WarnLog("You can only set the number of folds to a number between 1 and 10")
