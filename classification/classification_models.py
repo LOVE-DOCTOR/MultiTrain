@@ -232,6 +232,7 @@ class Models:
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param excel:
         :param skf:
         :param y:
         :param X:
@@ -346,7 +347,7 @@ class Models:
 
             if fold[0] == 2:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std",
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -355,7 +356,7 @@ class Models:
             elif fold[0] == 3:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index',
-                                            columns=["fold1", "fold2", "fold3", "mean", "std",
+                                            columns=["fold1", "fold2", "fold3", "mean score", "std",
                                                      "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -364,7 +365,7 @@ class Models:
             elif fold[0] == 4:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean", "std", "execution_time(seconds)"])
+                                                                                "mean score", "std", "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -372,7 +373,7 @@ class Models:
             elif fold[0] == 5:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean", "std",
+                                                                                "fold5", "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -381,7 +382,7 @@ class Models:
             elif fold[0] == 6:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "mean", "std",
+                                                                                "fold5", "fold6", "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -390,7 +391,7 @@ class Models:
             elif fold[0] == 7:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "mean",
+                                                                                "fold5", "fold6", "fold7", "mean score",
                                                                                 "std", "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -400,7 +401,7 @@ class Models:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "mean", "std",
+                                                                                "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -410,7 +411,7 @@ class Models:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "mean", "std",
+                                                                                "fold9", "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -420,7 +421,7 @@ class Models:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean", "std",
+                                                                                "fold9", "fold10", "mean score", "std",
                                                                                 "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
@@ -441,7 +442,7 @@ class Models:
 
             if fold[0] == 2:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std"])
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -449,7 +450,7 @@ class Models:
             elif fold[0] == 3:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index',
-                                            columns=["fold1", "fold2", "fold3", "mean", "std"])
+                                            columns=["fold1", "fold2", "fold3", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -457,7 +458,7 @@ class Models:
             elif fold[0] == 4:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean", "std"])
+                                                                                "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -465,7 +466,7 @@ class Models:
             elif fold[0] == 5:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean", "std"])
+                                                                                "fold5", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -473,7 +474,7 @@ class Models:
             elif fold[0] == 6:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "mean", "std"])
+                                                                                "fold5", "fold6", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -481,7 +482,7 @@ class Models:
             elif fold[0] == 7:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "mean",
+                                                                                "fold5", "fold6", "fold7", "mean score",
                                                                                 "std"])
                 write_to_excel(excel, df)
                 display(df)
@@ -491,7 +492,7 @@ class Models:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "mean", "std"])
+                                                                                "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -500,7 +501,7 @@ class Models:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "mean", "std"])
+                                                                                "fold9", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -509,7 +510,7 @@ class Models:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean", "std"])
+                                                                                "fold9", "fold10", "mean score", "std"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
