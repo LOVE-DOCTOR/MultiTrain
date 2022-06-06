@@ -2,6 +2,7 @@
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
 
+import seaborn as sns
 from IPython.display import display
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
 from sklearnex import patch_sklearn
@@ -21,8 +22,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.metrics import mean_absolute_error, r2_score, f1_score
+from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
 from LOGGING.log_message import PrintLog, WarnLog
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import warnings
@@ -155,13 +157,14 @@ class Models:
                 return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self):
-        model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
-                       "GradientBoostingClassifier", "HistGradientBoostingClassifier", "AdaBoostClassifier",
-                       "CatBoostClassifier", "XGBClassifier", "GaussianNB", "LinearDiscriminantAnalysis",
-                       "KNeighborsClassifier", "MLPClassifier", "SVC", "DecisionTreeClassifier", "BernoulliNB",
-                       "MultinomialNB", "CategoricalNB", "ComplementNB", "ExtraTreesClassifier", "RidgeClassifier",
-                       "RidgeClassifierCV", "ExtraTreeClassifier", "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis",
-                       "LinearSVC", "BaggingClassifier", "Perceptron", "NuSVC"]
+        model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
+                       "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
+                       "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
+                       "LinearDiscriminantAnalysis", "KNeighborsClassifier", "MLPClassifier", "SVC",
+                       "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "CategoricalNB", "ComplementNB",
+                       "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
+                       "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
+                       "Perceptron", "NuSVC"]
         return model_names
 
     def initialize(self):
@@ -326,6 +329,7 @@ class Models:
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
+                # roc = roc_auc_score(true, pred)
                 # f1 = f1_score(true, pred)
                 eval_ = [acc, mae, mse, r2]
                 dataframe.update({names[i]: eval_})
@@ -431,7 +435,6 @@ class Models:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
 
         elif len(fold) == 3 and skf is True:
-            start = time.time()
             cv = StratifiedKFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
 
             # Fitting the models and predicting the values of the test set.
@@ -517,3 +520,39 @@ class Models:
 
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
+
+    def visualize(self, param, kf=False, t_split=False, size=(15, 8)):
+        names = self.classifier_model_names()
+        param['model_names'] = names
+        if kf is True and t_split is True:
+            raise Exception("set kf to True if you used KFold or set t_split to True"
+                            "if you used the split method.")
+        elif kf is True:
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="mean score", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="std", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+
+            display(plot)
+            display(plot1)
+
+        elif t_split is True:
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="accuracy", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="mean absolute error", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="mean squared error", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="r2", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+
