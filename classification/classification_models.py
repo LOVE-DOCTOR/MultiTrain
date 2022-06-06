@@ -3,10 +3,11 @@
 # (line 58 - 60)
 
 from IPython.display import display
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
-from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier
+from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, Perceptron
+from sklearn.linear_model import RidgeClassifierCV, LogisticRegressionCV
 from sklearnex.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingClassifier, AdaBoostClassifier
 from sklearn.ensemble import ExtraTreesClassifier, BaggingClassifier
@@ -17,10 +18,10 @@ from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, Categori
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearnex.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, f1_score
+from sklearn.metrics import mean_absolute_error, r2_score, f1_score
 from LOGGING.log_message import PrintLog, WarnLog
 import pandas as pd
 import numpy as np
@@ -32,14 +33,23 @@ warnings.filterwarnings("ignore")
 patch_sklearn()
 
 
+def write_to_excel(name, file):
+
+    if name is True:
+        file.to_excel("Training_results.xlsx")
+    else:
+        pass
+
+
 class Models:
 
-    def __init__(self, lr=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, etc=0, gpc=0, qda=0,
-                 lsvc=0, bc=0) -> None:
+    def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
+                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, gpc=0, qda=0,
+                 lsvc=0, bc=0, per=0, nu=0) -> None:
         """
 
         :param lr: Logistic Regression
+        :param lrcv: Logistic RegressionCV
         :param sgdc: Stochastic Gradient Descent Classifier
         :param pagg: Passive Aggressive Classifier
         :param rfc: Random Forest Classifier
@@ -58,15 +68,18 @@ class Models:
         :param abc: Ada Boost Classifier
         :param etcs: Extra Trees Classifier
         :param rcl: Ridge Classifier
+        :param rclv: Ridge Classifier CV
         :param etc: Extra Trees Classifier
         :param gpc: Gaussian Process Classifier
         :param qda: Quadratic Discriminant Analysis
         :param lsvc: Linear Support Vector Classifier
         :param bc: Bagging Classifier
-
+        :param per: Perceptron
+        :param nu: NuSVC
         """
 
         self.lr = lr
+        self.lrcv = lrcv
         self.sgdc = sgdc
         self.pagg = pagg
         self.rfc = rfc
@@ -87,11 +100,14 @@ class Models:
         self.abc = abc
         self.etcs = etcs
         self.rcl = rcl
+        self.rclv = rclv
         self.etc = etc
         self.gpc = gpc
         self.qda = qda
         self.lsvc = lsvc
         self.bc = bc
+        self.per = per
+        self.nu = nu
 
     def split(self, X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
               shuffle_data: bool = True):
@@ -139,13 +155,13 @@ class Models:
                 return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self):
-        model_names = ["Logistic Regression", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
+        model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier", "RandomForestClassifier",
                        "GradientBoostingClassifier", "HistGradientBoostingClassifier", "AdaBoostClassifier",
                        "CatBoostClassifier", "XGBClassifier", "GaussianNB", "LinearDiscriminantAnalysis",
                        "KNeighborsClassifier", "MLPClassifier", "SVC", "DecisionTreeClassifier", "BernoulliNB",
                        "MultinomialNB", "CategoricalNB", "ComplementNB", "ExtraTreesClassifier", "RidgeClassifier",
-                       "ExtraTreeClassifier", "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis",
-                       "LinearSVC", "BaggingClassifier"]
+                       "RidgeClassifierCV", "ExtraTreeClassifier", "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis",
+                       "LinearSVC", "BaggingClassifier", "Perceptron", "NuSVC"]
         return model_names
 
     def initialize(self):
@@ -153,6 +169,7 @@ class Models:
         It initializes all the models that we will be using in our ensemble
         """
         self.lr = LogisticRegression(random_state=42, max_iter=1000, fit_intercept=True)
+        self.lrcv = LogisticRegressionCV(random_state=42, max_iter=1000, fit_intercept=True)
         self.sgdc = SGDClassifier(random_state=42, early_stopping=True, validation_fraction=0.2,
                                   shuffle=True, n_iter_no_change=20)
         self.pagg = PassiveAggressiveClassifier(shuffle=True, fit_intercept=True, early_stopping=True,
@@ -178,34 +195,44 @@ class Models:
         self.conb = ComplementNB()
         self.etcs = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.rcl = RidgeClassifier(random_state=42, max_iter=300)
+        self.rclv = RidgeClassifierCV()
         self.etc = ExtraTreeClassifier(random_state=42)
         self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.qda = QuadraticDiscriminantAnalysis()
         self.lsvc = LinearSVC(random_state=42, max_iter=300, fit_intercept=True)
         self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
+        self.per = Perceptron(random_state=42, n_jobs=-1, early_stopping=True, validation_fraction=0.2,
+                              n_iter_no_change=20, warm_start=True)
+        self.nu = NuSVC(random_state=42)
 
-        return (self.lr, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb, self.gnb,
-                self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb, self.etcs,
-                self.rcl, self.etc, self.gpc, self.qda, self.lsvc, self.bc)
+        return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
+                self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb,
+                self.etcs, self.rcl, self.rclv, self.etc, self.gpc, self.qda, self.lsvc, self.bc, self.per, self.nu)
 
     def startKFold(self, param, param_X, param_y, param_cv):
         names = self.classifier_model_names()
         dataframe = {}
         for i in range(len(param)):
+            start = time.time()
             scores = cross_val_score(param[i], param_X, param_y, scoring='accuracy', cv=param_cv, n_jobs=-1)
+            end = time.time()
+            seconds = end-start
             mean_, stdev = scores.mean(), scores.std()
             scores = scores.tolist()
             scores.append(mean_)
             scores.append(stdev)
+            scores.append(seconds)
             dataframe.update({names[i]: scores})
         return dataframe
 
     def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
-                        split_data: str = None, splitting: bool = False, kf: bool = False, fold: tuple = (10, 1, True)):
+                        split_data: str = None, splitting: bool = False, kf: bool = False,
+                        fold: tuple = (10, 1, True), skf: bool = False, excel=False):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param skf:
         :param y:
         :param X:
         :type fold: object
@@ -242,6 +269,11 @@ class Models:
                 f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
                 f"instead of kf = {kf}")
 
+        if isinstance(skf, bool) is False:
+            raise TypeError(
+                f"You can only declare object type 'bool' in skf. Try skf = False or skf = True "
+                f"instead of skf = {skf}")
+
         if isinstance(fold, tuple) is False:
             raise TypeError(
                 "param fold is of type tuple, pass a tuple to fold e.g fold = (10, 1, True), where 10 is number of "
@@ -263,8 +295,12 @@ class Models:
 
         if kf:
             if splitting:
-                raise ValueError("KFold cross validation cannot be true, if splitting is true and splitting cannot be "
+                raise ValueError("KFold cross validation cannot be true if splitting is true and splitting cannot be "
                                  "true if KFold is true")
+
+            if skf:
+                raise TypeError("kf cannot be true if skf is true and skf cannot be true if kf is true. You can only "
+                                "use one at the same time")
 
             elif split_data:
                 raise ValueError("split_data cannot be used with kf, set splitting to True to use param "
@@ -275,7 +311,6 @@ class Models:
 
         if splitting and split_data:
             X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
-            start = time.time()
             model = self.initialize()
             names = self.classifier_model_names()
             dataframe = {}
@@ -296,10 +331,8 @@ class Models:
 
             df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["accuracy", "mean absolute error",
                                                                             "mean squared error", "r2"])
+            write_to_excel(excel, df)
             display(df)
-            end = time.time()
-            minutes = (end - start) / 60
-            PrintLog(f"completed in {minutes} minutes")
             return df
         elif len(fold) == 3 and kf is True:
             start = time.time()
@@ -310,67 +343,176 @@ class Models:
             names = self.classifier_model_names()
 
             PrintLog("Training started")
-            if fold[0] == 1:
+
+            if fold[0] == 2:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "mean", "std"])
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
                 return df
-            elif fold[0] == 2:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std"])
-                display(df)
-                return df
+
             elif fold[0] == 3:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index',
-                                            columns=["fold1", "fold2", "fold3", "mean", "std"])
+                                            columns=["fold1", "fold2", "fold3", "mean", "std",
+                                                     "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 4:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean", "std"])
+                                                                                "mean", "std", "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 5:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean", "std"])
+                                                                                "fold5", "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 6:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "mean", "std"])
+                                                                                "fold5", "fold6", "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 7:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "mean",
-                                                                                "std"])
+                                                                                "std", "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 8:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6","fold7", "fold8",
-                                                                                "mean", "std"])
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 9:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "mean", "std"])
+                                                                                "fold9", "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
 
             elif fold[0] == 10:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean", "std"])
+                                                                                "fold9", "fold10", "mean", "std",
+                                                                                "execution_time(seconds)"])
+                write_to_excel(excel, df)
                 display(df)
+                return df
+
+            else:
+                WarnLog("You can only set the number of folds to a number between 1 and 10")
+
+        elif len(fold) == 3 and skf is True:
+            start = time.time()
+            cv = StratifiedKFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
+
+            # Fitting the models and predicting the values of the test set.
+            SKFoldModel = self.initialize()
+            names = self.classifier_model_names()
+
+            PrintLog("Training started")
+
+            if fold[0] == 2:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 3:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index',
+                                            columns=["fold1", "fold2", "fold3", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 4:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 5:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 6:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 7:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "mean",
+                                                                                "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 8:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 9:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "fold9", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
+
+            elif fold[0] == 10:
+                dataframe = self.startKFold(SKFoldModel, X, y, cv)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
+                                                                                "fold5", "fold6", "fold7", "fold8",
+                                                                                "fold9", "fold10", "mean", "std"])
+                write_to_excel(excel, df)
+                display(df)
+                return df
 
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
