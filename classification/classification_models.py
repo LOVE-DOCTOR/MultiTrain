@@ -46,7 +46,7 @@ def write_to_excel(name, file):
 class Models:
 
     def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, cnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, gpc=0, qda=0,
+                 dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, gpc=0, qda=0,
                  lsvc=0, bc=0, per=0, nu=0) -> None:
         """
 
@@ -96,7 +96,6 @@ class Models:
         self.dtc = dtc
         self.bnb = bnb
         self.mnb = mnb
-        self.cnb = cnb
         self.conb = conb
         self.hgbc = hgbc
         self.abc = abc
@@ -161,7 +160,7 @@ class Models:
                        "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
                        "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
                        "LinearDiscriminantAnalysis", "KNeighborsClassifier", "MLPClassifier", "SVC",
-                       "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "CategoricalNB", "ComplementNB",
+                       "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
                        "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
                        "Perceptron", "NuSVC"]
@@ -194,7 +193,6 @@ class Models:
         self.dtc = DecisionTreeClassifier(random_state=42)
         self.bnb = BernoulliNB()
         self.mnb = MultinomialNB()
-        self.cnb = CategoricalNB()
         self.conb = ComplementNB()
         self.etcs = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.rcl = RidgeClassifier(random_state=42, max_iter=300)
@@ -209,7 +207,7 @@ class Models:
         self.nu = NuSVC(random_state=42)
 
         return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
-                self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.cnb, self.conb,
+                self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
                 self.etcs, self.rcl, self.rclv, self.etc, self.gpc, self.qda, self.lsvc, self.bc, self.per, self.nu)
 
     def startKFold(self, param, param_X, param_y, param_cv):
@@ -235,6 +233,7 @@ class Models:
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param data:
         :param excel:
         :param skf:
         :param y:
@@ -319,7 +318,9 @@ class Models:
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):
+                start = time.time()
                 model[i].fit(X_train, y_train)
+                end = time.time()
                 pred = model[i].predict(X_test)
                 true = y_test
 
@@ -329,13 +330,22 @@ class Models:
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
-                # roc = roc_auc_score(true, pred)
-                # f1 = f1_score(true, pred)
-                eval_ = [acc, mae, mse, r2]
+                try:
+                    roc = roc_auc_score(true, pred)
+                except ValueError:
+                    roc = None
+                try:
+                    f1 = f1_score(true, pred)
+                except ValueError:
+                    f1 = None
+                time_taken = end-start
+                eval_ = [acc, mae, mse, r2, roc, f1, time_taken]
                 dataframe.update({names[i]: eval_})
 
             df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["accuracy", "mean absolute error",
-                                                                            "mean squared error", "r2"])
+                                                                            "mean squared error", "r2 score",
+                                                                            "ROC AUC", "f1 score",
+                                                                            "execution_time(seconds)"])
             write_to_excel(excel, df)
             display(df)
             return df
@@ -469,7 +479,8 @@ class Models:
             elif fold[0] == 5:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean score", "std"])
+                                                                                "fold5", "mean score", "std",
+                                                                                "execution time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -513,7 +524,8 @@ class Models:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean score", "std"])
+                                                                                "fold9", "fold10", "mean score", "std",
+                                                                                "execution time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -521,38 +533,61 @@ class Models:
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
 
-    def visualize(self, param, kf=False, t_split=False, size=(15, 8)):
+    def visualize(self, param, kf=False, t_split=False, size=(15, 8), plot_type='bar'):
         names = self.classifier_model_names()
         param['model_names'] = names
         if kf is True and t_split is True:
             raise Exception("set kf to True if you used KFold or set t_split to True"
                             "if you used the split method.")
         elif kf is True:
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="mean score", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            if plot_type == 'bar':
+                plt.figure(figsize=size)
+                plot = sns.barplot(x="model_names", y="mean score", data=param)
+                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
 
-            plt.figure(figsize=size)
-            plot1 = sns.barplot(x="model_names", y="std", data=param)
-            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+                plt.figure(figsize=size)
+                plot1 = sns.barplot(x="model_names", y="std", data=param)
+                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
 
-            display(plot)
-            display(plot1)
+                display(plot)
+                display(plot1)
 
         elif t_split is True:
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="accuracy", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            if plot_type == 'bar':
+                plt.figure(figsize=size)
+                plot = sns.barplot(x="model_names", y="accuracy", data=param)
+                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
 
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="mean absolute error", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.figure(figsize=size)
+                plot1 = sns.barplot(x="model_names", y="mean absolute error", data=param)
+                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
 
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="mean squared error", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.figure(figsize=size)
+                plot2 = sns.barplot(x="model_names", y="mean squared error", data=param)
+                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
 
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="r2", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.figure(figsize=size)
+                plot3 = sns.barplot(x="model_names", y="r2 score", data=param)
+                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
+
+                try:
+                    plt.figure(figsize=size)
+                    plot4 = sns.barplot(x="model_names", y="ROC AUC", data=param)
+                    plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                except None in param["ROC AUC"] :
+                    plot4 = 'ROC AUC cannot be visualized'
+
+                try:
+                    plt.figure(figsize=size)
+                    plot5 = sns.barplot(x="model_names", y="f1 score", data=param)
+                    plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+                except None in param["f1 score"]:
+                    plot5 = 'f1 score cannot be visualized'
+
+                display(plot)
+                display(plot1)
+                display(plot2)
+                display(plot3)
+                display(plot4)
+                display(plot5)
 
