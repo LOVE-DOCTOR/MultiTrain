@@ -1,9 +1,12 @@
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 42) In your
 # code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
 # (line 58 - 60)
-
+from operator import __setitem__
+import os
+import shutil
 import seaborn as sns
 from IPython.display import display
+from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
@@ -36,11 +39,91 @@ patch_sklearn()
 
 
 def write_to_excel(name, file):
+    """
+    If the name is True, then write the file to an excel file called "Training_results.xlsx"
 
+    :param name: This is the name of the file you want to save
+    :param file: the name of the file you want to read in
+    """
     if name is True:
         file.to_excel("Training_results.xlsx")
     else:
         pass
+
+
+def directory(FOLDER_NAME):
+    """
+    If the folder doesn't exist, create it
+
+    :param FOLDER_NAME: The name of the folder you want to create
+    """
+    if not os.path.exists(FOLDER_NAME):
+        os.mkdir(FOLDER_NAME)
+
+    # The above code is checking if the folder exists. If it does, it asks the user if they want to overwrite the
+    # current directory or specify a new folder name. If the user chooses to overwrite the current directory,
+    # the code deletes the current directory and creates a new one.
+    elif os.path.exists(FOLDER_NAME):
+        print("Directory exists already")
+        print("Do you want to overwrite current directory(y) or specify a new folder name(n).")
+        confirmation_values = ["y", "n"]
+        while True:
+            confirmation = input("y/n: ").lower()
+            if confirmation in confirmation_values:
+                if confirmation == "y":
+                    shutil.rmtree(FOLDER_NAME)
+                    os.mkdir(FOLDER_NAME)
+
+                    return FOLDER_NAME
+
+                # The above code is checking if the user has entered a valid folder name.
+                elif confirmation == "n":
+                    INVALID_CHAR = ["#", "%", "&", "{", "}", "<", "<", "/", "$", "!", "'", '"', ":", "@", "+", "`", "|",
+                                    "=", "*", "?"]
+                    while True:
+                        FOLDER_NAME_ = input("Folder name: ")
+                        folder_name = list(FOLDER_NAME_.split(","))
+                        compare_names = all(item in INVALID_CHAR for item in folder_name)
+                        if compare_names:
+                            WarnLog("Invalid character specified in folder name")
+                        else:
+                            PrintLog(f"Directory {FOLDER_NAME_} successfully created")
+                            return FOLDER_NAME_
+
+            else:
+                WarnLog("Select from y/n")
+
+
+def img(FILENAME: any, type_='file') -> None:
+    """
+    It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture file
+
+    :param FILENAME: The name of the file you want to save
+    :type FILENAME: any
+    :param type_: 'file' or 'picture', defaults to file (optional)
+    """
+    if type_ == 'file':
+        FILE = PdfPages(FILENAME)
+        figureCount = plt.get_fignums()
+        fig = [plt.figure(n) for n in figureCount]
+        for i in fig:
+            i.savefig(FILE, format='pdf', dpi=550, papertype='a4', bbox_inches='tight')
+        FILE.close()
+
+    elif type_ == 'picture':
+
+
+        FILE = directory(FILENAME)
+        WORKING_DIR = os.path.abspath(os.getcwd())
+
+
+        figureCount = plt.get_fignums()
+        fig = [plt.figure(n) for n in figureCount]
+        for i in fig:
+            add_path = fig[i]
+            FILE_PATH = WORKING_DIR + "/" + add_path
+            print(FILE_PATH)
+            i.savefig(FILE_PATH, dpi=550, bbox_inches='tight')
 
 
 class Models:
@@ -64,7 +147,6 @@ class Models:
         :param mlp: MLP Classifier
         :param svc: Support Vector Classifier
         :param dtc: Decision Tree Classifier
-        :param cnb: CategoricalNB
         :param conb: ComplementNB
         :param hgbc: Hist Gradient Boosting Classifier
         :param abc: Ada Boost Classifier
@@ -217,7 +299,7 @@ class Models:
             start = time.time()
             scores = cross_val_score(param[i], param_X, param_y, scoring='accuracy', cv=param_cv, n_jobs=-1)
             end = time.time()
-            seconds = end-start
+            seconds = end - start
             mean_, stdev = scores.mean(), scores.std()
             scores = scores.tolist()
             scores.append(mean_)
@@ -338,7 +420,7 @@ class Models:
                     f1 = f1_score(true, pred)
                 except ValueError:
                     f1 = None
-                time_taken = end-start
+                time_taken = end - start
                 eval_ = [acc, mae, mse, r2, roc, f1, time_taken]
                 dataframe.update({names[i]: eval_})
 
@@ -379,7 +461,8 @@ class Models:
             elif fold[0] == 4:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean score", "std", "execution_time(seconds)"])
+                                                                                "mean score", "std",
+                                                                                "execution_time(seconds)"])
                 write_to_excel(excel, df)
                 display(df)
                 return df
@@ -537,61 +620,111 @@ class Models:
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
 
-    def visualize(self, param, kf=False, t_split=False, size=(15, 8), plot_type='bar'):
+    def visualize(self,
+                  param: {__setitem__},
+                  kf: bool = False,
+                  t_split: bool = False,
+                  size=(15, 8),
+                  save: str = None,
+                  save_name='dir1'):
+
+        """
+        The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
+
+        :param param: {__setitem__}
+        :type param: {__setitem__}
+        :param kf: set to True if you used KFold, defaults to False
+        :type kf: bool (optional)
+        :param t_split: True if you used the split method, defaults to False
+        :type t_split: bool (optional)
+        :param size: This is the size of the plot
+        :param save: This is the format you want to save the plot in
+        :type save: str
+        :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
+        """
+
         names = self.classifier_model_names()
+        sns.set()
+
         param['model_names'] = names
+        FILE_FORMATS = ['pdf', 'png']
+        if save not in FILE_FORMATS:
+            raise Exception("set save to either 'pdf' or 'png' ")
+
+        if save in FILE_FORMATS:
+            if isinstance(save_name, str) is False:
+                raise ValueError('You can only set a string to save_name')
+
+            if save_name is None:
+                raise Exception('Please set a value to save_name')
         if kf is True and t_split is True:
             raise Exception("set kf to True if you used KFold or set t_split to True"
                             "if you used the split method.")
         elif kf is True:
-            if plot_type == 'bar':
-                plt.figure(figsize=size)
-                plot = sns.barplot(x="model_names", y="mean score", data=param)
-                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
 
-                plt.figure(figsize=size)
-                plot1 = sns.barplot(x="model_names", y="std", data=param)
-                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="mean score", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            plt.title("MEAN SCORE")
 
-                display(plot)
-                display(plot1)
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="std", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("STANDARD DEVIATION")
+
+            if save == 'pdf':
+                name = save_name + '.pdf'
+                img(name)
+            display(plot)
+            display(plot1)
 
         elif t_split is True:
-            if plot_type == 'bar':
+
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="accuracy", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            plt.title("ACCURACY")
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="mean absolute error", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("MEAN ABSOLUTE ERROR")
+
+            plt.figure(figsize=size)
+            plot2 = sns.barplot(x="model_names", y="mean squared error", data=param)
+            plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
+            plt.title("MEAN SQUARED ERROR")
+
+            plt.figure(figsize=size)
+            plot3 = sns.barplot(x="model_names", y="r2 score", data=param)
+            plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
+            plt.title("R2 SCORE")
+
+            try:
                 plt.figure(figsize=size)
-                plot = sns.barplot(x="model_names", y="accuracy", data=param)
-                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plot4 = sns.barplot(x="model_names", y="ROC AUC", data=param)
+                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                plt.title("ROC AUC")
+            except None in param["ROC AUC"]:
+                plot4 = 'ROC AUC cannot be visualized'
 
+            try:
                 plt.figure(figsize=size)
-                plot1 = sns.barplot(x="model_names", y="mean absolute error", data=param)
-                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+                plot5 = sns.barplot(x="model_names", y="f1 score", data=param)
+                plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+                plt.title("F1 SCORE")
+            except None in param["f1 score"]:
+                plot5 = 'f1 score cannot be visualized'
 
-                plt.figure(figsize=size)
-                plot2 = sns.barplot(x="model_names", y="mean squared error", data=param)
-                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
-
-                plt.figure(figsize=size)
-                plot3 = sns.barplot(x="model_names", y="r2 score", data=param)
-                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
-
-                try:
-                    plt.figure(figsize=size)
-                    plot4 = sns.barplot(x="model_names", y="ROC AUC", data=param)
-                    plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
-                except None in param["ROC AUC"] :
-                    plot4 = 'ROC AUC cannot be visualized'
-
-                try:
-                    plt.figure(figsize=size)
-                    plot5 = sns.barplot(x="model_names", y="f1 score", data=param)
-                    plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
-                except None in param["f1 score"]:
-                    plot5 = 'f1 score cannot be visualized'
-
-                display(plot)
-                display(plot1)
-                display(plot2)
-                display(plot3)
-                display(plot4)
-                display(plot5)
-
+            if save == 'pdf':
+                name = save_name + ".pdf"
+                img(name, type_='file')
+            elif save == 'png':
+                name = save_name
+                img(FILENAME=name, type_='picture')
+            display(plot)
+            display(plot1)
+            display(plot2)
+            display(plot3)
+            display(plot4)
+            display(plot5)
