@@ -85,7 +85,7 @@ def directory(FOLDER_NAME):
                         folder_name = list(FOLDER_NAME_.split(","))
                         compare_names = all(item in INVALID_CHAR for item in folder_name)
                         if compare_names:
-                            WarnLog("Invalid character specified in folder name")
+                            raise ValueError("Invalid character specified in folder name")
                         else:
                             PrintLog(f"Directory {FOLDER_NAME_} successfully created")
                             return FOLDER_NAME_
@@ -113,8 +113,6 @@ def img(FILENAME: any, FILE_PATH: any, type_='file') -> None:
 
     elif type_ == 'picture':
         FILE = directory(FILENAME)
-        # WORKING_DIR = os.path.abspath(os.getcwd())
-        # print(WORKING_DIR)
 
         figureCount = plt.get_fignums()
         fig = [plt.figure(n) for n in figureCount]
@@ -124,12 +122,9 @@ def img(FILENAME: any, FILE_PATH: any, type_='file') -> None:
             fig_dict.update({fig_num[i]: fig[i]})
 
         for key, value in fig_dict.items():
-            print("My name is", key)
             add_path = key
             FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
-            print(FINAL_PATH)
             value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
-
 
 class Models:
 
@@ -638,6 +633,7 @@ class Models:
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
+        :param file_path:
         :param param: {__setitem__}
         :type param: {__setitem__}
         :param kf: set to True if you used KFold, defaults to False
@@ -664,6 +660,15 @@ class Models:
 
             if save_name is None:
                 raise Exception('Please set a value to save_name')
+
+        if file_path:
+            if save is None:
+                raise Exception("set save to either 'pdf' or 'png' before defining a file path")
+
+        if save is None:
+            if save_name:
+                raise Exception('You can only use save_name after param save is defined')
+
         if kf is True and t_split is True:
             raise Exception("set kf to True if you used KFold or set t_split to True"
                             "if you used the split method.")
@@ -729,6 +734,7 @@ class Models:
             elif save == 'png':
                 name = save_name
                 img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+
             display(plot)
             display(plot1)
             display(plot2)
