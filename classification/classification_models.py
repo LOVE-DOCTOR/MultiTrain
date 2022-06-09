@@ -59,7 +59,7 @@ def directory(FOLDER_NAME):
     """
     if not os.path.exists(FOLDER_NAME):
         os.mkdir(FOLDER_NAME)
-
+        return FOLDER_NAME
     # The above code is checking if the folder exists. If it does, it asks the user if they want to overwrite the
     # current directory or specify a new folder name. If the user chooses to overwrite the current directory,
     # the code deletes the current directory and creates a new one.
@@ -94,10 +94,11 @@ def directory(FOLDER_NAME):
                 WarnLog("Select from y/n")
 
 
-def img(FILENAME: any, type_='file') -> None:
+def img(FILENAME: any, FILE_PATH: any, type_='file') -> None:
     """
     It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture file
 
+    :param FILE_PATH:
     :param FILENAME: The name of the file you want to save
     :type FILENAME: any
     :param type_: 'file' or 'picture', defaults to file (optional)
@@ -111,19 +112,23 @@ def img(FILENAME: any, type_='file') -> None:
         FILE.close()
 
     elif type_ == 'picture':
-
-
         FILE = directory(FILENAME)
-        WORKING_DIR = os.path.abspath(os.getcwd())
-
+        # WORKING_DIR = os.path.abspath(os.getcwd())
+        # print(WORKING_DIR)
 
         figureCount = plt.get_fignums()
         fig = [plt.figure(n) for n in figureCount]
-        for i in fig:
-            add_path = fig[i]
-            FILE_PATH = WORKING_DIR + "/" + add_path
-            print(FILE_PATH)
-            i.savefig(FILE_PATH, dpi=550, bbox_inches='tight')
+        fig_dict = {}
+        fig_num = [0, 1, 2, 3, 4, 5]
+        for i in range(len(fig_num)):
+            fig_dict.update({fig_num[i]: fig[i]})
+
+        for key, value in fig_dict.items():
+            print("My name is", key)
+            add_path = key
+            FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
+            print(FINAL_PATH)
+            value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
 
 
 class Models:
@@ -622,11 +627,13 @@ class Models:
 
     def visualize(self,
                   param: {__setitem__},
+                  file_path: any,
                   kf: bool = False,
                   t_split: bool = False,
                   size=(15, 8),
                   save: str = None,
-                  save_name='dir1'):
+                  save_name='dir1',
+                  ):
 
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
@@ -721,7 +728,7 @@ class Models:
                 img(name, type_='file')
             elif save == 'png':
                 name = save_name
-                img(FILENAME=name, type_='picture')
+                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
             display(plot)
             display(plot1)
             display(plot2)
