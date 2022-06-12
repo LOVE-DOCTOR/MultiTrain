@@ -26,8 +26,9 @@ from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
+from sklearn.metrics import precision_score, recall_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import warnings
@@ -38,98 +39,10 @@ warnings.filterwarnings("ignore")
 patch_sklearn()
 
 
-def write_to_excel(name, file):
-    """
-    If the name is True, then write the file to an excel file called "Training_results.xlsx"
-
-    :param name: This is the name of the file you want to save
-    :param file: the name of the file you want to read in
-    """
-    if name is True:
-        file.to_excel("Training_results.xlsx")
-    else:
-        pass
-
-
-def directory(FOLDER_NAME):
-    """
-    If the folder doesn't exist, create it
-
-    :param FOLDER_NAME: The name of the folder you want to create
-    """
-    if not os.path.exists(FOLDER_NAME):
-        os.mkdir(FOLDER_NAME)
-        return FOLDER_NAME
-    # The above code is checking if the folder exists. If it does, it asks the user if they want to overwrite the
-    # current directory or specify a new folder name. If the user chooses to overwrite the current directory,
-    # the code deletes the current directory and creates a new one.
-    elif os.path.exists(FOLDER_NAME):
-        print("Directory exists already")
-        print("Do you want to overwrite current directory(y) or specify a new folder name(n).")
-        confirmation_values = ["y", "n"]
-        while True:
-            confirmation = input("y/n: ").lower()
-            if confirmation in confirmation_values:
-                if confirmation == "y":
-                    shutil.rmtree(FOLDER_NAME)
-                    os.mkdir(FOLDER_NAME)
-
-                    return FOLDER_NAME
-
-                # The above code is checking if the user has entered a valid folder name.
-                elif confirmation == "n":
-                    INVALID_CHAR = ["#", "%", "&", "{", "}", "<", "<", "/", "$", "!", "'", '"', ":", "@", "+", "`", "|",
-                                    "=", "*", "?"]
-                    while True:
-                        FOLDER_NAME_ = input("Folder name: ")
-                        folder_name = list(FOLDER_NAME_.split(","))
-                        compare_names = all(item in INVALID_CHAR for item in folder_name)
-                        if compare_names:
-                            raise ValueError("Invalid character specified in folder name")
-                        else:
-                            PrintLog(f"Directory {FOLDER_NAME_} successfully created")
-                            return FOLDER_NAME_
-
-            else:
-                WarnLog("Select from y/n")
-
-
-def img(FILENAME: any, FILE_PATH: any, type_='file') -> None:
-    """
-    It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture file
-
-    :param FILE_PATH:
-    :param FILENAME: The name of the file you want to save
-    :type FILENAME: any
-    :param type_: 'file' or 'picture', defaults to file (optional)
-    """
-    if type_ == 'file':
-        FILE = PdfPages(FILENAME)
-        figureCount = plt.get_fignums()
-        fig = [plt.figure(n) for n in figureCount]
-        for i in fig:
-            i.savefig(FILE, format='pdf', dpi=550, papertype='a4', bbox_inches='tight')
-        FILE.close()
-
-    elif type_ == 'picture':
-        FILE = directory(FILENAME)
-
-        figureCount = plt.get_fignums()
-        fig = [plt.figure(n) for n in figureCount]
-        fig_dict = {}
-        fig_num = [0, 1, 2, 3, 4, 5]
-        for i in range(len(fig_num)):
-            fig_dict.update({fig_num[i]: fig[i]})
-
-        for key, value in fig_dict.items():
-            add_path = key
-            FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
-            value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
-
 class Models:
 
     def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, gpc=0, qda=0,
+                 dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, qda=0,
                  lsvc=0, bc=0, per=0, nu=0) -> None:
         """
 
@@ -185,12 +98,101 @@ class Models:
         self.rcl = rcl
         self.rclv = rclv
         self.etc = etc
-        self.gpc = gpc
+
         self.qda = qda
         self.lsvc = lsvc
         self.bc = bc
         self.per = per
         self.nu = nu
+
+    def write_to_excel(self, name, file):
+        """
+        If the name is True, then write the file to an excel file called "Training_results.xlsx"
+
+        :param name: This is the name of the file you want to save
+        :param file: the name of the file you want to read in
+        """
+        if name is True:
+            file.to_excel("Training_results.xlsx")
+        else:
+            pass
+
+    def directory(self, FOLDER_NAME):
+        """
+        If the folder doesn't exist, create it
+
+        :param FOLDER_NAME: The name of the folder you want to create
+        """
+        if not os.path.exists(FOLDER_NAME):
+            os.mkdir(FOLDER_NAME)
+            return FOLDER_NAME
+        # The above code is checking if the folder exists. If it does, it asks the user if they want to overwrite the
+        # current directory or specify a new folder name. If the user chooses to overwrite the current directory,
+        # the code deletes the current directory and creates a new one.
+        elif os.path.exists(FOLDER_NAME):
+            print("Directory exists already")
+            print("Do you want to overwrite current directory(y) or specify a new folder name(n).")
+            confirmation_values = ["y", "n"]
+            while True:
+                confirmation = input("y/n: ").lower()
+                if confirmation in confirmation_values:
+                    if confirmation == "y":
+                        shutil.rmtree(FOLDER_NAME)
+                        os.mkdir(FOLDER_NAME)
+
+                        return FOLDER_NAME
+
+                    # The above code is checking if the user has entered a valid folder name.
+                    elif confirmation == "n":
+                        INVALID_CHAR = ["#", "%", "&", "{", "}", "<", "<", "/", "$", "!", "'", '"', ":", "@", "+", "`",
+                                        "|",
+                                        "=", "*", "?"]
+                        while True:
+                            FOLDER_NAME_ = input("Folder name: ")
+                            folder_name = list(FOLDER_NAME_.split(","))
+                            compare_names = all(item in INVALID_CHAR for item in folder_name)
+                            if compare_names:
+                                raise ValueError("Invalid character specified in folder name")
+                            else:
+                                PrintLog(f"Directory {FOLDER_NAME_} successfully created")
+                                return FOLDER_NAME_
+
+                else:
+                    WarnLog("Select from y/n")
+
+    def img(self, FILENAME: any, FILE_PATH: any, type_='file') -> None:
+        """
+        It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture file
+
+        :param FILE_PATH:
+        :param FILENAME: The name of the file you want to save
+        :type FILENAME: any
+        :param type_: 'file' or 'picture', defaults to file (optional)
+        """
+        if type_ == 'file':
+            FILE = PdfPages(FILENAME)
+            figureCount = plt.get_fignums()
+            fig = [plt.figure(n) for n in figureCount]
+
+            for i in fig:
+                tt = i.savefig(FILE, format='pdf', dpi=550, papertype='a4', bbox_inches='tight')
+
+            FILE.close()
+
+        elif type_ == 'picture':
+            FILE = self.directory(FILENAME)
+
+            figureCount = plt.get_fignums()
+            fig = [plt.figure(n) for n in figureCount]
+            fig_dict = {}
+            fig_num = [0, 1, 2, 3, 4, 5]
+            for i in range(len(fig_num)):
+                fig_dict.update({fig_num[i]: fig[i]})
+
+            for key, value in fig_dict.items():
+                add_path = key
+                FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
+                value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
 
     def split(self, X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
               shuffle_data: bool = True):
@@ -244,7 +246,7 @@ class Models:
                        "LinearDiscriminantAnalysis", "KNeighborsClassifier", "MLPClassifier", "SVC",
                        "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
-                       "GaussianProcessClassifier", "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
+                       "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
                        "Perceptron", "NuSVC"]
         return model_names
 
@@ -280,7 +282,7 @@ class Models:
         self.rcl = RidgeClassifier(random_state=42, max_iter=300)
         self.rclv = RidgeClassifierCV()
         self.etc = ExtraTreeClassifier(random_state=42)
-        self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
+        # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.qda = QuadraticDiscriminantAnalysis()
         self.lsvc = LinearSVC(random_state=42, max_iter=300, fit_intercept=True)
         self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
@@ -290,7 +292,7 @@ class Models:
 
         return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
                 self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
-                self.etcs, self.rcl, self.rclv, self.etc, self.gpc, self.qda, self.lsvc, self.bc, self.per, self.nu)
+                self.etcs, self.rcl, self.rclv, self.etc, self.qda, self.lsvc, self.bc, self.per, self.nu)
 
     def startKFold(self, param, param_X, param_y, param_cv):
         names = self.classifier_model_names()
@@ -308,7 +310,7 @@ class Models:
             dataframe.update({names[i]: scores})
         return dataframe
 
-    def fit_eval_models(self, X=None, y=None, X_train=0, X_test=0, y_train=0, y_test=0,
+    def fit_eval_models(self, X=None, y=None, split_self=False, X_train=None, X_test=None, y_train=None, y_test=None,
                         split_data: str = None, splitting: bool = False, kf: bool = False,
                         fold: tuple = (10, 1, True), skf: bool = False, excel=False):
         """
@@ -394,17 +396,31 @@ class Models:
         if kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
-        if splitting and split_data:
-            X_train, X_test, y_train, y_test = split_data[0], split_data[1], split_data[2], split_data[3]
+        if splitting is True or split_self is True:
+            if splitting and split_data:
+                X_tr, X_te, y_tr, y_te = split_data[0], split_data[1], split_data[2], split_data[3]
+            elif X_train is not None \
+                    and X_test is not None \
+                    and y_train is not None \
+                    and y_test is not None:
+                X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
             model = self.initialize()
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):
                 start = time.time()
-                model[i].fit(X_train, y_train)
+                try:
+                    model[i].fit(X_tr, y_tr)
+                except ValueError:
+                    pass
+                except MemoryError:
+                    pass
                 end = time.time()
-                pred = model[i].predict(X_test)
-                true = y_test
+                try:
+                    pred = model[i].predict(X_te)
+                except AttributeError:
+                    pass
+                true = y_te
 
                 acc = accuracy_score(true, pred)
                 mae = mean_absolute_error(true, pred)
@@ -420,16 +436,27 @@ class Models:
                     f1 = f1_score(true, pred)
                 except ValueError:
                     f1 = None
+                try:
+                    pre = precision_score(true, pred)
+                except ValueError:
+                    pre = None
+                try:
+                    rec = recall_score(true, pred)
+                except ValueError:
+                    rec = None
+
                 time_taken = end - start
-                eval_ = [acc, mae, mse, r2, roc, f1, time_taken]
+                eval_ = [acc, mae, mse, r2, roc, f1, pre, rec, time_taken]
                 dataframe.update({names[i]: eval_})
 
             df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["accuracy", "mean absolute error",
                                                                             "mean squared error", "r2 score",
-                                                                            "ROC AUC", "f1 score",
+                                                                            "ROC AUC", "f1 score", "precision",
+                                                                            "recall",
                                                                             "execution_time(seconds)"])
-            write_to_excel(excel, df)
-            display(df)
+
+            self.write_to_excel(excel, df)
+            display(df.style.highlight_max(color="yellow"))
             return df
         elif len(fold) == 3 and kf is True:
             start = time.time()
@@ -445,7 +472,7 @@ class Models:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -454,7 +481,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index',
                                             columns=["fold1", "fold2", "fold3", "mean score", "std",
                                                      "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -463,7 +490,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -472,7 +499,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -481,7 +508,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -490,7 +517,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "mean score",
                                                                                 "std", "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -500,7 +527,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -510,7 +537,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "fold9", "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -520,7 +547,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "fold9", "fold10", "mean score", "std",
                                                                                 "execution_time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -539,7 +566,7 @@ class Models:
             if fold[0] == 2:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -547,7 +574,7 @@ class Models:
                 dataframe = self.startKFold(SKFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index',
                                             columns=["fold1", "fold2", "fold3", "mean score", "std"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -556,7 +583,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -565,7 +592,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -574,7 +601,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -583,7 +610,7 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
                                                                                 "fold5", "fold6", "fold7", "mean score",
                                                                                 "std", "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -593,7 +620,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -603,7 +630,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "fold9", "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -613,7 +640,7 @@ class Models:
                                                                                 "fold5", "fold6", "fold7", "fold8",
                                                                                 "fold9", "fold10", "mean score", "std",
                                                                                 "execution time(seconds)"])
-                write_to_excel(excel, df)
+                self.write_to_excel(excel, df)
                 display(df)
                 return df
 
@@ -622,7 +649,7 @@ class Models:
 
     def visualize(self,
                   param: {__setitem__},
-                  file_path: any,
+                  file_path: any = None,
                   kf: bool = False,
                   t_split: bool = False,
                   size=(15, 8),
@@ -686,7 +713,7 @@ class Models:
 
             if save == 'pdf':
                 name = save_name + '.pdf'
-                img(name)
+                self.img(name)
             display(plot)
             display(plot1)
 
@@ -730,10 +757,10 @@ class Models:
 
             if save == 'pdf':
                 name = save_name + ".pdf"
-                img(name, type_='file')
+                self.img(name, FILE_PATH=file_path, type_='file')
             elif save == 'png':
                 name = save_name
-                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+                self.img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
             display(plot)
             display(plot1)
