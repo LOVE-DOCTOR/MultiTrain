@@ -105,7 +105,8 @@ class Models:
         self.per = per
         self.nu = nu
 
-    def write_to_excel(self, name, file):
+    @staticmethod
+    def write_to_excel(name, file):
         """
         If the name is True, then write the file to an excel file called "Training_results.xlsx"
 
@@ -117,7 +118,8 @@ class Models:
         else:
             pass
 
-    def directory(self, FOLDER_NAME):
+    @staticmethod
+    def directory(FOLDER_NAME):
         """
         If the folder doesn't exist, create it
 
@@ -211,7 +213,7 @@ class Models:
         y = df["nameOfLabelColumn")
         split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
-        if isinstance(X, int) or isinstance(y, int):
+        if isinstance(X, int or bool) or isinstance(y, int or bool):
             raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                              f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
         elif isinstance(strat, bool) is False:
@@ -254,7 +256,7 @@ class Models:
         """
         It initializes all the models that we will be using in our ensemble
         """
-        self.lr = LogisticRegression(random_state=42, max_iter=1000, fit_intercept=True)
+        self.lr = LogisticRegression(random_state=42, max_iter=1000)
         self.lrcv = LogisticRegressionCV(random_state=42, max_iter=1000, fit_intercept=True)
         self.sgdc = SGDClassifier(random_state=42, early_stopping=True, validation_fraction=0.2,
                                   shuffle=True, n_iter_no_change=20)
@@ -312,11 +314,14 @@ class Models:
 
     def fit_eval_models(self, X=None, y=None, split_self=False, X_train=None, X_test=None, y_train=None, y_test=None,
                         split_data: str = None, splitting: bool = False, kf: bool = False,
-                        fold: tuple = (10, 1, True), skf: bool = False, excel=False):
+                        fold: tuple = (10, 1, True), skf: bool = False, excel=False, return_best_model=None,
+                        return_fastest_model=False):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param return_best_model:
+        :param split_self:
         :param data:
         :param excel:
         :param skf:
@@ -422,30 +427,30 @@ class Models:
                     pass
                 true = y_te
 
-                acc = accuracy_score(true, pred)
-                mae = mean_absolute_error(true, pred)
-                mse = np.sqrt(mean_absolute_error(true, pred))
+                acc = accuracy_score(true, pred).round(3)
+                mae = mean_absolute_error(true, pred).round(3)
+                mse = np.sqrt(mean_absolute_error(true, pred)).round(3)
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
-                r2 = r2_score(true, pred)
+                r2 = r2_score(true, pred).round(3)
                 try:
-                    roc = roc_auc_score(true, pred)
+                    roc = roc_auc_score(true, pred).round(3)
                 except ValueError:
                     roc = None
                 try:
-                    f1 = f1_score(true, pred)
+                    f1 = f1_score(true, pred).round(3)
                 except ValueError:
                     f1 = None
                 try:
-                    pre = precision_score(true, pred)
+                    pre = precision_score(true, pred).round(3)
                 except ValueError:
                     pre = None
                 try:
-                    rec = recall_score(true, pred)
+                    rec = recall_score(true, pred).round(3)
                 except ValueError:
                     rec = None
 
-                time_taken = end - start
+                time_taken = round(end - start, 2)
                 eval_ = [acc, mae, mse, r2, roc, f1, pre, rec, time_taken]
                 dataframe.update({names[i]: eval_})
 
@@ -453,11 +458,31 @@ class Models:
                                                                             "mean squared error", "r2 score",
                                                                             "ROC AUC", "f1 score", "precision",
                                                                             "recall",
-                                                                            "execution_time(seconds)"])
+                                                                            "execution time(seconds)"])
+            if return_best_model is not None:
+                display(f'BEST MODEL BASED ON {return_best_model}')
+                if return_best_model == 'accuracy':
+                    display(df[df['accuracy'] == df['accuracy'].max()])
+                elif return_best_model == 'mean absolute error':
+                    display(df[df['mean absolute error'] == df['mean absolute error'].min()])
+                elif return_best_model == 'mean squared error':
+                    display(df[df['mean squared error'] == df['mean squared error'].min()])
+                elif return_best_model == 'r2 score':
+                    display(df[df['r2 score'] == df['r2 score'].max()])
+                elif return_best_model == 'f1 score':
+                    display(df[df['f1 score'] == df['f1 score'].max()])
+                elif return_best_model == 'ROC AUC':
+                    display(df[df['ROC AUC'] == df['ROC AUC'].max()])
+            elif return_best_model is None:
+                display(df.style.highlight_max(color="yellow"))
 
+            if return_fastest_model is True:
+                # df.drop(df[df['execution time(seconds)'] == 0.0].index, axis=0, inplace=True)
+                display(f"FASTEST MODEL")
+                display(df[df["execution time(seconds)"].max()])
             self.write_to_excel(excel, df)
-            display(df.style.highlight_max(color="yellow"))
             return df
+
         elif len(fold) == 3 and kf is True:
             start = time.time()
             cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
@@ -472,6 +497,10 @@ class Models:
                 dataframe = self.startKFold(KFoldModel, X, y, cv)
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std",
                                                                                 "execution_time(seconds)"])
+                if return_best_model == 'mean score':
+                    display(df[df['mean score'] == df['mean score'].max()])
+                elif return_best_model == 'mean absolute error':
+                    display(df[df['std'] == df['std'].min()])
                 self.write_to_excel(excel, df)
                 display(df)
                 return df
@@ -647,6 +676,17 @@ class Models:
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
 
+    def use_best_model(self, model):
+        name = self.classifier_model_names()
+        MODEL = self.initialize()
+        if model in name:
+            index_ = name.index(model)
+            return MODEL[index_]
+
+        elif model not in name:
+            raise Exception(f"name {model} is not found, "
+                            f"here is a list of the available models to work with: {name}")
+
     def visualize(self,
                   param: {__setitem__},
                   file_path: any = None,
@@ -712,8 +752,13 @@ class Models:
             plt.title("STANDARD DEVIATION")
 
             if save == 'pdf':
-                name = save_name + '.pdf'
-                self.img(name)
+                name = save_name + ".pdf"
+                self.img(name, FILE_PATH=file_path, type_='file')
+
+            elif save == 'png':
+                name = save_name
+                self.img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+
             display(plot)
             display(plot1)
 
@@ -768,3 +813,10 @@ class Models:
             display(plot3)
             display(plot4)
             display(plot5)
+
+
+
+    def return_slowest_model(self, dataframe):
+        display(dataframe[dataframe["execution time(seconds)"].max()])
+
+    # def return_top_5_models(self, dataframe):
