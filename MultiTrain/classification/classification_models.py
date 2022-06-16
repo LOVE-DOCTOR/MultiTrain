@@ -296,6 +296,22 @@ class Models:
                 self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
                 self.etcs, self.rcl, self.rclv, self.etc, self.qda, self.lsvc, self.bc, self.per, self.nu)
 
+    def _get_index(self, df, the_best):
+        name = list(self.classifier_model_names())
+        MODEL = self.initialize()
+        df['model_names'] = name
+        if the_best == 'accuracy' or the_best == 'f1 score' or the_best == 'r2 score' or the_best == 'ROC AUC':
+            best_model_details = df[df[the_best] == df[the_best].max()]
+        elif the_best == 'mean absolute error' or the_best == 'mean squared error':
+            best_model_details = df[df[the_best] == df[the_best].min()]
+        else:
+            raise Exception(f'metric {the_best} not found')
+
+        best_model_details = best_model_details.reset_index()
+        best_model_name = best_model_details.iloc[0]['model_names']
+        index_ = name.index(best_model_name)
+        return MODEL[index_]
+
     def startKFold(self, param, param_X, param_y, param_cv):
         names = self.classifier_model_names()
         dataframe = {}
@@ -312,24 +328,48 @@ class Models:
             dataframe.update({names[i]: scores})
         return dataframe
 
-    def fit_eval_models(self, X=None, y=None, split_self=False, X_train=None, X_test=None, y_train=None, y_test=None,
-                        split_data: str = None, splitting: bool = False, kf: bool = False,
-                        fold: tuple = (10, 1, True), skf: bool = False, excel=False, return_best_model=None,
-                        return_fastest_model=False):
+    def fit_eval_models(self,
+                        X: str = None,
+                        y: str = None,
+                        split_self: bool = False,
+                        X_train: str = None,
+                        X_test: str = None,
+                        y_train: str = None,
+                        y_test: str = None,
+                        split_data: str = None,
+                        splitting: bool = False,
+                        kf: bool = False,
+                        fold: tuple = (10, 1, True),
+                        skf: bool = False,
+                        excel: bool = False,
+                        return_best_model: str = None,
+                        return_fastest_model: bool = False
+                        ):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
-        :param return_best_model:
-        :param split_self:
-        :param data:
-        :param excel:
-        :param skf:
-        :param y:
-        :param X:
+        :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
+        of the fastest model
+
+        :param return_best_model: defaults to False, set to True when you want the method to only return a dataframe of
+        the best model
+
+        :param split_self: defaults to False, set to True when you split the data yourself
+
+        :param excel: defaults to False, set to True when you want the dataframe to save to an excel file in your
+        current working directory
+
+        :param skf: defaults to False, set to True when you want to use StratifiedKFold cross validation as you splitting
+        method
+
+        :param y: labels
+
+        :param X: features
+
         :type fold: object
         :param fold: arguments for KFold where 10 is the n_splits, 1 is the random_state and True is to allow shuffling
-        :param kf:
+        :param kf: defaults to False, set to True when you want to use KFold cross validation as your splitting method
         :param X_train: The training data
         :param X_test: The test data
         :param y_train: The training set labels
@@ -427,26 +467,26 @@ class Models:
                     pass
                 true = y_te
 
-                acc = accuracy_score(true, pred).round(3)
-                mae = mean_absolute_error(true, pred).round(3)
-                mse = np.sqrt(mean_absolute_error(true, pred)).round(3)
+                acc = accuracy_score(true, pred)
+                mae = mean_absolute_error(true, pred)
+                mse = np.sqrt(mean_absolute_error(true, pred))
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
-                r2 = r2_score(true, pred).round(3)
+                r2 = r2_score(true, pred)
                 try:
-                    roc = roc_auc_score(true, pred).round(3)
+                    roc = roc_auc_score(true, pred)
                 except ValueError:
                     roc = None
                 try:
-                    f1 = f1_score(true, pred).round(3)
+                    f1 = f1_score(true, pred)
                 except ValueError:
                     f1 = None
                 try:
-                    pre = precision_score(true, pred).round(3)
+                    pre = precision_score(true, pred)
                 except ValueError:
                     pre = None
                 try:
-                    rec = recall_score(true, pred).round(3)
+                    rec = recall_score(true, pred)
                 except ValueError:
                     rec = None
 
@@ -676,16 +716,25 @@ class Models:
             else:
                 WarnLog("You can only set the number of folds to a number between 1 and 10")
 
-    def use_best_model(self, model):
+    def use_best_model(self, df, model=None, best=None):
         name = self.classifier_model_names()
         MODEL = self.initialize()
-        if model in name:
+
+        if model is not None and best is not None:
+            raise Exception('You can only use one of the two arguments.')
+
+        elif model in name:
             index_ = name.index(model)
             return MODEL[index_]
 
-        elif model not in name:
-            raise Exception(f"name {model} is not found, "
-                            f"here is a list of the available models to work with: {name}")
+        if model:
+            if model not in name:
+                raise Exception(f"name {model} is not found, "
+                                f"here is a list of the available models to work with: {name}")
+
+        elif best:
+            instance = self._get_index(df, best)
+            return instance
 
     def visualize(self,
                   param: {__setitem__},
@@ -814,9 +863,3 @@ class Models:
             display(plot4)
             display(plot5)
 
-
-
-    def return_slowest_model(self, dataframe):
-        display(dataframe[dataframe["execution time(seconds)"].max()])
-
-    # def return_top_5_models(self, dataframe):
