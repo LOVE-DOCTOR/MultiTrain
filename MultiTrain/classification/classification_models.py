@@ -7,7 +7,9 @@ import shutil
 import seaborn as sns
 from IPython.display import display
 from matplotlib.backends.backend_pdf import PdfPages
-from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
+from skopt import BayesSearchCV
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV, \
+    RandomizedSearchCV, cross_validate
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
 from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, Perceptron
@@ -28,9 +30,10 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
 from sklearn.metrics import precision_score, recall_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
+from numpy import mean, std
 import warnings
 import time
 
@@ -105,8 +108,7 @@ class Models:
         self.per = per
         self.nu = nu
 
-    @staticmethod
-    def write_to_excel(name, file):
+    def write_to_excel(self, name, file):
         """
         If the name is True, then write the file to an excel file called "Training_results.xlsx"
 
@@ -118,8 +120,7 @@ class Models:
         else:
             pass
 
-    @staticmethod
-    def directory(FOLDER_NAME):
+    def directory(self, FOLDER_NAME):
         """
         If the folder doesn't exist, create it
 
@@ -195,6 +196,24 @@ class Models:
                 add_path = key
                 FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
                 value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
+
+    def _kf_best_model(self, df, best, excel):
+        if best is not None:
+            if best == 'mean score':
+                df1 = df[df['mean score'] == df['mean score'].max()]
+                self.write_to_excel(excel, df)
+                display(df1)
+                return df1
+            elif best == 'std':
+                df1 = df[df['std'] == df['std'].min()]
+                self.write_to_excel(excel, df)
+                display(df1)
+                return df1
+
+        elif best is None:
+            self.write_to_excel(excel, df)
+            display(df)
+            return df
 
     def split(self, X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
               shuffle_data: bool = True):
@@ -304,6 +323,11 @@ class Models:
             best_model_details = df[df[the_best] == df[the_best].max()]
         elif the_best == 'mean absolute error' or the_best == 'mean squared error':
             best_model_details = df[df[the_best] == df[the_best].min()]
+        elif the_best == 'mean score':
+            best_model_details = df[df[the_best] == df[the_best].max()]
+        elif the_best == 'std':
+            best_model_details = df[df[the_best] == df[the_best].min()]
+
         else:
             raise Exception(f'metric {the_best} not found')
 
@@ -312,39 +336,72 @@ class Models:
         index_ = name.index(best_model_name)
         return MODEL[index_]
 
-    def startKFold(self, param, param_X, param_y, param_cv):
+    def startKFold(self, param, param_X, param_y, param_cv, fn_target):
         names = self.classifier_model_names()
-        dataframe = {}
-        for i in range(len(param)):
-            start = time.time()
-            scores = cross_val_score(param[i], param_X, param_y, scoring='accuracy', cv=param_cv, n_jobs=-1)
-            end = time.time()
-            seconds = end - start
-            mean_, stdev = scores.mean(), scores.std()
-            scores = scores.tolist()
-            scores.append(mean_)
-            scores.append(stdev)
-            scores.append(seconds)
-            dataframe.update({names[i]: scores})
-        return dataframe
 
-    def fit_eval_models(self,
-                        X: str = None,
-                        y: str = None,
-                        split_self: bool = False,
-                        X_train: str = None,
-                        X_test: str = None,
-                        y_train: str = None,
-                        y_test: str = None,
-                        split_data: str = None,
-                        splitting: bool = False,
-                        kf: bool = False,
-                        fold: tuple = (10, 1, True),
-                        skf: bool = False,
-                        excel: bool = False,
-                        return_best_model: str = None,
-                        return_fastest_model: bool = False
-                        ):
+        if fn_target == 'binary':
+            dataframe = {}
+            for i in range(len(param)):
+                start = time.time()
+                score = ('accuracy', 'precision', 'recall', 'f1')
+                scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
+                                        cv=param_cv, n_jobs=-1, return_train_score=True)
+                end = time.time()
+                seconds = end - start
+                mean_train_acc = scores['train_accuracy'].mean()
+                mean_test_acc = scores['test_accuracy'].mean()
+                mean_train_precision = scores['train_precision'].mean()
+                mean_test_precision = scores['test_precision'].mean()
+                mean_train_f1 = scores['train_f1'].mean()
+                mean_test_f1 = scores['test_f1'].mean()
+                mean_train_recall = scores['train_recall'].mean()
+                mean_test_recall = scores['test_recall'].mean()
+                train_stdev = scores['train_accuracy'].std()
+                test_stdev = scores['test_accuracy'].std()
+                # scores = scores.tolist()
+                scores_df = [mean_train_acc, mean_test_acc, mean_train_precision, mean_test_precision,
+                             mean_train_f1, mean_test_f1, mean_train_recall, mean_test_recall,
+                             train_stdev, test_stdev, seconds]
+                dataframe.update({names[i]: scores_df})
+            return dataframe
+
+        elif fn_target == 'multiclass':
+            dataframe = {}
+            for j in range(len(param)):
+                start = time.time()
+                score = ('precision_macro', 'recall_macro', 'f1_macro')
+                scores = cross_validate(estimator=param[j], X=param_X, y=param_y, scoring=score,
+                                        cv=param_cv, n_jobs=-1, return_train_score=True)
+                end = time.time()
+                seconds = end - start
+                mean_train_precision = scores['train_precision_macro'].mean()
+                mean_test_precision = scores['test_precision_macro'].mean()
+                mean_train_f1 = scores['train_f1_macro'].mean()
+                mean_test_f1 = scores['test_f1_macro'].mean()
+                mean_train_recall = scores['train_recall_macro'].mean()
+                mean_test_recall = scores['test_recall_macro'].mean()
+                scores_df = [mean_train_precision, mean_test_precision, mean_train_f1, mean_test_f1,
+                             mean_train_recall, mean_test_recall, seconds]
+                dataframe.update({names[j]: scores_df})
+            return dataframe
+
+    def fit(self,
+            X: str = None,
+            y: str = None,
+            split_self: bool = False,
+            X_train: str = None,
+            X_test: str = None,
+            y_train: str = None,
+            y_test: str = None,
+            split_data: str = None,
+            splitting: bool = False,
+            kf: bool = False,
+            fold: int = 5,
+            excel: bool = False,
+            return_best_model: str = None,
+            return_fastest_model: bool = False,
+            target: str = 'binary'
+            ):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
@@ -378,7 +435,7 @@ class Models:
         :type split_data: str
         :param splitting: bool = False, defaults to False
         :type splitting: bool (optional)
-
+        :param target: defaults to binary, this is used to specify if the target is binary or multiclass
         If using splitting = True
         df = pd.read_csv("nameOfFile.csv")
         X = df.drop("nameOfLabelColumn", axis=1)
@@ -388,7 +445,7 @@ class Models:
 
         If using kf = True
 
-        fit_eval_models(X = features, y = labels, kf = True, fold = (10, 42, True))
+        fit(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
 
         if isinstance(splitting, bool) is False:
@@ -400,46 +457,43 @@ class Models:
             raise TypeError(
                 f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
                 f"instead of kf = {kf}")
-
+        """
         if isinstance(skf, bool) is False:
             raise TypeError(
                 f"You can only declare object type 'bool' in skf. Try skf = False or skf = True "
                 f"instead of skf = {skf}")
+        """
 
-        if isinstance(fold, tuple) is False:
+        if isinstance(fold, int) is False:
             raise TypeError(
-                "param fold is of type tuple, pass a tuple to fold e.g fold = (10, 1, True), where 10 is number of "
-                "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
-                "is to allow shuffling.")
-
-        if len(fold) != 3:
-            raise ValueError(
-                "all 3 values of fold have to be fulfilled e.g fold = (10, 1, True), where 10 is number of "
-                "splits you want to use for the cross validation procedure, where 1 is the random_state, where True "
-                "is to allow shuffling."
-            )
-
-        if isinstance(fold[2], bool) is False:
-            raise TypeError("all 3 values of fold have to be fulfilled e.g fold = (10, 1, True), where 10 is number of "
-                            "splits you want to use for the cross validation procedure, where 1 is the random_state, "
-                            "where True is to allow shuffling. The third value of the list fold has to be a boolean "
-                            "value, e.g True or False.")
+                "param fold is of type int, pass a integer to fold e.g fold = 5, where 5 is number of "
+                "splits you want to use for the cross validation procedure")
 
         if kf:
+            if split_self is True:
+                raise Exception(
+                    "split_self should only be set to True when you split with train_test_split from "
+                    "sklearn.model_selection")
+
             if splitting:
                 raise ValueError("KFold cross validation cannot be true if splitting is true and splitting cannot be "
                                  "true if KFold is true")
-
+            """
             if skf:
                 raise TypeError("kf cannot be true if skf is true and skf cannot be true if kf is true. You can only "
                                 "use one at the same time")
-
-            elif split_data:
+            """
+            if split_data:
                 raise ValueError("split_data cannot be used with kf, set splitting to True to use param "
                                  "split_data")
 
-        if kf is True and len(fold) == 3 and (X is None or y is None or (X is None and y is None)):
+        if kf is True and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
+
+        if target:
+            accepted_targets = ['binary', 'multiclass']
+            if target not in accepted_targets:
+                raise Exception(f"target should be set to either binary or multiclass but target was set to {target}")
 
         if splitting is True or split_self is True:
             if splitting and split_data:
@@ -523,218 +577,101 @@ class Models:
             self.write_to_excel(excel, df)
             return df
 
-        elif len(fold) == 3 and kf is True:
-            start = time.time()
-            cv = KFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
+        elif kf is True:
 
             # Fitting the models and predicting the values of the test set.
             KFoldModel = self.initialize()
             names = self.classifier_model_names()
 
-            PrintLog("Training started")
+            if target == 'binary':
+                PrintLog("Training started")
+                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target)
 
-            if fold[0] == 2:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                if return_best_model == 'mean score':
-                    display(df[df['mean score'] == df['mean score'].max()])
-                elif return_best_model == 'mean absolute error':
-                    display(df[df['std'] == df['std'].min()])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Acc", "Test Acc",
+                                                                                "Train Precision", "Test Precision",
+                                                                                "Train Recall", "Test Recall",
+                                                                                "Train f1", "Test f1", "Train std",
+                                                                                "Test std", "Time Taken"])
+                kf_ = self._kf_best_model(df, return_best_model, excel)
+                return kf_
 
-            elif fold[0] == 3:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index',
-                                            columns=["fold1", "fold2", "fold3", "mean score", "std",
-                                                     "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
+            elif target == 'multiclass':
+                PrintLog("Training started")
+                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target)
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Precision Macro",
+                                                                                "Test Precision Macro",
+                                                                                "Train Recall Macro",
+                                                                                "Test Recall Macro",
+                                                                                "Train f1 Macro", "Test f1 Macro",
+                                                                                "Time Taken"])
+                kf_ = self._kf_best_model(df, return_best_model, excel)
+                return kf_
 
-            elif fold[0] == 4:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
+    def use_best_model(self, df, model: str = None, best: str = None):
+        """
 
-            elif fold[0] == 5:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
 
-            elif fold[0] == 6:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
+        :param df: the dataframe object
+        :param model: name of the classifier algorithm
+        :param best: the evaluation metric used to find the best model
 
-            elif fold[0] == 7:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "mean score",
-                                                                                "std", "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
+        :return:
+        """
 
-            elif fold[0] == 8:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 9:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 10:
-                dataframe = self.startKFold(KFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean score", "std",
-                                                                                "execution_time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            else:
-                WarnLog("You can only set the number of folds to a number between 1 and 10")
-
-        elif len(fold) == 3 and skf is True:
-            cv = StratifiedKFold(n_splits=fold[0], random_state=fold[1], shuffle=fold[2])
-
-            # Fitting the models and predicting the values of the test set.
-            SKFoldModel = self.initialize()
-            names = self.classifier_model_names()
-
-            PrintLog("Training started")
-
-            if fold[0] == 2:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "mean score", "std"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 3:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index',
-                                            columns=["fold1", "fold2", "fold3", "mean score", "std"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 4:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 5:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 6:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 7:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "mean score",
-                                                                                "std", "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 8:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 9:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            elif fold[0] == 10:
-                dataframe = self.startKFold(SKFoldModel, X, y, cv)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["fold1", "fold2", "fold3", "fold4",
-                                                                                "fold5", "fold6", "fold7", "fold8",
-                                                                                "fold9", "fold10", "mean score", "std",
-                                                                                "execution time(seconds)"])
-                self.write_to_excel(excel, df)
-                display(df)
-                return df
-
-            else:
-                WarnLog("You can only set the number of folds to a number between 1 and 10")
-
-    def use_best_model(self, df, model=None, best=None):
         name = self.classifier_model_names()
         MODEL = self.initialize()
 
         if model is not None and best is not None:
             raise Exception('You can only use one of the two arguments.')
 
-        elif model in name:
-            index_ = name.index(model)
-            return MODEL[index_]
-
         if model:
             if model not in name:
                 raise Exception(f"name {model} is not found, "
                                 f"here is a list of the available models to work with: {name}")
+            elif model in name:
+                index_ = name.index(model)
+                return MODEL[index_]
 
         elif best:
             instance = self._get_index(df, best)
             return instance
+
+    def tune_parameters(self,
+                        model: str = None,
+                        parameters: dict = None,
+                        tune: str = None,
+                        use_cpu: int = None,
+                        cv: int = 5,
+                        n_iter: any = 10):
+        """
+        :param n_iter:
+        :param model:
+        :param parameters: the dictionary of the model parameters
+        :param tune: the type of searching method to use, either grid for GridSearchCV
+        or random for RandomSearchCV
+        :param use_cpu : the value set determines the number of cores used for training,
+        if set to -1 it uses all the available cores
+        :param cv:This determines the cross validation splitting strategy, defaults to 5
+        :return:
+        """
+        name = self.classifier_model_names()
+        MODEL = self.initialize()
+        index_ = name.index(model)
+        mod = MODEL[index_]
+
+        if isinstance(tune, dict) is False:
+            raise TypeError("The 'tune' arguments only accepts a dictionary of the parameters for the "
+                            "model you want to train with.")
+
+        if tune == 'grid':
+            tuned_model = GridSearchCV(estimator=mod, param_grid=parameters, n_jobs=use_cpu, cv=cv, verbose=4,
+                                       return_train_score=True)
+            return tuned_model
+
+        elif tune == 'random':
+            tuned_model = RandomizedSearchCV(estimator=mod, param_distributions=tune, n_jobs=use_cpu, cv=cv,
+                                             verbose=4, random_state=42, return_train_score=True, n_iter=n_iter)
+            return tuned_model
 
     def visualize(self,
                   param: {__setitem__},
@@ -862,4 +799,3 @@ class Models:
             display(plot3)
             display(plot4)
             display(plot5)
-
