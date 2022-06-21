@@ -5,6 +5,10 @@ from operator import __setitem__
 import os
 import shutil
 import seaborn as sns
+import plotly
+#import plotly.plotly as py
+import plotly.express as px
+import plotly.graph_objects as graph
 from IPython.display import display
 from matplotlib.backends.backend_pdf import PdfPages
 from skopt import BayesSearchCV
@@ -107,6 +111,12 @@ class Models:
         self.bc = bc
         self.per = per
         self.nu = nu
+        self.binary_columns = ["Train Acc", "Test Acc", "Train Precision", "Test Precision",
+                               "Train Recall", "Test Recall", "Train f1", "Test f1", "Train std",
+                               "Test std", "Time Taken(s)"]
+
+        self.multiclass_columns = ["Train Precision Macro", "Test Precision Macro", "Train Recall Macro",
+                                   "Test Recall Macro", "Train f1 Macro", "Test f1 Macro", "Time Taken(s)"]
 
     def write_to_excel(self, name, file):
         """
@@ -162,6 +172,22 @@ class Models:
 
                 else:
                     WarnLog("Select from y/n")
+
+    def img_plotly(self,
+                   figure: any,
+                   name: any,
+                   label: str,
+                   FILENAME: str,
+                   FILE_PATH: any,
+                   type_: str) -> None:
+
+        if type_ == 'picture':
+            FILE = self.directory(FILENAME)
+            SOURCE_FILE_PATH = FILE_PATH + f"/{FILE}"
+            DESTINATION_FILE_PATH = SOURCE_FILE_PATH + f"/{name}"
+            if label == 'binary':
+                figure.write_image(name)
+                shutil.copyfile(SOURCE_FILE_PATH, DESTINATION_FILE_PATH, follow_symlinks=True)
 
     def img(self, FILENAME: any, FILE_PATH: any, type_='file') -> None:
         """
@@ -457,12 +483,6 @@ class Models:
             raise TypeError(
                 f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
                 f"instead of kf = {kf}")
-        """
-        if isinstance(skf, bool) is False:
-            raise TypeError(
-                f"You can only declare object type 'bool' in skf. Try skf = False or skf = True "
-                f"instead of skf = {skf}")
-        """
 
         if isinstance(fold, int) is False:
             raise TypeError(
@@ -591,7 +611,7 @@ class Models:
                                                                                 "Train Precision", "Test Precision",
                                                                                 "Train Recall", "Test Recall",
                                                                                 "Train f1", "Test f1", "Train std",
-                                                                                "Test std", "Time Taken"])
+                                                                                "Test std", "Time Taken(s)"])
                 kf_ = self._kf_best_model(df, return_best_model, excel)
                 return kf_
 
@@ -603,7 +623,7 @@ class Models:
                                                                                 "Train Recall Macro",
                                                                                 "Test Recall Macro",
                                                                                 "Train f1 Macro", "Test f1 Macro",
-                                                                                "Time Taken"])
+                                                                                "Time Taken(s)"])
                 kf_ = self._kf_best_model(df, return_best_model, excel)
                 return kf_
 
@@ -725,7 +745,7 @@ class Models:
         if kf is True and t_split is True:
             raise Exception("set kf to True if you used KFold or set t_split to True"
                             "if you used the split method.")
-        elif kf is True:
+        if kf is True:
 
             plt.figure(figsize=size)
             plot = sns.barplot(x="model_names", y="mean score", data=param)
@@ -799,3 +819,96 @@ class Models:
             display(plot3)
             display(plot4)
             display(plot5)
+
+    def visualize_plotly(self,
+                         param: {__setitem__},
+                         file_path: any = None,
+                         kf: bool = False,
+                         t_split: bool = False,
+                         save: str = None,
+                         save_name=None,
+                         target='binary',
+                         ):
+        """
+                The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
+
+                :param target:
+                :param file_path:
+                :param param: {__setitem__}
+                :type param: {__setitem__}
+                :param kf: set to True if you used KFold, defaults to False
+                :type kf: bool (optional)
+                :param t_split: True if you used the split method, defaults to False
+                :type t_split: bool (optional)
+                :param size: This is the size of the plot
+                :param save: This is the format you want to save the plot in
+                :type save: str
+                :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
+                """
+
+        names = self.classifier_model_names()
+
+        param['model_names'] = names
+        FILE_FORMATS = ['pdf', 'png']
+
+        if save:
+            if save not in FILE_FORMATS:
+                raise Exception("set save to either 'pdf' or 'png' ")
+
+            if save in FILE_FORMATS:
+                if isinstance(save_name, str) is False:
+                    raise ValueError('You can only set a string to save_name')
+
+                if save_name is None:
+                    raise Exception('Please set a value to save_name')
+
+        if file_path:
+            if save is None:
+                raise Exception("set save to either 'pdf' or 'png' before defining a file path")
+
+        if save is None:
+            if save_name:
+                raise Exception('You can only use save_name after param save is defined')
+
+        if kf is True and t_split is True:
+            raise Exception("set kf to True if you used KFold or set t_split to True"
+                            "if you used the split method.")
+
+        if kf is True:
+
+            if target == 'binary':
+                    if save == 'png':
+                        COLUMNS = []
+                        for i in range(len(self.binary_columns)):
+                            COLUMNS.append(self.binary_columns[i] + ".png")
+                        for j in range(len(COLUMNS)):
+                            fig = px.bar(data_frame=param, x="model_names", y=self.binary_columns[j],
+                                         hover_data=[self.binary_columns[j], "model_names"],
+                                         color="Time Taken(s)")
+                            display(fig)
+                            print(fig)
+                            self.img_plotly(
+                                name=COLUMNS[j],
+                                figure=fig,
+                                label=target,
+                                FILENAME=save_name,
+                                FILE_PATH=file_path,
+                                type_='picture'
+                            )
+
+            elif target == 'multiclass':
+
+                for j in range(len(self.multiclass_columns)):
+                    fig = px.bar(data_frame=param, x="model_names", y=self.multiclass_columns[j],
+                                 hover_data=[self.multiclass_columns[j], "model_names"],
+                                 color="Time Taken(s)")
+                    display(fig)
+
+                if save == 'png':
+                    self.img_plotly(
+                        figure=fig,
+                        label=target,
+                        FILENAME=save_name,
+                        FILE_PATH=file_path,
+                        type_='picture'
+                    )
