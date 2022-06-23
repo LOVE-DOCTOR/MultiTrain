@@ -6,7 +6,7 @@ import os
 import shutil
 import seaborn as sns
 import plotly
-#import plotly.plotly as py
+# import plotly.plotly as py
 import plotly.express as px
 import plotly.graph_objects as graph
 from IPython.display import display
@@ -111,12 +111,18 @@ class Models:
         self.bc = bc
         self.per = per
         self.nu = nu
-        self.binary_columns = ["Train Acc", "Test Acc", "Train Precision", "Test Precision",
-                               "Train Recall", "Test Recall", "Train f1", "Test f1", "Train std",
-                               "Test std", "Time Taken(s)"]
+        self.kf_binary_columns = ["Train Acc", "Test Acc", "Train Precision", "Test Precision",
+                                  "Train Recall", "Test Recall", "Train f1", "Test f1", 'Train r2',
+                                  'Test r2', "Train std", "Test std", "Time Taken(s)"]
 
-        self.multiclass_columns = ["Train Precision Macro", "Test Precision Macro", "Train Recall Macro",
-                                   "Test Recall Macro", "Train f1 Macro", "Test f1 Macro", "Time Taken(s)"]
+        self.kf_multiclass_columns = ["Train Precision Macro", "Test Precision Macro", "Train Recall Macro",
+                                      "Test Recall Macro", "Train f1 Macro", "Test f1 Macro", "Time Taken(s)"]
+
+        self.t_split_binary_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
+                                       "ROC AUC", "f1 score", "precision", "recall", "execution time(seconds)"]
+
+        self.t_split_multiclass_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
+                                           "execution time(seconds)"]
 
     def write_to_excel(self, name, file):
         """
@@ -167,6 +173,7 @@ class Models:
                             if compare_names:
                                 raise ValueError("Invalid character specified in folder name")
                             else:
+                                os.mkdir(FOLDER_NAME_)
                                 PrintLog(f"Directory {FOLDER_NAME_} successfully created")
                                 return FOLDER_NAME_
 
@@ -178,20 +185,17 @@ class Models:
                    name: any,
                    label: str,
                    FILENAME: str,
-                   FILE_PATH: any,
-                   type_: str) -> None:
+                   FILE_PATH: any) -> None:
 
-        if type_ == 'picture':
-            FILE = self.directory(FILENAME)
-            SOURCE_FILE_PATH = FILE_PATH + f"/{FILE}"
-            DESTINATION_FILE_PATH = SOURCE_FILE_PATH + f"/{name}"
-            if label == 'binary':
-                figure.write_image(name)
-                shutil.copyfile(SOURCE_FILE_PATH, DESTINATION_FILE_PATH, follow_symlinks=True)
+        SOURCE_FILE_PATH = FILE_PATH + f"/{name}"
+        DESTINATION_FILE_PATH = FILE_PATH + f"/{FILENAME}" + f"/{name}"
+        figure.write_image(name, width=1280, height=720)
+        shutil.move(src=SOURCE_FILE_PATH, dst=DESTINATION_FILE_PATH)
 
     def img(self, FILENAME: any, FILE_PATH: any, type_='file') -> None:
         """
-        It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture file
+        It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture
+        file
 
         :param FILE_PATH:
         :param FILENAME: The name of the file you want to save
@@ -241,7 +245,12 @@ class Models:
             display(df)
             return df
 
-    def split(self, X: any, y: any, strat: bool = False, sizeOfTest: float = 0.2, randomState: int = None,
+    def split(self,
+              X: any,
+              y: any,
+              strat: bool = False,
+              sizeOfTest: float = 0.2,
+              randomState: int = None,
               shuffle_data: bool = True):
         """
 
@@ -345,13 +354,15 @@ class Models:
         name = list(self.classifier_model_names())
         MODEL = self.initialize()
         df['model_names'] = name
-        if the_best == 'accuracy' or the_best == 'f1 score' or the_best == 'r2 score' or the_best == 'ROC AUC':
+        high = ['accuracy', 'f1 score', 'r2 score', 'ROC AUC', 'Test Acc', 'Test Precision',
+                'Test Recall',  'Test f1', 'Test r2', 'Test Precision Macro', 'Test Recall Macro',
+                'Test f1 Macro']
+        low = ['mean absolute error', 'mean squared error', 'Test std']
+
+        if the_best in high:
             best_model_details = df[df[the_best] == df[the_best].max()]
-        elif the_best == 'mean absolute error' or the_best == 'mean squared error':
-            best_model_details = df[df[the_best] == df[the_best].min()]
-        elif the_best == 'mean score':
-            best_model_details = df[df[the_best] == df[the_best].max()]
-        elif the_best == 'std':
+
+        elif the_best in low:
             best_model_details = df[df[the_best] == df[the_best].min()]
 
         else:
@@ -369,7 +380,7 @@ class Models:
             dataframe = {}
             for i in range(len(param)):
                 start = time.time()
-                score = ('accuracy', 'precision', 'recall', 'f1')
+                score = ('accuracy', 'precision', 'recall', 'f1', 'r2')
                 scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
                                         cv=param_cv, n_jobs=-1, return_train_score=True)
                 end = time.time()
@@ -380,14 +391,16 @@ class Models:
                 mean_test_precision = scores['test_precision'].mean()
                 mean_train_f1 = scores['train_f1'].mean()
                 mean_test_f1 = scores['test_f1'].mean()
+                mean_train_r2 = scores['train_r2'].mean()
+                mean_test_r2 = scores['test_r2'].mean()
                 mean_train_recall = scores['train_recall'].mean()
                 mean_test_recall = scores['test_recall'].mean()
                 train_stdev = scores['train_accuracy'].std()
                 test_stdev = scores['test_accuracy'].std()
                 # scores = scores.tolist()
                 scores_df = [mean_train_acc, mean_test_acc, mean_train_precision, mean_test_precision,
-                             mean_train_f1, mean_test_f1, mean_train_recall, mean_test_recall,
-                             train_stdev, test_stdev, seconds]
+                             mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2, mean_train_recall,
+                             mean_test_recall, train_stdev, test_stdev, seconds]
                 dataframe.update({names[i]: scores_df})
             return dataframe
 
@@ -565,14 +578,18 @@ class Models:
                     rec = None
 
                 time_taken = round(end - start, 2)
-                eval_ = [acc, mae, mse, r2, roc, f1, pre, rec, time_taken]
-                dataframe.update({names[i]: eval_})
+                eval_bin = [acc, mae, mse, r2, roc, f1, pre, rec, time_taken]
+                eval_mul = [acc, mae, mse, r2, time_taken]
+                if target == 'binary':
+                    dataframe.update({names[i]: eval_bin})
+                elif target == 'multiclass':
+                    dataframe.update({names[i]: eval_mul})
 
-            df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["accuracy", "mean absolute error",
-                                                                            "mean squared error", "r2 score",
-                                                                            "ROC AUC", "f1 score", "precision",
-                                                                            "recall",
-                                                                            "execution time(seconds)"])
+            if target == 'binary':
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_binary_columns)
+            elif target == 'multiclass':
+                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_multiclass_columns)
+
             if return_best_model is not None:
                 display(f'BEST MODEL BASED ON {return_best_model}')
                 if return_best_model == 'accuracy':
@@ -595,6 +612,7 @@ class Models:
                 display(f"FASTEST MODEL")
                 display(df[df["execution time(seconds)"].max()])
             self.write_to_excel(excel, df)
+            print(self.t_split_multiclass_columns)
             return df
 
         elif kf is True:
@@ -610,7 +628,8 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Acc", "Test Acc",
                                                                                 "Train Precision", "Test Precision",
                                                                                 "Train Recall", "Test Recall",
-                                                                                "Train f1", "Test f1", "Train std",
+                                                                                "Train f1", "Test f1", "Train r2", "Test r2",
+                                                                                "Train std",
                                                                                 "Test std", "Time Taken(s)"])
                 kf_ = self._kf_best_model(df, return_best_model, excel)
                 return kf_
@@ -820,15 +839,15 @@ class Models:
             display(plot4)
             display(plot5)
 
-    def visualize_plotly(self,
-                         param: {__setitem__},
-                         file_path: any = None,
-                         kf: bool = False,
-                         t_split: bool = False,
-                         save: str = None,
-                         save_name=None,
-                         target='binary',
-                         ):
+    def show(self,
+             param: {__setitem__},
+             file_path: any = None,
+             kf: bool = False,
+             t_split: bool = False,
+             save = False,
+             save_name=None,
+             target='binary',
+             ):
         """
                 The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
@@ -841,74 +860,74 @@ class Models:
                 :param t_split: True if you used the split method, defaults to False
                 :type t_split: bool (optional)
                 :param size: This is the size of the plot
-                :param save: This is the format you want to save the plot in
-                :type save: str
-                :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
+                :param save_name: The name of the file you want to save the visualization as.
                 """
 
         names = self.classifier_model_names()
 
         param['model_names'] = names
-        FILE_FORMATS = ['pdf', 'png']
-
-        if save:
-            if save not in FILE_FORMATS:
-                raise Exception("set save to either 'pdf' or 'png' ")
-
-            if save in FILE_FORMATS:
-                if isinstance(save_name, str) is False:
-                    raise ValueError('You can only set a string to save_name')
-
-                if save_name is None:
-                    raise Exception('Please set a value to save_name')
-
-        if file_path:
-            if save is None:
-                raise Exception("set save to either 'pdf' or 'png' before defining a file path")
-
-        if save is None:
-            if save_name:
-                raise Exception('You can only use save_name after param save is defined')
-
-        if kf is True and t_split is True:
-            raise Exception("set kf to True if you used KFold or set t_split to True"
-                            "if you used the split method.")
 
         if kf is True:
-
+            if t_split is True:
+                raise Exception("set kf to True if you used KFold or set t_split to True"
+                                "if you used the split method.")
             if target == 'binary':
-                    if save == 'png':
-                        COLUMNS = []
-                        for i in range(len(self.binary_columns)):
-                            COLUMNS.append(self.binary_columns[i] + ".png")
-                        for j in range(len(COLUMNS)):
-                            fig = px.bar(data_frame=param, x="model_names", y=self.binary_columns[j],
-                                         hover_data=[self.binary_columns[j], "model_names"],
-                                         color="Time Taken(s)")
-                            display(fig)
-                            print(fig)
+                IMAGE_COLUMNS = []
+                for i in range(len(self.kf_binary_columns)):
+                    IMAGE_COLUMNS.append(self.kf_binary_columns[i] + ".png")
+
+                if save is True:
+                    dir = self.directory(save_name)
+                for j in range(len(IMAGE_COLUMNS)):
+
+                    fig = px.bar(data_frame=param,
+                                 x="model_names",
+                                 y=self.kf_binary_columns[j],
+                                 hover_data=[self.kf_binary_columns[j], "model_names"],
+                                 color="Time Taken(s)")
+                    display(fig)
+                    if save is True:
+                        if save_name is None:
+                            raise Exception("set save to True before using save_name")
+
+                        else:
                             self.img_plotly(
-                                name=COLUMNS[j],
+                                name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
-                                FILENAME=save_name,
+                                FILENAME=dir,
                                 FILE_PATH=file_path,
-                                type_='picture'
                             )
 
             elif target == 'multiclass':
+                IMAGE_COLUMNS = []
+                for i in range(len(self.kf_multiclass_columns)):
+                    IMAGE_COLUMNS.append(self.kf_multiclass_columns[i] + ".png")
 
-                for j in range(len(self.multiclass_columns)):
-                    fig = px.bar(data_frame=param, x="model_names", y=self.multiclass_columns[j],
-                                 hover_data=[self.multiclass_columns[j], "model_names"],
+                if save is True:
+                    dir = self.directory(save_name)
+
+                for j in range(len(self.kf_multiclass_columns)):
+                    fig = px.bar(data_frame=param,
+                                 x="model_names",
+                                 y=self.kf_multiclass_columns[j],
+                                 hover_data=[self.kf_multiclass_columns[j], "model_names"],
                                  color="Time Taken(s)")
                     display(fig)
+                    if save is True:
+                        if save_name is None:
+                            raise Exception("set save to True before using save_name")
 
-                if save == 'png':
-                    self.img_plotly(
-                        figure=fig,
-                        label=target,
-                        FILENAME=save_name,
-                        FILE_PATH=file_path,
-                        type_='picture'
-                    )
+                        elif save_name:
+                            self.img_plotly(
+                                name=IMAGE_COLUMNS[j],
+                                figure=fig,
+                                label=target,
+                                FILENAME=dir,
+                                FILE_PATH=file_path,
+                            )
+
+        if t_split is True:
+            if kf is True:
+                raise Exception("set kf to True if you used KFold or set t_split to True"
+                                "if you used the split method.")
