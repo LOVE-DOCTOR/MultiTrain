@@ -12,8 +12,10 @@ import plotly.graph_objects as graph
 from IPython.display import display
 from matplotlib.backends.backend_pdf import PdfPages
 from skopt import BayesSearchCV
-from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV, \
-    RandomizedSearchCV, cross_validate
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV, cross_validate
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
 from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, Perceptron
@@ -30,7 +32,7 @@ from sklearnex.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
 from sklearn.metrics import precision_score, recall_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
@@ -218,7 +220,7 @@ class Models:
             figureCount = plt.get_fignums()
             fig = [plt.figure(n) for n in figureCount]
             fig_dict = {}
-            fig_num = [0, 1, 2, 3, 4, 5]
+            fig_num = list(range(6))
             for i in range(len(fig_num)):
                 fig_dict.update({fig_num[i]: fig[i]})
 
@@ -355,7 +357,7 @@ class Models:
         MODEL = self.initialize()
         df['model_names'] = name
         high = ['accuracy', 'f1 score', 'r2 score', 'ROC AUC', 'Test Acc', 'Test Precision',
-                'Test Recall',  'Test f1', 'Test r2', 'Test Precision Macro', 'Test Recall Macro',
+                'Test Recall', 'Test f1', 'Test r2', 'Test Precision Macro', 'Test Recall Macro',
                 'Test f1 Macro']
         low = ['mean absolute error', 'mean squared error', 'Test std']
 
@@ -628,7 +630,8 @@ class Models:
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Acc", "Test Acc",
                                                                                 "Train Precision", "Test Precision",
                                                                                 "Train Recall", "Test Recall",
-                                                                                "Train f1", "Test f1", "Train r2", "Test r2",
+                                                                                "Train f1", "Test f1", "Train r2",
+                                                                                "Test r2",
                                                                                 "Train std",
                                                                                 "Test std", "Time Taken(s)"])
                 kf_ = self._kf_best_model(df, return_best_model, excel)
@@ -681,10 +684,34 @@ class Models:
                         tune: str = None,
                         use_cpu: int = None,
                         cv: int = 5,
-                        n_iter: any = 10):
+                        n_iter: any = 50,
+                        return_train_score: bool = False,
+                        refit: bool = True,
+                        random_state: int = None,
+                        factor: int = 3,
+                        verbose: int = 4,
+                        resource: any = "n_samples",
+                        max_resources: any = "auto",
+                        min_resources_grid: any = "exhaust",
+                        min_resources_rand: any = "smallest",
+                        aggressive_elimination: any = False,
+                        error_score: any = np.nan
+                        ):
         """
+        :param min_resources_grid:
+        :param min_resources_rand:
+        :param aggressive_elimination:
+        :param max_resources:
+        :param resource: Defines the resource that increases with each iteration.
+        :param verbose:
+        :param return_train_score:
+        :param refit:
+        :param random_state: 
         :param n_iter:
-        :param model:
+        :param model: This is the instance of the model to be used
+        :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
+        candidates that are selected for each subsequent iteration. For example, factor=3 means that only one third of the
+        candidates are selected.
         :param parameters: the dictionary of the model parameters
         :param tune: the type of searching method to use, either grid for GridSearchCV
         or random for RandomSearchCV
@@ -695,22 +722,55 @@ class Models:
         """
         name = self.classifier_model_names()
         MODEL = self.initialize()
-        index_ = name.index(model)
-        mod = MODEL[index_]
+        # index_ = name.index(model)
+        # mod = MODEL[index_]
 
-        if isinstance(tune, dict) is False:
-            raise TypeError("The 'tune' arguments only accepts a dictionary of the parameters for the "
+        if isinstance(parameters, dict) is False:
+            raise TypeError("The 'parameters' argument only accepts a dictionary of the parameters for the "
                             "model you want to train with.")
+        if tune:
+            scorers = {
+                'precision_score': make_scorer(precision_score),
+                'recall_score': make_scorer(recall_score),
+                'accuracy_score': make_scorer(accuracy_score)
+            }
 
-        if tune == 'grid':
-            tuned_model = GridSearchCV(estimator=mod, param_grid=parameters, n_jobs=use_cpu, cv=cv, verbose=4,
-                                       return_train_score=True)
-            return tuned_model
+            if tune == 'grid':
+                tuned_model = GridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
+                                           verbose=verbose, error_score=error_score,
+                                           return_train_score=return_train_score, scoring=scorers, refit=refit)
+                return tuned_model
 
-        elif tune == 'random':
-            tuned_model = RandomizedSearchCV(estimator=mod, param_distributions=tune, n_jobs=use_cpu, cv=cv,
-                                             verbose=4, random_state=42, return_train_score=True, n_iter=n_iter)
-            return tuned_model
+            elif tune == 'random':
+                tuned_model = RandomizedSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu, cv=cv,
+                                                 verbose=verbose, random_state=random_state, n_iter=n_iter,
+                                                 return_train_score=return_train_score, error_score=error_score,
+                                                 scoring=scorers, refit=refit)
+                return tuned_model
+
+            elif tune == 'bayes':
+                tuned_model = BayesSearchCV(estimator=model, search_spaces=parameters, n_jobs=use_cpu,
+                                            return_train_score=return_train_score, cv=cv, verbose=verbose,
+                                            refit=refit, random_state=random_state, scoring=scorers,
+                                            error_score=error_score)
+                return tuned_model
+
+            elif tune == 'half-grid':
+                tuned_model = HalvingGridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
+                                                  verbose=4, random_state=42, factor=factor, refit=refit,
+                                                  scoring=scorers, resource=resource, min_resources=min_resources_grid,
+                                                  max_resources=max_resources, error_score=error_score,
+                                                  aggressive_elimination=aggressive_elimination)
+
+                return tuned_model
+
+            elif tune == 'half-random':
+                tuned_model = HalvingRandomSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu,
+                                                    cv=cv, verbose=4, random_state=42, factor=factor, refit=refit,
+                                                    scoring=scorers, resource=resource, error_score=error_score,
+                                                    min_resources=min_resources_rand, max_resources=max_resources,
+                                                    aggressive_elimination=aggressive_elimination)
+                return tuned_model
 
     def visualize(self,
                   param: {__setitem__},
@@ -844,7 +904,7 @@ class Models:
              file_path: any = None,
              kf: bool = False,
              t_split: bool = False,
-             save = False,
+             save=False,
              save_name=None,
              target='binary',
              ):
@@ -931,3 +991,59 @@ class Models:
             if kf is True:
                 raise Exception("set kf to True if you used KFold or set t_split to True"
                                 "if you used the split method.")
+
+            if target == 'binary':
+                IMAGE_COLUMNS = []
+                for i in range(len(self.t_split_binary_columns)):
+                    IMAGE_COLUMNS.append(self.t_split_binary_columns[i] + ".png")
+
+                if save is True:
+                    dir = self.directory(save_name)
+                for j in range(len(IMAGE_COLUMNS)):
+
+                    fig = px.bar(data_frame=param,
+                                 x="model_names",
+                                 y=self.t_split_binary_columns[j],
+                                 hover_data=[self.t_split_binary_columns[j], "model_names"],
+                                 color="execution time(seconds)")
+                    display(fig)
+                    if save is True:
+                        if save_name is None:
+                            raise Exception("set save to True before using save_name")
+
+                        else:
+                            self.img_plotly(
+                                name=IMAGE_COLUMNS[j],
+                                figure=fig,
+                                label=target,
+                                FILENAME=dir,
+                                FILE_PATH=file_path,
+                            )
+
+            elif target == 'multiclass':
+                IMAGE_COLUMNS = []
+                for i in range(len(self.t_split_multiclass_columns)):
+                    IMAGE_COLUMNS.append(self.t_split_multiclass_columns[i] + ".png")
+
+                if save is True:
+                    dir = self.directory(save_name)
+
+                for j in range(len(self.t_split_multiclass_columns)):
+                    fig = px.bar(data_frame=param,
+                                 x="model_names",
+                                 y=self.t_split_multiclass_columns[j],
+                                 hover_data=[self.t_split_multiclass_columns[j], "model_names"],
+                                 color="execution time(seconds)")
+                    display(fig)
+                    if save is True:
+                        if save_name is None:
+                            raise Exception("set save to True before using save_name")
+
+                        elif save_name:
+                            self.img_plotly(
+                                name=IMAGE_COLUMNS[j],
+                                figure=fig,
+                                label=target,
+                                FILENAME=dir,
+                                FILE_PATH=file_path,
+                            )
