@@ -1,4 +1,28 @@
-# train-with-models
-This is a code written with a solution in mind - To be able to train up to at least 12 machine learning models on a dataset at once. This is more feasible on small datasets.
+# MultiTrain
+
+MultiTrain is a python module for machine built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
+
+## REQUIREMENTS
+
+MultiTrain requires:
+
+## INSTALLATION
+Install MultiTrain using:
+```
+pip install 
+```
+
+## USAGE
+**CLASSIFICATION*
+```
+
+```
+
+**REGRESSION**
+```
+
+```
+
+
 
 You can only use this code on classification problems
