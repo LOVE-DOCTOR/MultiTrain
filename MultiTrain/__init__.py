@@ -1,3 +1,3 @@
-from MultiTrain.classification.classification_models import Models
+from MultiTrain.classification.classification_models import Classification
 
 

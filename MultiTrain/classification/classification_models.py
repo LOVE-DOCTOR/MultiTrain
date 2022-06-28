@@ -1,30 +1,32 @@
 from operator import __setitem__
 import seaborn as sns
-import plotly
 import plotly.express as px
 from IPython.display import display
+from catboost import CatBoostClassifier
+from daal4py.sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from daal4py.sklearn.linear_model import LogisticRegression
+from daal4py.sklearn.neighbors import KNeighborsClassifier
+from daal4py.sklearn.svm import SVC
+from pandas import DataFrame
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingClassifier, ExtraTreesClassifier, \
+    BaggingClassifier
+from sklearn.linear_model import LogisticRegressionCV, SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, \
+    RidgeClassifierCV, Perceptron
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, ComplementNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from sklearnex.svm import NuSVC
+from xgboost import XGBClassifier
+
 from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel
 from skopt import BayesSearchCV
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV, cross_validate
-from sklearn.experimental import enable_halving_search_cv # noqa
+from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearnex import patch_sklearn
-from sklearnex.linear_model import LogisticRegression
-from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, Perceptron
-from sklearn.linear_model import RidgeClassifierCV, LogisticRegressionCV
-from sklearnex.ensemble import RandomForestClassifier
-from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingClassifier, AdaBoostClassifier
-from sklearn.ensemble import ExtraTreesClassifier, BaggingClassifier
-from sklearn.gaussian_process import GaussianProcessClassifier
-from catboost import CatBoostClassifier
-from xgboost import XGBClassifier
-from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, CategoricalNB, ComplementNB
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearnex.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC, LinearSVC, NuSVC
-from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
 from sklearn.metrics import precision_score, recall_score
@@ -40,7 +42,7 @@ warnings.filterwarnings("ignore")
 patch_sklearn()
 
 
-class Models:
+class Classification:
 
     def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
                  dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, qda=0,
@@ -118,7 +120,6 @@ class Models:
         self.t_split_multiclass_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
                                            "execution time(seconds)"]
 
-
     def split(self,
               X: any,
               y: any,
@@ -184,41 +185,35 @@ class Models:
         """
         It initializes all the models that we will be using in our ensemble
         """
-        self.lr = LogisticRegression(random_state=42, max_iter=1000)
-        self.lrcv = LogisticRegressionCV(random_state=42, max_iter=1000, fit_intercept=True)
-        self.sgdc = SGDClassifier(random_state=42, early_stopping=True, validation_fraction=0.2,
-                                  shuffle=True, n_iter_no_change=20)
-        self.pagg = PassiveAggressiveClassifier(shuffle=True, fit_intercept=True, early_stopping=True,
-                                                validation_fraction=0.1, n_iter_no_change=20, n_jobs=-1)
-        self.rfc = RandomForestClassifier(random_state=42, warm_start=True)
-        self.gbc = GradientBoostingClassifier(random_state=42, learning_rate=0.01, validation_fraction=0.1,
-                                              n_iter_no_change=20)
-        self.hgbc = HistGradientBoostingClassifier(early_stopping=True, validation_fraction=0.2, random_state=42,
-                                                   max_iter=300)
-        self.abc = AdaBoostClassifier(random_state=42)
-        self.cat = CatBoostClassifier(random_state=42, learning_rate=0.01, verbose=False)
-        self.xgb = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss")
+        self.lr = LogisticRegression(n_jobs=-1)
+        self.lrcv = LogisticRegressionCV(n_jobs=-1)
+        self.sgdc = SGDClassifier(n_jobs=-1)
+        self.pagg = PassiveAggressiveClassifier(n_jobs=-1)
+        self.rfc = RandomForestClassifier(n_jobs=-1)
+        self.gbc = GradientBoostingClassifier()
+        self.hgbc = HistGradientBoostingClassifier()
+        self.abc = AdaBoostClassifier()
+        self.cat = CatBoostClassifier(thread_count=-1, verbose=False)
+        self.xgb = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss", n_jobs=-1)
         self.gnb = GaussianNB()
         self.lda = LinearDiscriminantAnalysis()
         self.knc = KNeighborsClassifier(n_jobs=-1)
-        self.mlp = MLPClassifier(batch_size=10, shuffle=True, random_state=42, warm_start=True,
-                                 early_stopping=True, n_iter_no_change=20)
-        self.svc = SVC(random_state=42)
-        self.dtc = DecisionTreeClassifier(random_state=42)
+        self.mlp = MLPClassifier()
+        self.svc = SVC()
+        self.dtc = DecisionTreeClassifier()
         self.bnb = BernoulliNB()
         self.mnb = MultinomialNB()
         self.conb = ComplementNB()
-        self.etcs = ExtraTreesClassifier(warm_start=True, random_state=42, n_jobs=-1)
-        self.rcl = RidgeClassifier(random_state=42, max_iter=300)
+        self.etcs = ExtraTreesClassifier(n_jobs=-1)
+        self.rcl = RidgeClassifier()
         self.rclv = RidgeClassifierCV()
-        self.etc = ExtraTreeClassifier(random_state=42)
+        self.etc = ExtraTreeClassifier()
         # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         self.qda = QuadraticDiscriminantAnalysis()
-        self.lsvc = LinearSVC(random_state=42, max_iter=300, fit_intercept=True)
-        self.bc = BaggingClassifier(warm_start=True, n_jobs=-1, random_state=42)
-        self.per = Perceptron(random_state=42, n_jobs=-1, early_stopping=True, validation_fraction=0.2,
-                              n_iter_no_change=20, warm_start=True)
-        self.nu = NuSVC(random_state=42)
+        self.lsvc = LinearSVC()
+        self.bc = BaggingClassifier(n_jobs=-1)
+        self.per = Perceptron(n_jobs=-1)
+        self.nu = NuSVC()
 
         return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
                 self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
@@ -314,7 +309,7 @@ class Models:
             return_best_model: str = None,
             return_fastest_model: bool = False,
             target: str = 'binary'
-            ):
+            ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
@@ -329,9 +324,6 @@ class Models:
 
         :param excel: defaults to False, set to True when you want the dataframe to save to an excel file in your
         current working directory
-
-        :param skf: defaults to False, set to True when you want to use StratifiedKFold cross validation as you splitting
-        method
 
         :param y: labels
 
@@ -486,7 +478,6 @@ class Models:
                 display(f"FASTEST MODEL")
                 display(df[df["execution time(seconds)"].max()])
             write_to_excel(excel, df)
-            print(self.t_split_multiclass_columns)
             return df
 
         elif kf is True:
