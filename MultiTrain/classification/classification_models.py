@@ -1,20 +1,13 @@
-# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 42) In your
-# code, you can adjust the names of X_train, X_test, y_train and y_test if you named them differently when splitting
-# (line 58 - 60)
 from operator import __setitem__
-import os
-import shutil
 import seaborn as sns
 import plotly
-# import plotly.plotly as py
 import plotly.express as px
-import plotly.graph_objects as graph
 from IPython.display import display
-from matplotlib.backends.backend_pdf import PdfPages
+from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel
 from skopt import BayesSearchCV
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV, cross_validate
-from sklearn.experimental import enable_halving_search_cv
+from sklearn.experimental import enable_halving_search_cv # noqa
 from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearnex import patch_sklearn
 from sklearnex.linear_model import LogisticRegression
@@ -39,7 +32,6 @@ from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
-from numpy import mean, std
 import warnings
 import time
 
@@ -126,126 +118,6 @@ class Models:
         self.t_split_multiclass_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
                                            "execution time(seconds)"]
 
-    def write_to_excel(self, name, file):
-        """
-        If the name is True, then write the file to an excel file called "Training_results.xlsx"
-
-        :param name: This is the name of the file you want to save
-        :param file: the name of the file you want to read in
-        """
-        if name is True:
-            file.to_excel("Training_results.xlsx")
-        else:
-            pass
-
-    def directory(self, FOLDER_NAME):
-        """
-        If the folder doesn't exist, create it
-
-        :param FOLDER_NAME: The name of the folder you want to create
-        """
-        if not os.path.exists(FOLDER_NAME):
-            os.mkdir(FOLDER_NAME)
-            return FOLDER_NAME
-        # The above code is checking if the folder exists. If it does, it asks the user if they want to overwrite the
-        # current directory or specify a new folder name. If the user chooses to overwrite the current directory,
-        # the code deletes the current directory and creates a new one.
-        elif os.path.exists(FOLDER_NAME):
-            print("Directory exists already")
-            print("Do you want to overwrite current directory(y) or specify a new folder name(n).")
-            confirmation_values = ["y", "n"]
-            while True:
-                confirmation = input("y/n: ").lower()
-                if confirmation in confirmation_values:
-                    if confirmation == "y":
-                        shutil.rmtree(FOLDER_NAME)
-                        os.mkdir(FOLDER_NAME)
-
-                        return FOLDER_NAME
-
-                    # The above code is checking if the user has entered a valid folder name.
-                    elif confirmation == "n":
-                        INVALID_CHAR = ["#", "%", "&", "{", "}", "<", "<", "/", "$", "!", "'", '"', ":", "@", "+", "`",
-                                        "|",
-                                        "=", "*", "?"]
-                        while True:
-                            FOLDER_NAME_ = input("Folder name: ")
-                            folder_name = list(FOLDER_NAME_.split(","))
-                            compare_names = all(item in INVALID_CHAR for item in folder_name)
-                            if compare_names:
-                                raise ValueError("Invalid character specified in folder name")
-                            else:
-                                os.mkdir(FOLDER_NAME_)
-                                PrintLog(f"Directory {FOLDER_NAME_} successfully created")
-                                return FOLDER_NAME_
-
-                else:
-                    WarnLog("Select from y/n")
-
-    def img_plotly(self,
-                   figure: any,
-                   name: any,
-                   label: str,
-                   FILENAME: str,
-                   FILE_PATH: any) -> None:
-
-        SOURCE_FILE_PATH = FILE_PATH + f"/{name}"
-        DESTINATION_FILE_PATH = FILE_PATH + f"/{FILENAME}" + f"/{name}"
-        figure.write_image(name, width=1280, height=720)
-        shutil.move(src=SOURCE_FILE_PATH, dst=DESTINATION_FILE_PATH)
-
-    def img(self, FILENAME: any, FILE_PATH: any, type_='file') -> None:
-        """
-        It takes a filename and a type, and saves all the figures in the current figure list to a pdf file or a picture
-        file
-
-        :param FILE_PATH:
-        :param FILENAME: The name of the file you want to save
-        :type FILENAME: any
-        :param type_: 'file' or 'picture', defaults to file (optional)
-        """
-        if type_ == 'file':
-            FILE = PdfPages(FILENAME)
-            figureCount = plt.get_fignums()
-            fig = [plt.figure(n) for n in figureCount]
-
-            for i in fig:
-                tt = i.savefig(FILE, format='pdf', dpi=550, papertype='a4', bbox_inches='tight')
-
-            FILE.close()
-
-        elif type_ == 'picture':
-            FILE = self.directory(FILENAME)
-
-            figureCount = plt.get_fignums()
-            fig = [plt.figure(n) for n in figureCount]
-            fig_dict = {}
-            fig_num = list(range(6))
-            for i in range(len(fig_num)):
-                fig_dict.update({fig_num[i]: fig[i]})
-
-            for key, value in fig_dict.items():
-                add_path = key
-                FINAL_PATH = FILE_PATH + f'/{FILE}' + f'/{add_path}'
-                value.savefig(FINAL_PATH, dpi=1080, bbox_inches='tight')
-
-    def _kf_best_model(self, df, best, excel):
-        if best is not None:
-            if best == 'mean score':
-                df1 = df[df['mean score'] == df['mean score'].max()]
-                self.write_to_excel(excel, df)
-                display(df1)
-                return df1
-            elif best == 'std':
-                df1 = df[df['std'] == df['std'].min()]
-                self.write_to_excel(excel, df)
-                display(df1)
-                return df1
-
-        elif best is None:
-            self.write_to_excel(excel, df)
-            display(df)
-            return df
 
     def split(self,
               X: any,
@@ -613,7 +485,7 @@ class Models:
                 # df.drop(df[df['execution time(seconds)'] == 0.0].index, axis=0, inplace=True)
                 display(f"FASTEST MODEL")
                 display(df[df["execution time(seconds)"].max()])
-            self.write_to_excel(excel, df)
+            write_to_excel(excel, df)
             print(self.t_split_multiclass_columns)
             return df
 
@@ -634,7 +506,7 @@ class Models:
                                                                                 "Test r2",
                                                                                 "Train std",
                                                                                 "Test std", "Time Taken(s)"])
-                kf_ = self._kf_best_model(df, return_best_model, excel)
+                kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
             elif target == 'multiclass':
@@ -646,7 +518,7 @@ class Models:
                                                                                 "Test Recall Macro",
                                                                                 "Train f1 Macro", "Test f1 Macro",
                                                                                 "Time Taken(s)"])
-                kf_ = self._kf_best_model(df, return_best_model, excel)
+                kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
     def use_best_model(self, df, model: str = None, best: str = None):
@@ -695,9 +567,18 @@ class Models:
                         min_resources_grid: any = "exhaust",
                         min_resources_rand: any = "smallest",
                         aggressive_elimination: any = False,
-                        error_score: any = np.nan
+                        error_score: any = np.nan,
+                        pre_dispatch: any = "2*n_jobs",
+                        optimizer_kwargs: any = None,
+                        fit_params: any = None,
+                        n_points: any = 1
                         ):
         """
+        :param n_points:
+        :param fit_params:
+        :param optimizer_kwargs:
+        :param pre_dispatch:
+        :param error_score:
         :param min_resources_grid:
         :param min_resources_rand:
         :param aggressive_elimination:
@@ -737,7 +618,7 @@ class Models:
 
             if tune == 'grid':
                 tuned_model = GridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
-                                           verbose=verbose, error_score=error_score,
+                                           verbose=verbose, error_score=error_score, pre_dispatch=pre_dispatch,
                                            return_train_score=return_train_score, scoring=scorers, refit=refit)
                 return tuned_model
 
@@ -745,14 +626,16 @@ class Models:
                 tuned_model = RandomizedSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu, cv=cv,
                                                  verbose=verbose, random_state=random_state, n_iter=n_iter,
                                                  return_train_score=return_train_score, error_score=error_score,
-                                                 scoring=scorers, refit=refit)
+                                                 scoring=scorers, refit=refit, pre_dispatch=pre_dispatch)
                 return tuned_model
 
             elif tune == 'bayes':
                 tuned_model = BayesSearchCV(estimator=model, search_spaces=parameters, n_jobs=use_cpu,
                                             return_train_score=return_train_score, cv=cv, verbose=verbose,
                                             refit=refit, random_state=random_state, scoring=scorers,
-                                            error_score=error_score)
+                                            error_score=error_score, optimizer_kwargs=optimizer_kwargs,
+                                            n_points=n_points, n_iter=n_iter, fit_params=fit_params,
+                                            pre_dispatch=pre_dispatch)
                 return tuned_model
 
             elif tune == 'half-grid':
@@ -838,11 +721,11 @@ class Models:
 
             if save == 'pdf':
                 name = save_name + ".pdf"
-                self.img(name, FILE_PATH=file_path, type_='file')
+                img(name, FILE_PATH=file_path, type_='file')
 
             elif save == 'png':
                 name = save_name
-                self.img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
             display(plot)
             display(plot1)
@@ -887,10 +770,10 @@ class Models:
 
             if save == 'pdf':
                 name = save_name + ".pdf"
-                self.img(name, FILE_PATH=file_path, type_='file')
+                img(name, FILE_PATH=file_path, type_='file')
             elif save == 'png':
                 name = save_name
-                self.img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
             display(plot)
             display(plot1)
@@ -904,7 +787,7 @@ class Models:
              file_path: any = None,
              kf: bool = False,
              t_split: bool = False,
-             save=False,
+             save: bool = False,
              save_name=None,
              target='binary',
              ):
@@ -937,7 +820,7 @@ class Models:
                     IMAGE_COLUMNS.append(self.kf_binary_columns[i] + ".png")
 
                 if save is True:
-                    dir = self.directory(save_name)
+                    dir = directory(save_name)
                 for j in range(len(IMAGE_COLUMNS)):
 
                     fig = px.bar(data_frame=param,
@@ -951,7 +834,7 @@ class Models:
                             raise Exception("set save to True before using save_name")
 
                         else:
-                            self.img_plotly(
+                            img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
@@ -965,7 +848,7 @@ class Models:
                     IMAGE_COLUMNS.append(self.kf_multiclass_columns[i] + ".png")
 
                 if save is True:
-                    dir = self.directory(save_name)
+                    dir = directory(save_name)
 
                 for j in range(len(self.kf_multiclass_columns)):
                     fig = px.bar(data_frame=param,
@@ -979,7 +862,7 @@ class Models:
                             raise Exception("set save to True before using save_name")
 
                         elif save_name:
-                            self.img_plotly(
+                            img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
@@ -998,7 +881,7 @@ class Models:
                     IMAGE_COLUMNS.append(self.t_split_binary_columns[i] + ".png")
 
                 if save is True:
-                    dir = self.directory(save_name)
+                    dir = directory(save_name)
                 for j in range(len(IMAGE_COLUMNS)):
 
                     fig = px.bar(data_frame=param,
@@ -1012,7 +895,7 @@ class Models:
                             raise Exception("set save to True before using save_name")
 
                         else:
-                            self.img_plotly(
+                            img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
@@ -1026,7 +909,7 @@ class Models:
                     IMAGE_COLUMNS.append(self.t_split_multiclass_columns[i] + ".png")
 
                 if save is True:
-                    dir = self.directory(save_name)
+                    dir = directory(save_name)
 
                 for j in range(len(self.t_split_multiclass_columns)):
                     fig = px.bar(data_frame=param,
@@ -1040,7 +923,7 @@ class Models:
                             raise Exception("set save to True before using save_name")
 
                         elif save_name:
-                            self.img_plotly(
+                            img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
