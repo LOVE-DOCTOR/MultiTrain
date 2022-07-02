@@ -120,7 +120,7 @@ def kf_best_model(df, best, excel):
         metrics_high = ["Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
                         "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
                         "Neg Median Absolute Percentage Error", "Accuracy", "Precision",
-                        "Precision Macro", "Recall", "Recall Macro","Standard Deviation of Accuracy"]
+                        "Precision Macro", "Recall", "Recall Macro", "Standard Deviation of Accuracy"]
 
         metrics_low = ["Mean Absolute Error", "Root Mean Squared Error", "Root Mean Squared Log Error",
                        "Median Absolute Error", "Median Absolute Percentage Error"]
@@ -140,5 +140,20 @@ def kf_best_model(df, best, excel):
         return df
 
 
+def t_best_model(df, best, excel):
+    if best is not None:
+        PrintLog(f'BEST MODEL BASED ON {best}')
+        minimum = ["Mean Absolute Error", 'Root Mean Squared Error', 'Root Mean Squared Log Error',
+                   'Median Absolute Error', 'Mean Absolute Percentage Error']
+        maximum = ['r2 score']
 
+        if best in minimum:
+            display(df[df[best] == df[best].min()])
+        elif best in maximum:
+            display(df[df[best] == df[best].max()])
 
+    elif best is None:
+        display(df.style.highlight_min(color="yellow"))
+
+    write_to_excel(excel, df)
+    return df

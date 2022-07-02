@@ -40,7 +40,6 @@ import time
 warnings.filterwarnings("ignore")
 
 
-
 class Classification:
 
     def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
@@ -119,10 +118,10 @@ class Classification:
 
         self.kf_multiclass_columns_test = ["Precision Macro", "Recall Macro", "f1 Macro"]
 
-        self.t_split_binary_columns = ["accuracy", "r2 score",
-                                       "ROC AUC", "f1 score", "precision", "recall", "execution time(seconds)"]
+        self.t_split_binary_columns = ["Accuracy", "r2 score",
+                                       "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns = ["accuracy", "r2 score",
+        self.t_split_multiclass_columns = ["Accuracy", "r2 score",
                                            "execution time(seconds)"]
 
     def split(self,
@@ -191,7 +190,7 @@ class Classification:
         It initializes all the models that we will be using in our ensemble
         """
         self.lr = LogisticRegression(n_jobs=-1)
-        self.lrcv = LogisticRegressionCV(n_jobs=-1)
+        self.lrcv = LogisticRegressionCV(n_jobs=-1, refit=True)
         self.sgdc = SGDClassifier(n_jobs=-1)
         self.pagg = PassiveAggressiveClassifier(n_jobs=-1)
         self.rfc = RandomForestClassifier(n_jobs=-1)
@@ -199,7 +198,7 @@ class Classification:
         self.hgbc = HistGradientBoostingClassifier()
         self.abc = AdaBoostClassifier()
         self.cat = CatBoostClassifier(thread_count=-1, verbose=False)
-        self.xgb = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss", n_jobs=-1)
+        self.xgb = XGBClassifier(eval_metric="mlogloss", n_jobs=-1, refit=True)
         self.gnb = GaussianNB()
         self.lda = LinearDiscriminantAnalysis()
         self.knc = KNeighborsClassifier(n_jobs=-1)
@@ -281,7 +280,6 @@ class Classification:
                     dataframe.update({names[i]: scores_df})
 
                 if train_score is False:
-
                     mean_test_acc = scores['test_accuracy'].mean()
                     mean_test_precision = scores['test_precision'].mean()
                     mean_test_f1 = scores['test_f1'].mean()
@@ -291,6 +289,7 @@ class Classification:
 
                     scores_df = [mean_test_acc, mean_test_precision, mean_test_f1, mean_test_r2, mean_test_recall,
                                  test_stdev]
+                    dataframe.update({names[i]: scores_df})
             return dataframe
 
         elif fn_target == 'multiclass':
@@ -541,7 +540,7 @@ class Classification:
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
-    def use_best_model(self, df, model: str = None, best: str = None):
+    def use_model(self, df, model: str = None, best: str = None):
         """
 
 
@@ -581,7 +580,7 @@ class Classification:
                         refit: bool = True,
                         random_state: int = None,
                         factor: int = 3,
-                        verbose: int = 4,
+                        verbose: int = 5,
                         resource: any = "n_samples",
                         max_resources: any = "auto",
                         min_resources_grid: any = "exhaust",
@@ -591,9 +590,11 @@ class Classification:
                         pre_dispatch: any = "2*n_jobs",
                         optimizer_kwargs: any = None,
                         fit_params: any = None,
-                        n_points: any = 1
+                        n_points: any = 1,
+                        score='accuracy'
                         ):
         """
+        :param score:
         :param n_points:
         :param fit_params:
         :param optimizer_kwargs:
@@ -660,8 +661,8 @@ class Classification:
 
             elif tune == 'half-grid':
                 tuned_model = HalvingGridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
-                                                  verbose=4, random_state=42, factor=factor, refit=refit,
-                                                  scoring=scorers, resource=resource, min_resources=min_resources_grid,
+                                                  verbose=verbose, random_state=42, factor=factor, refit=refit,
+                                                  scoring=score, resource=resource, min_resources=min_resources_grid,
                                                   max_resources=max_resources, error_score=error_score,
                                                   aggressive_elimination=aggressive_elimination)
 
@@ -669,8 +670,8 @@ class Classification:
 
             elif tune == 'half-random':
                 tuned_model = HalvingRandomSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu,
-                                                    cv=cv, verbose=4, random_state=42, factor=factor, refit=refit,
-                                                    scoring=scorers, resource=resource, error_score=error_score,
+                                                    cv=cv, verbose=verbose, random_state=42, factor=factor, refit=refit,
+                                                    scoring=score, resource=resource, error_score=error_score,
                                                     min_resources=min_resources_rand, max_resources=max_resources,
                                                     aggressive_elimination=aggressive_elimination)
                 return tuned_model
@@ -683,6 +684,7 @@ class Classification:
                   size=(15, 8),
                   save: str = None,
                   save_name='dir1',
+                  target='binary'
                   ):
 
         """
@@ -730,12 +732,32 @@ class Classification:
         if kf is True:
 
             plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="mean score", data=param)
+            plot = sns.barplot(x="model_names", y="Accuracy", data=param)
             plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
-            plt.title("MEAN SCORE")
+            plt.title("ACCURACY")
 
             plt.figure(figsize=size)
-            plot1 = sns.barplot(x="model_names", y="std", data=param)
+            plot1 = sns.barplot(x="model_names", y="Precision", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("PRECISION")
+
+            plt.figure(figsize=size)
+            plot2 = sns.barplot(x="model_names", y="Recall", data=param)
+            plot2.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("RECALL")
+
+            plt.figure(figsize=size)
+            plot3 = sns.barplot(x="model_names", y="f1", data=param)
+            plot3.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("F1 SCORE")
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="r2", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("R2 SCORE")
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="Standard Deviation of Accuracy", data=param)
             plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
             plt.title("STANDARD DEVIATION")
 
@@ -751,56 +773,71 @@ class Classification:
             display(plot1)
 
         elif t_split is True:
-
-            plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="accuracy", data=param)
-            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
-            plt.title("ACCURACY")
-
-            plt.figure(figsize=size)
-            plot1 = sns.barplot(x="model_names", y="mean absolute error", data=param)
-            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
-            plt.title("MEAN ABSOLUTE ERROR")
-
-            plt.figure(figsize=size)
-            plot2 = sns.barplot(x="model_names", y="mean squared error", data=param)
-            plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
-            plt.title("MEAN SQUARED ERROR")
-
-            plt.figure(figsize=size)
-            plot3 = sns.barplot(x="model_names", y="r2 score", data=param)
-            plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
-            plt.title("R2 SCORE")
-
-            try:
+            if target == 'binary':
                 plt.figure(figsize=size)
-                plot4 = sns.barplot(x="model_names", y="ROC AUC", data=param)
-                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                plot = sns.barplot(x="model_names", y="Accuracy", data=param)
+                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.title("ACCURACY")
+
+                plt.figure(figsize=size)
+                plot1 = sns.barplot(x="model_names", y="r2 score", data=param)
+                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+                plt.title("R2 SCORE")
+
+                plt.figure(figsize=size)
+                plot2 = sns.barplot(x="model_names", y="ROC AUC", data=param)
+                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
                 plt.title("ROC AUC")
-            except None in param["ROC AUC"]:
-                plot4 = 'ROC AUC cannot be visualized'
 
-            try:
                 plt.figure(figsize=size)
-                plot5 = sns.barplot(x="model_names", y="f1 score", data=param)
-                plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+                plot3 = sns.barplot(x="model_names", y="f1 score", data=param)
+                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
                 plt.title("F1 SCORE")
-            except None in param["f1 score"]:
-                plot5 = 'f1 score cannot be visualized'
 
-            if save == 'pdf':
-                name = save_name + ".pdf"
-                img(name, FILE_PATH=file_path, type_='file')
-            elif save == 'png':
-                name = save_name
-                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+                plt.figure(figsize=size)
+                plot4 = sns.barplot(x='model_names', y='Precision', data=param)
+                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                plt.title("PRECISION")
 
-            display(plot)
-            display(plot1)
-            display(plot2)
-            display(plot3)
-            display(plot4)
-            display(plot5)
+                plt.figure(figsize=size)
+                plot5 = sns.barplot(x='model_names', y='Recall', data=param)
+                plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+                plt.title("RECALL")
+
+                display(plot)
+                display(plot1)
+                display(plot2)
+                display(plot3)
+                display(plot4)
+                display(plot5)
+
+                if save == 'pdf':
+                    name = save_name + ".pdf"
+                    img(name, FILE_PATH=file_path, type_='file')
+                elif save == 'png':
+                    name = save_name
+                    img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+
+            elif target == 'multiclass':
+                plt.figure(figsize=size)
+                plot = sns.barplot(x="model_names", y="Accuracy", data=param)
+                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.title("ACCURACY")
+
+                plt.figure(figsize=size)
+                plot1 = sns.barplot(x="model_names", y="r2 score", data=param)
+                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+                plt.title("R2 SCORE")
+
+                display(plot)
+                display(plot1)
+
+                if save == 'pdf':
+                    name = save_name + ".pdf"
+                    img(name, FILE_PATH=file_path, type_='file')
+                elif save == 'png':
+                    name = save_name
+                    img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
     def show(self,
              param: {__setitem__},
@@ -814,6 +851,7 @@ class Classification:
         """
                 The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
+                :param save:
                 :param target:
                 :param file_path:
                 :param param: {__setitem__}

@@ -17,17 +17,19 @@ from sklearn.linear_model import PoissonRegressor, GammaRegressor, HuberRegresso
     OrthogonalMatchingPursuitCV, PassiveAggressiveRegressor, OrthogonalMatchingPursuit, LassoLars, ARDRegression, \
     QuantileRegressor, TheilSenRegressor, Ridge, ElasticNet, Lasso, LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, mean_squared_log_error, \
-    median_absolute_error, mean_absolute_percentage_error
-from sklearn.model_selection import train_test_split, cross_validate
+    median_absolute_error, mean_absolute_percentage_error, make_scorer, precision_score, recall_score, accuracy_score
+from sklearn.model_selection import train_test_split, cross_validate, HalvingRandomSearchCV, HalvingGridSearchCV, \
+    RandomizedSearchCV, GridSearchCV
 from sklearn.neural_network import MLPRegressor
 from sklearn.svm import LinearSVR
 from sklearn.tree import ExtraTreeRegressor, DecisionTreeRegressor
 from sklearn.svm import SVR, NuSVR
+from skopt import BayesSearchCV
 from skopt.learning import ExtraTreesRegressor, GaussianProcessRegressor, RandomForestRegressor
 from xgboost import XGBRegressor
 
 from MultiTrain.LOGGING import PrintLog
-from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model
+from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model
 
 
 class Regression:
@@ -35,7 +37,7 @@ class Regression:
     def __init__(self, lr=0, rfr=0, xgb=0, gbr=0, hgbr=0, svr=0, br=0, nsvr=0, etr=0, etrs=0, ada=0,
                  pr=0, lgbm=0, knr=0, dtr=0, mlp=0, hub=0, gmr=0, lsvr=0, ridg=0, rid=0, byr=0, ttr=0,
                  eltcv=0, elt=0, lcv=0, llic=0, llcv=0, l=0, lrcv=0, sgd=0, twr=0, glr=0, lass=0, ranr=0,
-                 ompc=0, par=0, gpr=0, ompu=0, dr=0, lassla=0, krid=0, ard=0, quant=0, theil=0):
+                 ompc=0, par=0, gpr=0, ompu=0, dr=0, lassla=0, krid=0, ard=0, theil=0, random_state=None):
 
         self.lr = lr
         self.rfr = rfr
@@ -80,8 +82,9 @@ class Regression:
         self.lassla = lassla
         self.krid = krid
         self.ard = ard
-        self.quant = quant
+        # self.quant = quant
         self.theil = theil
+        self.random_state = random_state
 
     def regression_model_names(self):
         model_names = ["Linear Regression", "Random Forest Regressor", "XGBRegressor", "GradientBoostingRegressor",
@@ -93,7 +96,7 @@ class Regression:
                        "LassoLarsCV", "Lars", "LarsCV", "SGDRegressor", "TweedieRegressor", "Lasso",
                        "RANSACRegressor", "OrthogonalMatchingPursuitCV", "PassiveAggressiveRegressor",
                        "GaussianProcessRegressor", "OrthogonalMatchingPursuit", "DummyRegressor", "LassoLars",
-                       "KernelRidge", "ARDRegression", "QuantileRegressor", "TheilSenRegressor"]
+                       "KernelRidge", "ARDRegression", "TheilSenRegressor"]
         return model_names
 
     def split(self,
@@ -138,56 +141,83 @@ class Regression:
         print("Regressors like HuberRegressor, QuantileRegressor, RANSACRegressor and TheilSen Regressor"
               " are robust to outliers")
 
-        self.lr = LinearRegression()
-        self.rfr = RandomForestRegressor()
-        self.xgb = XGBRegressor()
-        self.gbr = GradientBoostingRegressor()
-        self.hgbr = HistGradientBoostingRegressor()
+        self.lr = LinearRegression(n_jobs=-1)
+        self.rfr = RandomForestRegressor(random_state=self.random_state)
+        self.xgb = XGBRegressor(random_state=self.random_state)
+        self.gbr = GradientBoostingRegressor(random_state=self.random_state)
+        self.hgbr = HistGradientBoostingRegressor(random_state=self.random_state)
         self.svr = SVR()
-        self.br = BaggingRegressor()
+        self.br = BaggingRegressor(random_state=self.random_state)
         self.nsvr = NuSVR()
-        self.etr = ExtraTreeRegressor()
-        self.etrs = ExtraTreesRegressor()
-        self.ada = AdaBoostRegressor()
+        self.etr = ExtraTreeRegressor(random_state=self.random_state)
+        self.etrs = ExtraTreesRegressor(random_state=self.random_state)
+        self.ada = AdaBoostRegressor(random_state=self.random_state)
         self.pr = PoissonRegressor()
-        self.lgbm = LGBMRegressor()
+        self.lgbm = LGBMRegressor(random_state=self.random_state)
         self.knr = KNeighborsRegressor()
-        self.dtr = DecisionTreeRegressor()
-        self.mlp = MLPRegressor()
+        self.dtr = DecisionTreeRegressor(random_state=self.random_state)
+        self.mlp = MLPRegressor(random_state=self.random_state)
         self.hub = HuberRegressor()
         self.gmr = GammaRegressor()
-        self.lsvr = LinearSVR()
+        self.lsvr = LinearSVR(random_state=self.random_state)
         self.ridg = RidgeCV()
-        self.rid = Ridge()
+        self.rid = Ridge(random_state=self.random_state)
         self.byr = BayesianRidge()
         self.ttr = TransformedTargetRegressor()
-        self.eltcv = ElasticNetCV()
-        self.elt = ElasticNet()
-        self.lcv = LassoCV()
+        self.eltcv = ElasticNetCV(n_jobs=-1, random_state=self.random_state)
+        self.elt = ElasticNet(random_state=self.random_state)
+        self.lcv = LassoCV(n_jobs=-1, random_state=self.random_state)
         self.llic = LassoLarsIC()
         self.llcv = LassoLarsCV()
-        self.l = Lars()
-        self.lrcv = LarsCV()
-        self.sgd = SGDRegressor()
+        self.l = Lars(random_state=self.random_state)
+        self.lrcv = LarsCV(n_jobs=-1)
+        self.sgd = SGDRegressor(random_state=self.random_state)
         self.twr = TweedieRegressor()
-        self.lass = Lasso()
-        self.ranr = RANSACRegressor()
-        self.ompc = OrthogonalMatchingPursuitCV()
-        self.par = PassiveAggressiveRegressor()
-        self.gpr = GaussianProcessRegressor()
+        self.lass = Lasso(random_state=self.random_state)
+        self.ranr = RANSACRegressor(random_state=self.random_state)
+        self.ompc = OrthogonalMatchingPursuitCV(n_jobs=-1)
+        self.par = PassiveAggressiveRegressor(random_state=self.random_state)
+        self.gpr = GaussianProcessRegressor(random_state=self.random_state)
         self.ompu = OrthogonalMatchingPursuit()
         self.dr = DummyRegressor()
-        self.lassla = LassoLars()
+        self.lassla = LassoLars(random_state=self.random_state)
         self.krid = KernelRidge()
         self.ard = ARDRegression()
-        self.quant = QuantileRegressor()
-        self.theil = TheilSenRegressor(n_jobs=-1)
+        #self.quant = QuantileRegressor()
+        self.theil = TheilSenRegressor(n_jobs=-1, random_state=self.random_state)
 
         return self.lr, self.rfr, self.xgb, self.gbr, self.hgbr, self.svr, self.br, self.nsvr, self.etr, self.etrs, \
                self.ada, self.pr, self.lgbm, self.knr, self.dtr, self.mlp, self.hub, self.gmr, self.lsvr, self.ridg, \
                self.rid, self.byr, self.ttr, self.eltcv, self.elt, self.lcv, self.llic, self.llcv, self.l, self.lrcv, \
                self.sgd, self.twr, self.lass, self.ranr, self.ompc, self.par, self.gpr, self.ompu, self.dr, \
-               self.lassla, self.krid, self.ard, self.quant, self.theil
+               self.lassla, self.krid, self.ard, self.theil
+
+    def _get_index(self, df, the_best):
+        name = list(self.regression_model_names())
+        MODEL = self.initialize()
+        df['model_names'] = name
+
+        high = ["Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2 score",
+                "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
+                "Neg Median Absolute Percentage Error"]
+
+        low = ["Mean Absolute Error", "Root Mean Squared Error",
+               "Root Mean Squared Log Error", "Median Absolute Error",
+               "Mean Absolute Percentage Error"]
+
+        if the_best in high:
+            best_model_details = df[df[the_best] == df[the_best].max()]
+
+        elif the_best in low:
+            best_model_details = df[df[the_best] == df[the_best].min()]
+
+        else:
+            raise Exception(f'metric {the_best} not found')
+
+        best_model_details = best_model_details.reset_index()
+        best_model_name = best_model_details.iloc[0]['model_names']
+        index_ = name.index(best_model_name)
+        return MODEL[index_]
 
     def startKFold(self, param, param_X, param_y, param_cv, train_score):
         names = self.regression_model_names()
@@ -362,12 +392,11 @@ class Regression:
                 end = time.time()
 
                 pred = model[i].predict(X_te)
-                print(model[i])
                 # X_tr is X_train, X_te is X_test, y_tr is y_train, y_te is y_test
                 true = y_te
                 mae = mean_absolute_error(true, pred)
                 rmse = np.sqrt(mean_squared_error(true, pred))
-                r2 = r2_score(true, pred)
+                r2 = r2_score(true, pred, force_finite=True)
                 try:
                     rmsle = np.sqrt(mean_squared_log_error(true, pred))
                 except ValueError:
@@ -381,24 +410,11 @@ class Regression:
 
             dataframe_columns = ["Mean Absolute Error", "Root Mean Squared Error", "r2 score",
                                  "Root Mean Squared Log Error", "Median Absolute Error",
-                                 "Mean Absolute Percentage Error"]
+                                 "Mean Absolute Percentage Error", "Time Taken(s)"]
             df = pd.DataFrame.from_dict(dataframe, orient='index', columns=dataframe_columns)
 
-            if return_best_model is not None:
-                display(f'BEST MODEL BASED ON {return_best_model}')
-
-                if return_best_model == 'Mean Absolute Error':
-                    display(df[df['Mean Absolute Error'] == df['Mean Absolute Error'].min()])
-                elif return_best_model == 'RMSE':
-                    display(df[df['RMSE'] == df['RMSE'].min()])
-                elif return_best_model == 'r2 score':
-                    display(df[df['r2 score'] == df['r2 score'].max()])
-
-            elif return_best_model is None:
-                display(df.style.highlight_max(color="yellow"))
-
-            write_to_excel(excel, df)
-            return df
+            t_split = t_best_model(df, return_best_model, excel)
+            return t_split
 
         elif kf is True:
 
@@ -424,6 +440,7 @@ class Regression:
                                                                                 "(Train)",
                                                                                 "Neg Mean Absolute Percentage Error",
                                                                                 "Time Taken(s)"])
+
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
@@ -437,3 +454,138 @@ class Regression:
                                                                                 "Time Taken(s)"])
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
+
+    def use_model(self, df, model: str = None, best: str = None):
+        """
+
+
+        :param df: the dataframe object
+        :param model: name of the classifier algorithm
+        :param best: the evaluation metric used to find the best model
+
+        :return:
+        """
+
+        name = self.regression_model_names()
+        MODEL = self.initialize()
+
+        if model is not None and best is not None:
+            raise Exception('You can only use one of the two arguments.')
+
+        if model:
+            if model not in name:
+                raise Exception(f"name {model} is not found, "
+                                f"here is a list of the available models to work with: {name}")
+            elif model in name:
+                index_ = name.index(model)
+                return MODEL[index_]
+
+        elif best:
+            instance = self._get_index(df, best)
+            return instance
+
+    def tune_parameters(self,
+                        model: str = None,
+                        parameters: dict = None,
+                        tune: str = None,
+                        use_cpu: int = None,
+                        cv: int = 5,
+                        n_iter: any = 50,
+                        return_train_score: bool = False,
+                        refit: bool = True,
+                        random_state: int = None,
+                        factor: int = 3,
+                        verbose: int = 4,
+                        resource: any = "n_samples",
+                        max_resources: any = "auto",
+                        min_resources_grid: any = "exhaust",
+                        min_resources_rand: any = "smallest",
+                        aggressive_elimination: any = False,
+                        error_score: any = np.nan,
+                        pre_dispatch: any = "2*n_jobs",
+                        optimizer_kwargs: any = None,
+                        fit_params: any = None,
+                        n_points: any = 1
+                        ):
+        """
+        :param n_points:
+        :param fit_params:
+        :param optimizer_kwargs:
+        :param pre_dispatch:
+        :param error_score:
+        :param min_resources_grid:
+        :param min_resources_rand:
+        :param aggressive_elimination:
+        :param max_resources:
+        :param resource: Defines the resource that increases with each iteration.
+        :param verbose:
+        :param return_train_score:
+        :param refit:
+        :param random_state:
+        :param n_iter:
+        :param model: This is the instance of the model to be used
+        :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
+        candidates that are selected for each subsequent iteration. For example, factor=3 means that only one third of the
+        candidates are selected.
+        :param parameters: the dictionary of the model parameters
+        :param tune: the type of searching method to use, either grid for GridSearchCV
+        or random for RandomSearchCV
+        :param use_cpu : the value set determines the number of cores used for training,
+        if set to -1 it uses all the available cores
+        :param cv:This determines the cross validation splitting strategy, defaults to 5
+        :return:
+        """
+        name = self.regression_model_names()
+        MODEL = self.initialize()
+        # index_ = name.index(model)
+        # mod = MODEL[index_]
+
+        if isinstance(parameters, dict) is False:
+            raise TypeError("The 'parameters' argument only accepts a dictionary of the parameters for the "
+                            "model you want to train with.")
+        if tune:
+            scorers = {
+                'precision_score': make_scorer(precision_score),
+                'recall_score': make_scorer(recall_score),
+                'accuracy_score': make_scorer(accuracy_score)
+            }
+
+            if tune == 'grid':
+                tuned_model = GridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
+                                           verbose=verbose, error_score=error_score, pre_dispatch=pre_dispatch,
+                                           return_train_score=return_train_score, scoring=scorers, refit=refit)
+                return tuned_model
+
+            elif tune == 'random':
+                tuned_model = RandomizedSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu, cv=cv,
+                                                 verbose=verbose, random_state=random_state, n_iter=n_iter,
+                                                 return_train_score=return_train_score, error_score=error_score,
+                                                 scoring=scorers, refit=refit, pre_dispatch=pre_dispatch)
+                return tuned_model
+
+            elif tune == 'bayes':
+                tuned_model = BayesSearchCV(estimator=model, search_spaces=parameters, n_jobs=use_cpu,
+                                            return_train_score=return_train_score, cv=cv, verbose=verbose,
+                                            refit=refit, random_state=random_state, scoring=scorers,
+                                            error_score=error_score, optimizer_kwargs=optimizer_kwargs,
+                                            n_points=n_points, n_iter=n_iter, fit_params=fit_params,
+                                            pre_dispatch=pre_dispatch)
+                return tuned_model
+
+            elif tune == 'half-grid':
+                tuned_model = HalvingGridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
+                                                  verbose=4, random_state=42, factor=factor, refit=refit,
+                                                  scoring=scorers, resource=resource, min_resources=min_resources_grid,
+                                                  max_resources=max_resources, error_score=error_score,
+                                                  aggressive_elimination=aggressive_elimination)
+
+                return tuned_model
+
+            elif tune == 'half-random':
+                tuned_model = HalvingRandomSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu,
+                                                    cv=cv, verbose=4, random_state=42, factor=factor, refit=refit,
+                                                    scoring=scorers, resource=resource, error_score=error_score,
+                                                    min_resources=min_resources_rand, max_resources=max_resources,
+                                                    aggressive_elimination=aggressive_elimination)
+                return tuned_model
+
