@@ -3,13 +3,14 @@ import seaborn as sns
 import plotly.express as px
 from IPython.display import display
 from catboost import CatBoostClassifier
-from daal4py.sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from daal4py.sklearn.linear_model import LogisticRegression
-from daal4py.sklearn.neighbors import KNeighborsClassifier
-from daal4py.sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, HistGradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from lightgbm import LGBMClassifier
 from pandas import DataFrame
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.ensemble import GradientBoostingClassifier, HistGradientBoostingClassifier, ExtraTreesClassifier, \
+from sklearn.ensemble import GradientBoostingClassifier, ExtraTreesClassifier, \
     BaggingClassifier
 from sklearn.linear_model import LogisticRegressionCV, SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, \
     RidgeClassifierCV, Perceptron
@@ -17,7 +18,7 @@ from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, Compleme
 from sklearn.neural_network import MLPClassifier
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
-from sklearnex.svm import NuSVC
+from sklearn.svm import NuSVC
 from xgboost import XGBClassifier
 
 from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel
@@ -26,9 +27,8 @@ from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cr
 from sklearn.model_selection import RandomizedSearchCV, cross_validate
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
-from sklearnex import patch_sklearn
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
-from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score
+from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score, mean_squared_error
 from sklearn.metrics import precision_score, recall_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
@@ -39,14 +39,13 @@ import time
 
 warnings.filterwarnings("ignore")
 
-patch_sklearn()
 
 
 class Classification:
 
     def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
                  dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, qda=0,
-                 lsvc=0, bc=0, per=0, nu=0) -> None:
+                 lsvc=0, bc=0, per=0, nu=0, lgbm=0) -> None:
         """
 
         :param lr: Logistic Regression
@@ -101,23 +100,29 @@ class Classification:
         self.rcl = rcl
         self.rclv = rclv
         self.etc = etc
-
         self.qda = qda
         self.lsvc = lsvc
         self.bc = bc
         self.per = per
         self.nu = nu
-        self.kf_binary_columns = ["Train Acc", "Test Acc", "Train Precision", "Test Precision",
-                                  "Train Recall", "Test Recall", "Train f1", "Test f1", 'Train r2',
-                                  'Test r2', "Train std", "Test std", "Time Taken(s)"]
+        self.lgbm = lgbm
+        self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Precision(Train)", "Precision",
+                                        "Recall(Train)", "Recall", "f1(Train)", "f1", 'r2',
+                                        'r2', "Standard Deviation of Accuracy(Train)", "Standard Deviation of Accuracy",
+                                        "Time Taken(s)"]
 
-        self.kf_multiclass_columns = ["Train Precision Macro", "Test Precision Macro", "Train Recall Macro",
-                                      "Test Recall Macro", "Train f1 Macro", "Test f1 Macro", "Time Taken(s)"]
+        self.kf_binary_columns_test = ["Accuracy", "Precision", "Recall", "f1", "r2", "Standard Deviation of Accuracy",
+                                       "Time Taken(s)"]
 
-        self.t_split_binary_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
+        self.kf_multiclass_columns_train = ["Precision Macro(Train)", "Precision Macro", "Recall Macro(Train)",
+                                            "Recall Macro", "f1 Macro(Train)", "f1 Macro", "Time Taken(s)"]
+
+        self.kf_multiclass_columns_test = ["Precision Macro", "Recall Macro", "f1 Macro"]
+
+        self.t_split_binary_columns = ["accuracy", "r2 score",
                                        "ROC AUC", "f1 score", "precision", "recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns = ["accuracy", "mean absolute error", "mean squared error", "r2 score",
+        self.t_split_multiclass_columns = ["accuracy", "r2 score",
                                            "execution time(seconds)"]
 
     def split(self,
@@ -178,7 +183,7 @@ class Classification:
                        "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
                        "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
-                       "Perceptron", "NuSVC"]
+                       "Perceptron", "NuSVC", "LGBMClassifier"]
         return model_names
 
     def initialize(self):
@@ -214,10 +219,11 @@ class Classification:
         self.bc = BaggingClassifier(n_jobs=-1)
         self.per = Perceptron(n_jobs=-1)
         self.nu = NuSVC()
+        self.lgbm = LGBMClassifier()
 
         return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
                 self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
-                self.etcs, self.rcl, self.rclv, self.etc, self.qda, self.lsvc, self.bc, self.per, self.nu)
+                self.etcs, self.rcl, self.rclv, self.etc, self.qda, self.lsvc, self.bc, self.per, self.nu, self.lgbm)
 
     def _get_index(self, df, the_best):
         name = list(self.classifier_model_names())
@@ -242,7 +248,7 @@ class Classification:
         index_ = name.index(best_model_name)
         return MODEL[index_]
 
-    def startKFold(self, param, param_X, param_y, param_cv, fn_target):
+    def startKFold(self, param, param_X, param_y, param_cv, fn_target, train_score):
         names = self.classifier_model_names()
 
         if fn_target == 'binary':
@@ -254,23 +260,37 @@ class Classification:
                                         cv=param_cv, n_jobs=-1, return_train_score=True)
                 end = time.time()
                 seconds = end - start
-                mean_train_acc = scores['train_accuracy'].mean()
-                mean_test_acc = scores['test_accuracy'].mean()
-                mean_train_precision = scores['train_precision'].mean()
-                mean_test_precision = scores['test_precision'].mean()
-                mean_train_f1 = scores['train_f1'].mean()
-                mean_test_f1 = scores['test_f1'].mean()
-                mean_train_r2 = scores['train_r2'].mean()
-                mean_test_r2 = scores['test_r2'].mean()
-                mean_train_recall = scores['train_recall'].mean()
-                mean_test_recall = scores['test_recall'].mean()
-                train_stdev = scores['train_accuracy'].std()
-                test_stdev = scores['test_accuracy'].std()
-                # scores = scores.tolist()
-                scores_df = [mean_train_acc, mean_test_acc, mean_train_precision, mean_test_precision,
-                             mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2, mean_train_recall,
-                             mean_test_recall, train_stdev, test_stdev, seconds]
-                dataframe.update({names[i]: scores_df})
+
+                if train_score is True:
+                    mean_train_acc = scores['train_accuracy'].mean()
+                    mean_test_acc = scores['test_accuracy'].mean()
+                    mean_train_precision = scores['train_precision'].mean()
+                    mean_test_precision = scores['test_precision'].mean()
+                    mean_train_f1 = scores['train_f1'].mean()
+                    mean_test_f1 = scores['test_f1'].mean()
+                    mean_train_r2 = scores['train_r2'].mean()
+                    mean_test_r2 = scores['test_r2'].mean()
+                    mean_train_recall = scores['train_recall'].mean()
+                    mean_test_recall = scores['test_recall'].mean()
+                    train_stdev = scores['train_accuracy'].std()
+                    test_stdev = scores['test_accuracy'].std()
+                    # scores = scores.tolist()
+                    scores_df = [mean_train_acc, mean_test_acc, mean_train_precision, mean_test_precision,
+                                 mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2, mean_train_recall,
+                                 mean_test_recall, train_stdev, test_stdev, seconds]
+                    dataframe.update({names[i]: scores_df})
+
+                if train_score is False:
+
+                    mean_test_acc = scores['test_accuracy'].mean()
+                    mean_test_precision = scores['test_precision'].mean()
+                    mean_test_f1 = scores['test_f1'].mean()
+                    mean_test_r2 = scores['test_r2'].mean()
+                    mean_test_recall = scores['test_recall'].mean()
+                    test_stdev = scores['test_accuracy'].std()
+
+                    scores_df = [mean_test_acc, mean_test_precision, mean_test_f1, mean_test_r2, mean_test_recall,
+                                 test_stdev]
             return dataframe
 
         elif fn_target == 'multiclass':
@@ -282,15 +302,31 @@ class Classification:
                                         cv=param_cv, n_jobs=-1, return_train_score=True)
                 end = time.time()
                 seconds = end - start
-                mean_train_precision = scores['train_precision_macro'].mean()
-                mean_test_precision = scores['test_precision_macro'].mean()
-                mean_train_f1 = scores['train_f1_macro'].mean()
-                mean_test_f1 = scores['test_f1_macro'].mean()
-                mean_train_recall = scores['train_recall_macro'].mean()
-                mean_test_recall = scores['test_recall_macro'].mean()
-                scores_df = [mean_train_precision, mean_test_precision, mean_train_f1, mean_test_f1,
-                             mean_train_recall, mean_test_recall, seconds]
-                dataframe.update({names[j]: scores_df})
+
+                if train_score is True:
+
+                    mean_train_precision = scores['train_precision_macro'].mean()
+                    mean_test_precision = scores['test_precision_macro'].mean()
+                    mean_train_f1 = scores['train_f1_macro'].mean()
+                    mean_test_f1 = scores['test_f1_macro'].mean()
+                    mean_train_recall = scores['train_recall_macro'].mean()
+                    mean_test_recall = scores['test_recall_macro'].mean()
+
+                    scores_df = [mean_train_precision, mean_test_precision, mean_train_f1, mean_test_f1,
+                                 mean_train_recall, mean_test_recall, seconds]
+
+                    dataframe.update({names[j]: scores_df})
+
+                elif train_score is False:
+
+                    mean_test_precision = scores['test_precision_macro'].mean()
+                    mean_test_f1 = scores['test_f1_macro'].mean()
+                    mean_test_recall = scores['test_recall_macro'].mean()
+
+                    scores_df = [mean_test_precision, mean_test_f1, mean_test_recall, seconds]
+
+                    dataframe.update({names[j]: scores_df})
+
             return dataframe
 
     def fit(self,
@@ -308,12 +344,14 @@ class Classification:
             excel: bool = False,
             return_best_model: str = None,
             return_fastest_model: bool = False,
-            target: str = 'binary'
+            target: str = 'binary',
+            show_train_score: bool = False
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param show_train_score:
         :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
         of the fastest model
 
@@ -407,12 +445,9 @@ class Classification:
             dataframe = {}
             for i in range(len(model)):
                 start = time.time()
-                try:
-                    model[i].fit(X_tr, y_tr)
-                except ValueError:
-                    pass
-                except MemoryError:
-                    pass
+
+                model[i].fit(X_tr, y_tr)
+
                 end = time.time()
                 try:
                     pred = model[i].predict(X_te)
@@ -421,8 +456,6 @@ class Classification:
                 true = y_te
 
                 acc = accuracy_score(true, pred)
-                mae = mean_absolute_error(true, pred)
-                mse = np.sqrt(mean_absolute_error(true, pred))
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
@@ -444,8 +477,8 @@ class Classification:
                     rec = None
 
                 time_taken = round(end - start, 2)
-                eval_bin = [acc, mae, mse, r2, roc, f1, pre, rec, time_taken]
-                eval_mul = [acc, mae, mse, r2, time_taken]
+                eval_bin = [acc, r2, roc, f1, pre, rec, time_taken]
+                eval_mul = [acc, r2, time_taken]
                 if target == 'binary':
                     dataframe.update({names[i]: eval_bin})
                 elif target == 'multiclass':
@@ -460,10 +493,6 @@ class Classification:
                 display(f'BEST MODEL BASED ON {return_best_model}')
                 if return_best_model == 'accuracy':
                     display(df[df['accuracy'] == df['accuracy'].max()])
-                elif return_best_model == 'mean absolute error':
-                    display(df[df['mean absolute error'] == df['mean absolute error'].min()])
-                elif return_best_model == 'mean squared error':
-                    display(df[df['mean squared error'] == df['mean squared error'].min()])
                 elif return_best_model == 'r2 score':
                     display(df[df['r2 score'] == df['r2 score'].max()])
                 elif return_best_model == 'f1 score':
@@ -488,27 +517,27 @@ class Classification:
 
             if target == 'binary':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target)
+                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target,
+                                            train_score=show_train_score)
 
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Acc", "Test Acc",
-                                                                                "Train Precision", "Test Precision",
-                                                                                "Train Recall", "Test Recall",
-                                                                                "Train f1", "Test f1", "Train r2",
-                                                                                "Test r2",
-                                                                                "Train std",
-                                                                                "Test std", "Time Taken(s)"])
+                if show_train_score is True:
+                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_binary_columns_train)
+                elif show_train_score is False:
+                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_binary_columns_test)
+
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
             elif target == 'multiclass':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target)
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=["Train Precision Macro",
-                                                                                "Test Precision Macro",
-                                                                                "Train Recall Macro",
-                                                                                "Test Recall Macro",
-                                                                                "Train f1 Macro", "Test f1 Macro",
-                                                                                "Time Taken(s)"])
+                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target,
+                                            train_score=show_train_score)
+
+                if show_train_score is True:
+                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_multiclass_columns_train)
+                elif show_train_score is False:
+                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_multiclass_columns_test)
+
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
@@ -807,8 +836,8 @@ class Classification:
                                 "if you used the split method.")
             if target == 'binary':
                 IMAGE_COLUMNS = []
-                for i in range(len(self.kf_binary_columns)):
-                    IMAGE_COLUMNS.append(self.kf_binary_columns[i] + ".png")
+                for i in range(len(self.kf_binary_columns_train)):
+                    IMAGE_COLUMNS.append(self.kf_binary_columns_train[i] + ".png")
 
                 if save is True:
                     dir = directory(save_name)
@@ -816,8 +845,8 @@ class Classification:
 
                     fig = px.bar(data_frame=param,
                                  x="model_names",
-                                 y=self.kf_binary_columns[j],
-                                 hover_data=[self.kf_binary_columns[j], "model_names"],
+                                 y=self.kf_binary_columns_train[j],
+                                 hover_data=[self.kf_binary_columns_train[j], "model_names"],
                                  color="Time Taken(s)")
                     display(fig)
                     if save is True:
@@ -835,17 +864,17 @@ class Classification:
 
             elif target == 'multiclass':
                 IMAGE_COLUMNS = []
-                for i in range(len(self.kf_multiclass_columns)):
-                    IMAGE_COLUMNS.append(self.kf_multiclass_columns[i] + ".png")
+                for i in range(len(self.kf_multiclass_columns_train)):
+                    IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
 
                 if save is True:
                     dir = directory(save_name)
 
-                for j in range(len(self.kf_multiclass_columns)):
+                for j in range(len(self.kf_multiclass_columns_train)):
                     fig = px.bar(data_frame=param,
                                  x="model_names",
-                                 y=self.kf_multiclass_columns[j],
-                                 hover_data=[self.kf_multiclass_columns[j], "model_names"],
+                                 y=self.kf_multiclass_columns_train[j],
+                                 hover_data=[self.kf_multiclass_columns_train[j], "model_names"],
                                  color="Time Taken(s)")
                     display(fig)
                     if save is True:

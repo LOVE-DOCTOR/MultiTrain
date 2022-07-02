@@ -117,18 +117,28 @@ def img(FILENAME: any,
 
 def kf_best_model(df, best, excel):
     if best is not None:
-        if best == 'mean score':
-            df1 = df[df['mean score'] == df['mean score'].max()]
-            write_to_excel(excel, df)
-            display(df1)
-            return df1
-        elif best == 'std':
-            df1 = df[df['std'] == df['std'].min()]
-            write_to_excel(excel, df)
-            display(df1)
-            return df1
+        metrics_high = ["Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
+                        "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
+                        "Neg Median Absolute Percentage Error", "Accuracy", "Precision",
+                        "Precision Macro", "Recall", "Recall Macro","Standard Deviation of Accuracy"]
+
+        metrics_low = ["Mean Absolute Error", "Root Mean Squared Error", "Root Mean Squared Log Error",
+                       "Median Absolute Error", "Median Absolute Percentage Error"]
+
+        if best in metrics_high:
+            df1 = df[df[best] == df[best].max()]
+        if best in metrics_low:
+            df1 = df[df[best] == df[best].min()]
+
+        write_to_excel(excel, df)
+        display(df1)
+        return df1
 
     elif best is None:
         write_to_excel(excel, df)
         display(df)
         return df
+
+
+
+

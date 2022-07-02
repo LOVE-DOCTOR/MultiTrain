@@ -1,3 +1,4 @@
 from MultiTrain.classification.classification_models import Classification
+from MultiTrain.regression.regression_models import Regression
 
 
