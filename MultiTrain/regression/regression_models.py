@@ -1,9 +1,13 @@
 import time
+from operator import __setitem__
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
 from lightgbm import LGBMRegressor
+from matplotlib import pyplot as plt
 from pandas import DataFrame
+import seaborn as sns
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.dummy import DummyRegressor
 from numpy import reshape
@@ -29,7 +33,8 @@ from skopt.learning import ExtraTreesRegressor, GaussianProcessRegressor, Random
 from xgboost import XGBRegressor
 
 from MultiTrain.LOGGING import PrintLog
-from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model
+from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model, img, directory, \
+    img_plotly
 
 
 class Regression:
@@ -183,7 +188,7 @@ class Regression:
         self.lassla = LassoLars(random_state=self.random_state)
         self.krid = KernelRidge()
         self.ard = ARDRegression()
-        #self.quant = QuantileRegressor()
+        # self.quant = QuantileRegressor()
         self.theil = TheilSenRegressor(n_jobs=-1, random_state=self.random_state)
 
         return self.lr, self.rfr, self.xgb, self.gbr, self.hgbr, self.svr, self.br, self.nsvr, self.etr, self.etrs, \
@@ -588,4 +593,258 @@ class Regression:
                                                     min_resources=min_resources_rand, max_resources=max_resources,
                                                     aggressive_elimination=aggressive_elimination)
                 return tuned_model
+
+    def visualize(self,
+                  param: {__setitem__},
+                  file_path: any = None,
+                  kf: bool = False,
+                  t_split: bool = False,
+                  size=(15, 8),
+                  save: str = None,
+                  save_name='dir1',
+                  ):
+
+        """
+        The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
+
+        :param file_path:
+        :param param: {__setitem__}
+        :type param: {__setitem__}
+        :param kf: set to True if you used KFold, defaults to False
+        :type kf: bool (optional)
+        :param t_split: True if you used the split method, defaults to False
+        :type t_split: bool (optional)
+        :param size: This is the size of the plot
+        :param save: This is the format you want to save the plot in
+        :type save: str
+        :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
+        """
+
+        names = self.regression_model_names()
+        sns.set()
+
+        param['model_names'] = names
+        FILE_FORMATS = ['pdf', 'png']
+        if save not in FILE_FORMATS:
+            raise Exception("set save to either 'pdf' or 'png' ")
+
+        if save in FILE_FORMATS:
+            if isinstance(save_name, str) is False:
+                raise ValueError('You can only set a string to save_name')
+
+            if save_name is None:
+                raise Exception('Please set a value to save_name')
+
+        if file_path:
+            if save is None:
+                raise Exception("set save to either 'pdf' or 'png' before defining a file path")
+
+        if save is None:
+            if save_name:
+                raise Exception('You can only use save_name after param save is defined')
+
+        if kf is True and t_split is True:
+            raise Exception("set kf to True if you used KFold or set t_split to True"
+                            "if you used the split method.")
+        if kf is True:
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="Neg Mean Absolute Error", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            plt.title("Neg Mean Absolute Error")
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="Neg Root Mean Squared Error", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Neg Root Mean Squared Error")
+
+            plt.figure(figsize=size)
+            plot2 = sns.barplot(x="model_names", y="Neg Root Mean Squared Log Error", data=param)
+            plot2.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Neg Root Mean Squared Log Error")
+
+            plt.figure(figsize=size)
+            plot3 = sns.barplot(x="model_names", y="Neg Median Absolute Error", data=param)
+            plot3.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Neg Median Absolute Error")
+
+            plt.figure(figsize=size)
+            plot4 = sns.barplot(x="model_names", y="r2", data=param)
+            plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+            plt.title("R2 SCORE")
+
+            plt.figure(figsize=size)
+            plot5 = sns.barplot(x="model_names", y="Neg Mean Absolute Percentage Error", data=param)
+            plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+            plt.title("Neg Mean Absolute Percentage Error")
+
+            plt.figure(figsize=size)
+            plot6 = sns.barplot(x="model_names", y="Time Taken(s)", data=param)
+            plot6.set_xticklabels(plot6.get_xticklabels(), rotation=90)
+            plt.title("Time Taken(s)")
+
+            if save == 'pdf':
+                name = save_name + ".pdf"
+                img(name, FILE_PATH=file_path, type_='file')
+
+            elif save == 'png':
+                name = save_name
+                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+
+            display(plot)
+            display(plot1)
+            display(plot2)
+            display(plot3)
+            display(plot4)
+            display(plot5)
+            display(plot6)
+
+        elif t_split is True:
+            plt.figure(figsize=size)
+            plot = sns.barplot(x="model_names", y="Mean Absolute Error", data=param)
+            plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+            plt.title("Mean Absolute Error")
+
+            plt.figure(figsize=size)
+            plot1 = sns.barplot(x="model_names", y="Root Mean Squared Error", data=param)
+            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Root Mean Squared Error")
+
+            plt.figure(figsize=size)
+            plot2 = sns.barplot(x="model_names", y="Root Mean Squared Log Error", data=param)
+            plot2.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Root Mean Squared Log Error")
+
+            plt.figure(figsize=size)
+            plot3 = sns.barplot(x="model_names", y="Neg Median Absolute Error", data=param)
+            plot3.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plt.title("Median Absolute Error")
+
+            plt.figure(figsize=size)
+            plot4 = sns.barplot(x="model_names", y="r2", data=param)
+            plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+            plt.title("R2 SCORE")
+
+            plt.figure(figsize=size)
+            plot5 = sns.barplot(x="model_names", y="Mean Absolute Percentage Error", data=param)
+            plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
+            plt.title("Mean Absolute Percentage Error")
+
+            plt.figure(figsize=size)
+            plot6 = sns.barplot(x="model_names", y="Time Taken(s)", data=param)
+            plot6.set_xticklabels(plot6.get_xticklabels(), rotation=90)
+            plt.title("Time Taken(s)")
+
+            display(plot)
+            display(plot1)
+            display(plot2)
+            display(plot3)
+            display(plot4)
+            display(plot5)
+
+            if save == 'pdf':
+                name = save_name + ".pdf"
+                img(name, FILE_PATH=file_path, type_='file')
+            elif save == 'png':
+                name = save_name
+                img(FILENAME=name, FILE_PATH=file_path, type_='picture')
+
+    def show(self,
+             param: {__setitem__},
+             file_path: any = None,
+             kf: bool = False,
+             t_split: bool = False,
+             save: bool = False,
+             save_name=None,
+             target='binary',
+             ):
+        """
+                The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
+
+                :param save:
+                :param target:
+                :param file_path:
+                :param param: {__setitem__}
+                :type param: {__setitem__}
+                :param kf: set to True if you used KFold, defaults to False
+                :type kf: bool (optional)
+                :param t_split: True if you used the split method, defaults to False
+                :type t_split: bool (optional)
+                :param size: This is the size of the plot
+                :param save_name: The name of the file you want to save the visualization as.
+                """
+
+        names = self.regression_model_names()
+
+        param['model_names'] = names
+
+        if kf is True:
+            if t_split is True:
+                raise Exception("set kf to True if you used KFold or set t_split to True"
+                                "if you used the split method.")
+
+            IMAGE_COLUMNS = []
+            kfold_columns = ["Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2 score",
+                             "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
+                             "Neg Mean Absolute Percentage Error", "Time Taken(s)"]
+            for i in range(len(kfold_columns)):
+                IMAGE_COLUMNS.append(kfold_columns[i] + ".png")
+
+            if save is True:
+                dire = directory(save_name)
+            for j in range(len(IMAGE_COLUMNS)):
+
+                fig = px.bar(data_frame=param,
+                             x="model_names",
+                             y=kfold_columns[j],
+                             hover_data=[kfold_columns[j], "model_names"],
+                             color="Time Taken(s)")
+                display(fig)
+                if save is True:
+                    if save_name is None:
+                        raise Exception("set save to True before using save_name")
+
+                    else:
+                        img_plotly(
+                            name=IMAGE_COLUMNS[j],
+                            figure=fig,
+                            label=target,
+                            FILENAME=dire,
+                            FILE_PATH=file_path,
+                        )
+
+        if t_split is True:
+            if kf is True:
+                raise Exception("set kf to True if you used KFold or set t_split to True"
+                                "if you used the split method.")
+
+            if target == 'binary':
+                IMAGE_COLUMNS = []
+                t_split_columns = ["Mean Absolute Error", "Root Mean Squared Error", "r2 score",
+                                   "Root Mean Squared Log Error", "Median Absolute Error",
+                                   "Mean Absolute Percentage Error", "Time Taken(s)"]
+                for i in range(len(t_split_columns)):
+                    IMAGE_COLUMNS.append(t_split_columns[i] + ".png")
+
+                if save is True:
+                    dire = directory(save_name)
+                for j in range(len(IMAGE_COLUMNS)):
+
+                    fig = px.bar(data_frame=param,
+                                 x="model_names",
+                                 y=t_split_columns[j],
+                                 hover_data=[t_split_columns[j], "model_names"],
+                                 color="execution time(seconds)")
+                    display(fig)
+                    if save is True:
+                        if save_name is None:
+                            raise Exception("set save to True before using save_name")
+
+                        else:
+                            img_plotly(
+                                name=IMAGE_COLUMNS[j],
+                                figure=fig,
+                                label=target,
+                                FILENAME=dire,
+                                FILE_PATH=file_path,
+                            )
 

@@ -23,8 +23,7 @@ from xgboost import XGBClassifier
 
 from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel
 from skopt import BayesSearchCV
-from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score, GridSearchCV
-from sklearn.model_selection import RandomizedSearchCV, cross_validate
+from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV, cross_validate
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
@@ -608,7 +607,7 @@ class Classification:
         :param verbose:
         :param return_train_score:
         :param refit:
-        :param random_state: 
+        :param random_state:
         :param n_iter:
         :param model: This is the instance of the model to be used
         :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
@@ -622,10 +621,6 @@ class Classification:
         :param cv:This determines the cross validation splitting strategy, defaults to 5
         :return:
         """
-        name = self.classifier_model_names()
-        MODEL = self.initialize()
-        # index_ = name.index(model)
-        # mod = MODEL[index_]
 
         if isinstance(parameters, dict) is False:
             raise TypeError("The 'parameters' argument only accepts a dictionary of the parameters for the "
@@ -690,6 +685,7 @@ class Classification:
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
+        :param target:
         :param file_path:
         :param param: {__setitem__}
         :type param: {__setitem__}
@@ -878,7 +874,7 @@ class Classification:
                     IMAGE_COLUMNS.append(self.kf_binary_columns_train[i] + ".png")
 
                 if save is True:
-                    dir = directory(save_name)
+                    dire = directory(save_name)
                 for j in range(len(IMAGE_COLUMNS)):
 
                     fig = px.bar(data_frame=param,
@@ -896,7 +892,7 @@ class Classification:
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
-                                FILENAME=dir,
+                                FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
 
@@ -906,7 +902,7 @@ class Classification:
                     IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
 
                 if save is True:
-                    dir = directory(save_name)
+                    dire = directory(save_name)
 
                 for j in range(len(self.kf_multiclass_columns_train)):
                     fig = px.bar(data_frame=param,
@@ -924,7 +920,7 @@ class Classification:
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
-                                FILENAME=dir,
+                                FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
 
@@ -939,7 +935,7 @@ class Classification:
                     IMAGE_COLUMNS.append(self.t_split_binary_columns[i] + ".png")
 
                 if save is True:
-                    dir = directory(save_name)
+                    dire = directory(save_name)
                 for j in range(len(IMAGE_COLUMNS)):
 
                     fig = px.bar(data_frame=param,
@@ -957,7 +953,7 @@ class Classification:
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
-                                FILENAME=dir,
+                                FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
 
@@ -967,7 +963,7 @@ class Classification:
                     IMAGE_COLUMNS.append(self.t_split_multiclass_columns[i] + ".png")
 
                 if save is True:
-                    dir = directory(save_name)
+                    dire = directory(save_name)
 
                 for j in range(len(self.t_split_multiclass_columns)):
                     fig = px.bar(data_frame=param,
@@ -985,6 +981,6 @@ class Classification:
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
                                 label=target,
-                                FILENAME=dir,
+                                FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
