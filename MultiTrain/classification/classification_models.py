@@ -2,7 +2,10 @@ from operator import __setitem__
 import seaborn as sns
 import plotly.express as px
 from IPython.display import display
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.feature_extraction.text import CountVectorizer
 from catboost import CatBoostClassifier
+from sklearn.preprocessing import FunctionTransformer
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -343,7 +346,9 @@ class Classification:
             return_best_model: str = None,
             return_fastest_model: bool = False,
             target: str = 'binary',
-            show_train_score: bool = False
+            show_train_score: bool = False,
+            text: bool = False,
+            vectorizer: str = None
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
@@ -388,6 +393,13 @@ class Classification:
 
         fit(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
+        if text:
+            if isinstance(text, bool) is False:
+                raise TypeError('parameter text is of type bool only. set to true or false')
+
+            if text is False:
+                if vectorizer is not None:
+                    raise Exception('parameter vectorizer can only be accepted when parameter text is True')
 
         if isinstance(splitting, bool) is False:
             raise TypeError(
@@ -442,21 +454,48 @@ class Classification:
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):
+                print(model[i])
                 start = time.time()
+                if text is False:
+                    model[i].fit(X_tr, y_tr)
+                    end = time.time()
+                    try:
+                        pred = model[i].predict(X_te)
+                    except AttributeError:
+                        pass
 
-                model[i].fit(X_tr, y_tr)
+                elif text is True:
+                    if vectorizer == 'count':
+                        try:
+                            pipeline = make_pipeline(CountVectorizer(),
+                                                     model[i])
 
-                end = time.time()
-                try:
-                    pred = model[i].predict(X_te)
-                except AttributeError:
-                    pass
+                            pipeline.fit(X_tr, y_tr)
+                        except TypeError:
+                            # This is a fix for the error below when using gradient boosting classifier or
+                            # HistGradientBoostingClassifier TypeError: A sparse matrix was passed, but dense data is
+                            # required. Use X.toarray() to convert to a dense numpy array.
+                            pipeline = make_pipeline(CountVectorizer(),
+                                                     FunctionTransformer(lambda x: x.todense(),
+                                                                         accept_sparse=True),
+
+                                                     model[i])
+                            pipeline.fit(X_tr, y_tr)
+                        end = time.time()
+                        try:
+                            pred = pipeline.predict(X_te)
+                        except AttributeError:
+                            pass
+
                 true = y_te
 
                 acc = accuracy_score(true, pred)
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
-                r2 = r2_score(true, pred)
+                try:
+                    r2 = r2_score(true, pred)
+                except ValueError:
+                    r2 = None
                 try:
                     roc = roc_auc_score(true, pred)
                 except ValueError:

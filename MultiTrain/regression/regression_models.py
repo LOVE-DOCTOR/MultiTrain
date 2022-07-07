@@ -143,8 +143,6 @@ class Regression:
         """
         It initializes all the models that we will be using in our ensemble
         """
-        print("Regressors like HuberRegressor, QuantileRegressor, RANSACRegressor and TheilSen Regressor"
-              " are robust to outliers")
 
         self.lr = LinearRegression(n_jobs=-1)
         self.rfr = RandomForestRegressor(random_state=self.random_state)
@@ -510,7 +508,8 @@ class Regression:
                         pre_dispatch: any = "2*n_jobs",
                         optimizer_kwargs: any = None,
                         fit_params: any = None,
-                        n_points: any = 1
+                        n_points: any = 1,
+                        score='accuracy'
                         ):
         """
         :param n_points:
@@ -580,7 +579,7 @@ class Regression:
             elif tune == 'half-grid':
                 tuned_model = HalvingGridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
                                                   verbose=4, random_state=42, factor=factor, refit=refit,
-                                                  scoring=scorers, resource=resource, min_resources=min_resources_grid,
+                                                  scoring=score, resource=resource, min_resources=min_resources_grid,
                                                   max_resources=max_resources, error_score=error_score,
                                                   aggressive_elimination=aggressive_elimination)
 
@@ -589,7 +588,7 @@ class Regression:
             elif tune == 'half-random':
                 tuned_model = HalvingRandomSearchCV(estimator=model, param_distributions=parameters, n_jobs=use_cpu,
                                                     cv=cv, verbose=4, random_state=42, factor=factor, refit=refit,
-                                                    scoring=scorers, resource=resource, error_score=error_score,
+                                                    scoring=score, resource=resource, error_score=error_score,
                                                     min_resources=min_resources_rand, max_resources=max_resources,
                                                     aggressive_elimination=aggressive_elimination)
                 return tuned_model
