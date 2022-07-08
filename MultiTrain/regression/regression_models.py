@@ -39,57 +39,14 @@ from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model,
 
 class Regression:
 
-    def __init__(self, lr=0, rfr=0, xgb=0, gbr=0, hgbr=0, svr=0, br=0, nsvr=0, etr=0, etrs=0, ada=0,
-                 pr=0, lgbm=0, knr=0, dtr=0, mlp=0, hub=0, gmr=0, lsvr=0, ridg=0, rid=0, byr=0, ttr=0,
-                 eltcv=0, elt=0, lcv=0, llic=0, llcv=0, l=0, lrcv=0, sgd=0, twr=0, glr=0, lass=0, ranr=0,
-                 ompc=0, par=0, gpr=0, ompu=0, dr=0, lassla=0, krid=0, ard=0, theil=0, random_state=None):
-
-        self.lr = lr
-        self.rfr = rfr
-        self.xgb = xgb
-        self.gbr = gbr
-        self.hgbr = hgbr
-        self.svr = svr
-        self.br = br
-        self.nsvr = nsvr
-        self.etr = etr
-        self.etrs = etrs
-        self.ada = ada
-        self.pr = pr
-        self.lgbm = lgbm
-        self.knr = knr
-        self.dtr = dtr
-        self.mlp = mlp
-        self.hub = hub
-        self.gmr = gmr
-        self.lsvr = lsvr
-        self.ridg = ridg
-        self.rid = rid
-        self.byr = byr
-        self.ttr = ttr
-        self.eltcv = eltcv
-        self.elt = elt
-        self.lcv = lcv
-        self.llic = llic
-        self.llcv = llcv
-        self.l = l
-        self.lrcv = lrcv
-        self.sgd = sgd
-        self.twr = twr
-        self.glr = glr
-        self.lass = lass
-        self.ranr = ranr
-        self.ompc = ompc
-        self.par = par
-        self.gpr = gpr
-        self.ompu = ompu
-        self.dr = dr
-        self.lassla = lassla
-        self.krid = krid
-        self.ard = ard
-        # self.quant = quant
-        self.theil = theil
+    def __init__(self,
+                 cores: int = -1,
+                 random_state: int = randint(1000),
+                 verbose: bool = False,
+                 ):
+        self.cores = cores
         self.random_state = random_state
+        self.verbose = verbose
 
     def regression_model_names(self):
         model_names = ["Linear Regression", "Random Forest Regressor", "XGBRegressor", "GradientBoostingRegressor",
@@ -144,7 +101,7 @@ class Regression:
         It initializes all the models that we will be using in our ensemble
         """
 
-        self.lr = LinearRegression(n_jobs=-1)
+        self.lr = LinearRegression(n_jobs=self.cores)
         self.rfr = RandomForestRegressor(random_state=self.random_state)
         self.xgb = XGBRegressor(random_state=self.random_state)
         self.gbr = GradientBoostingRegressor(random_state=self.random_state)
@@ -167,27 +124,27 @@ class Regression:
         self.rid = Ridge(random_state=self.random_state)
         self.byr = BayesianRidge()
         self.ttr = TransformedTargetRegressor()
-        self.eltcv = ElasticNetCV(n_jobs=-1, random_state=self.random_state)
+        self.eltcv = ElasticNetCV(n_jobs=self.cores, random_state=self.random_state)
         self.elt = ElasticNet(random_state=self.random_state)
-        self.lcv = LassoCV(n_jobs=-1, random_state=self.random_state)
+        self.lcv = LassoCV(n_jobs=self.cores, random_state=self.random_state)
         self.llic = LassoLarsIC()
         self.llcv = LassoLarsCV()
         self.l = Lars(random_state=self.random_state)
-        self.lrcv = LarsCV(n_jobs=-1)
+        self.lrcv = LarsCV(n_jobs=self.cores)
         self.sgd = SGDRegressor(random_state=self.random_state)
         self.twr = TweedieRegressor()
         self.lass = Lasso(random_state=self.random_state)
         self.ranr = RANSACRegressor(random_state=self.random_state)
-        self.ompc = OrthogonalMatchingPursuitCV(n_jobs=-1)
+        self.ompc = OrthogonalMatchingPursuitCV(n_jobs=self.cores)
         self.par = PassiveAggressiveRegressor(random_state=self.random_state)
         self.gpr = GaussianProcessRegressor(random_state=self.random_state)
         self.ompu = OrthogonalMatchingPursuit()
-        self.dr = DummyRegressor()
-        self.lassla = LassoLars(random_state=self.random_state)
-        self.krid = KernelRidge()
-        self.ard = ARDRegression()
+        dr = DummyRegressor()
+        lassla = LassoLars(random_state=self.random_state)
+        krid = KernelRidge()
+        ard = ARDRegression()
         # self.quant = QuantileRegressor()
-        self.theil = TheilSenRegressor(n_jobs=-1, random_state=self.random_state)
+        theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
 
         return self.lr, self.rfr, self.xgb, self.gbr, self.hgbr, self.svr, self.br, self.nsvr, self.etr, self.etrs, \
                self.ada, self.pr, self.lgbm, self.knr, self.dtr, self.mlp, self.hub, self.gmr, self.lsvr, self.ridg, \

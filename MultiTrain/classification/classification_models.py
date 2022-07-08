@@ -305,6 +305,8 @@ class MultiClassifier:
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param vectorizer:
+        :param text:
         :param show_train_score:
         :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
         of the fastest model
@@ -391,7 +393,9 @@ class MultiClassifier:
         if self.target_class:
             accepted_targets = ['binary', 'multiclass']
             if self.target_class not in accepted_targets:
-                raise Exception(f"target should be set to either binary or multiclass but target was set to {self.target_class}")
+                raise Exception(
+                    f"target_class should be set to either binary or multiclass but target_class was set to "
+                    f"{self.target_class}")
 
         if splitting is True or split_self is True:
             if splitting and split_data:
@@ -429,8 +433,8 @@ class MultiClassifier:
                                 pipeline.fit(X_tr, y_tr)
                             except TypeError:
                                 # This is a fix for the error below when using gradient boosting classifier or
-                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed, but dense data is
-                                # required. Use X.toarray() to convert to a dense numpy array.
+                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
+                                # but dense data is required. Use X.toarray() to convert to a dense numpy array.
                                 pipeline = make_pipeline(CountVectorizer(),
                                                          FunctionTransformer(lambda x: x.todense(),
                                                                              accept_sparse=True),
@@ -499,7 +503,7 @@ class MultiClassifier:
             KFoldModel = self.initialize()
             names = self.classifier_model_names()
 
-            if self.target == 'binary':
+            if self.target_class == 'binary':
                 PrintLog("Training started")
                 dataframe = self.startKFold(param=KFoldModel,
                                             param_X=X,
@@ -515,7 +519,7 @@ class MultiClassifier:
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
-            elif self.target == 'multiclass':
+            elif self.target_class == 'multiclass':
                 PrintLog("Training started")
                 dataframe = self.startKFold(param=KFoldModel,
                                             param_X=X,
@@ -805,7 +809,7 @@ class MultiClassifier:
                     name = save_name
                     img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
-            elif self.target == 'multiclass':
+            elif self.target_class == 'multiclass':
                 plt.figure(figsize=size)
                 plot = sns.barplot(x="model_names", y="Accuracy", data=param)
                 plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
@@ -886,7 +890,7 @@ class MultiClassifier:
                                 FILE_PATH=file_path,
                             )
 
-            elif self.target_class=='multiclass':
+            elif self.target_class == 'multiclass':
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_multiclass_columns_train)):
                     IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
