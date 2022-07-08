@@ -454,7 +454,6 @@ class MultiClassifier:
                 pre = precision_score(true, pred)
                 rec = recall_score(true, pred)
 
-
                 time_taken = round(end - start, 2)
                 eval_bin = [acc, r2, roc, f1, pre, rec, time_taken]
                 eval_mul = [acc, r2, time_taken]
