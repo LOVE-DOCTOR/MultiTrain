@@ -1,7 +1,14 @@
+from collections import Counter
 from operator import __setitem__
 import seaborn as sns
 import plotly.express as px
 from IPython.display import display
+from imblearn.combine import SMOTEENN, SMOTETomek
+from imblearn.over_sampling import SMOTE, RandomOverSampler, SMOTENC, SMOTEN, ADASYN, BorderlineSMOTE, KMeansSMOTE, \
+    SVMSMOTE
+from imblearn.under_sampling import CondensedNearestNeighbour, EditedNearestNeighbours, RepeatedEditedNearestNeighbours, \
+    AllKNN, InstanceHardnessThreshold, NearMiss, NeighbourhoodCleaningRule, OneSidedSelection, RandomUnderSampler, \
+    TomekLinks
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from catboost import CatBoostClassifier
@@ -49,20 +56,40 @@ class MultiClassifier:
                  cores: int = -1,
                  random_state: int = randint(1000),
                  verbose: bool = False,
-                 target_class: str = 'binary') -> None:
+                 target_class: str = 'binary',
+                 imbalanced: bool = False,
+                 strategy: str = None) -> None:
 
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
         self.target_class = target_class
+        self.strategy = strategy
+        self.imbalanced = imbalanced
+        self.oversampling_list = ['SMOTE', 'RandomOverSampler', 'SMOTEN', 'ADASYN',
+                                  'BorderlineSMOTE', 'KMeansSMOTE', 'SVMSMOTE']
+        self.oversampling_methods = [SMOTE(), RandomOverSampler(), SMOTEN(), ADASYN(),
+                                     BorderlineSMOTE(), KMeansSMOTE(), SVMSMOTE()]
+
+        self.undersampling_list = ['CondensedNearestNeighbour', 'EditedNearestNeighbours',
+                                   'RepeatedEditedNearestNeighbours', 'AllKNN', 'InstanceHardnessThreshold',
+                                   'NearMiss', 'NeighbourhoodCleaningRule', 'OneSidedSelection', 'RandomUnderSampler',
+                                   'TomekLinks']
+        self.undersampling_methods = [CondensedNearestNeighbour(), EditedNearestNeighbours(),
+                                      RepeatedEditedNearestNeighbours(), AllKNN(), InstanceHardnessThreshold(),
+                                      NearMiss(), NeighbourhoodCleaningRule(), OneSidedSelection(),
+                                      RandomUnderSampler(), TomekLinks()]
+
+        self.over_under_list = ['SMOTEENN', 'SMOTETomek']
+        self.over_under_methods = [SMOTEENN(), SMOTETomek()]
 
         self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)", "Balanced Accuracy",
                                         "Precision(Train)", "Precision", "Recall(Train)", "Recall", "f1(Train)", "f1",
                                         'r2', "Standard Deviation of Accuracy(Train)", "Standard Deviation of Accuracy",
                                         "Time Taken(s)"]
 
-        self.kf_binary_columns_test = ["Accuracy", "Balanced Accuracy", "Precision", "Recall", "f1", "r2", "Standard Deviation of Accuracy",
-                                       "Time Taken(s)"]
+        self.kf_binary_columns_test = ["Accuracy", "Balanced Accuracy", "Precision", "Recall", "f1", "r2",
+                                       "Standard Deviation of Accuracy", "Time Taken(s)"]
 
         self.kf_multiclass_columns_train = ["Precision Macro(Train)", "Precision Macro", "Recall Macro(Train)",
                                             "Recall Macro", "f1 Macro(Train)", "f1 Macro", "Time Taken(s)"]
@@ -74,6 +101,30 @@ class MultiClassifier:
 
         self.t_split_multiclass_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
                                            "execution time(seconds)"]
+
+    def strategies(self):
+        print(f'Over-Sampling Methods = {self.oversampling_list}')
+        print("\n")
+        print(f'Under-Sampling Methods = {self.undersampling_list}')
+        print("\n")
+        print(f'Combination of over and under-sampling methods = {self.over_under_list}')
+
+    def _get_sample_index_method(self):
+
+        if self.strategy in self.oversampling_list:
+            index_ = self.oversampling_list.index(self.strategy)
+            method = self.oversampling_methods[index_]
+            return method
+
+        elif self.strategy in self.undersampling_list:
+            index_ = self.undersampling_list.index(self.strategy)
+            method = self.undersampling_methods[index_]
+            return method
+
+        elif self.strategy in self.over_under_list:
+            index_ = self.over_under_list.index(self.strategy)
+            method = self.over_under_methods[index_]
+            return method
 
     def split(self,
               X: any,
@@ -113,17 +164,45 @@ class MultiClassifier:
                     raise TypeError("shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                        train_size=1 - sizeOfTest,
-                                                                        stratify=y, random_state=randomState,
-                                                                        shuffle=shuffle_data)
 
-                    return X_train, X_test, y_train, y_test
+                    if self.imbalanced is False:
+                        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                            train_size=1 - sizeOfTest,
+                                                                            stratify=y, random_state=randomState,
+                                                                            shuffle=shuffle_data)
+
+                        return X_train, X_test, y_train, y_test
+
+                    elif self.imbalanced is True:
+                        method = self._get_sample_index_method()
+
+                        X_new, y_new = method.fit_resample(X, y)
+                        if self.verbose is True:
+                            print(f'Before Resampling {Counter(y)}')
+                            print(f'After Resampling {Counter(y_new)}')
+
+                        X_train, X_test, y_train, y_test = train_test_split(X_new, y_new, test_size=sizeOfTest,
+                                                                            train_size=1 - sizeOfTest,
+                                                                            stratify=y, random_state=randomState,
+                                                                            shuffle=shuffle_data)
 
             else:
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                    train_size=1 - sizeOfTest)
-                return X_train, X_test, y_train, y_test
+                if self.imbalanced is False:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest)
+                    return X_train, X_test, y_train, y_test
+
+                elif self.imbalanced is True:
+                    method = self._get_sample_index_method()
+
+                    X_new, y_new = method.fit_resample(X, y)
+                    if self.verbose is True:
+                        print(f'Before Resampling {Counter(y)}')
+                        print(f'After Resampling {Counter(y_new)}')
+
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest)
+                    return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self):
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
