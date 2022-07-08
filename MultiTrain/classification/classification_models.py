@@ -204,6 +204,8 @@ class MultiClassifier:
         if self.target_class == 'binary':
             dataframe = {}
             for i in range(len(param)):
+                if self.verbose is True:
+                    print(param[i])
                 start = time.time()
                 score = ('accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'r2')
                 scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,

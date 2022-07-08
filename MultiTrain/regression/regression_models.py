@@ -182,6 +182,7 @@ class Regression:
 
         dataframe = {}
         for i in range(len(param)):
+            print(param[i])
             start = time.time()
             score = ('neg_mean_absolute_error',
                      'neg_root_mean_squared_error',
@@ -336,6 +337,8 @@ class Regression:
             dataframe = {}
             for i in range(len(model)):
                 start = time.time()
+                if self.verbose is True:
+                    print(model[i])
                 try:
                     model[i].fit(X_tr, y_tr)
                 except ValueError:
