@@ -179,7 +179,7 @@ class MultiClassifier:
         name = list(self.classifier_model_names())
         MODEL = self.initialize()
         df['model_names'] = name
-        high = ['accuracy', 'f1 score', 'r2 score', 'ROC AUC', 'Test Acc', 'Test Precision',
+        high = ['accuracy', 'balanced accuracy', 'f1 score', 'r2 score', 'ROC AUC', 'Test Acc', 'Test Precision',
                 'Test Recall', 'Test f1', 'Test r2', 'Test Precision Macro', 'Test Recall Macro',
                 'Test f1 Macro']
         low = ['mean absolute error', 'mean squared error', 'Test std']
@@ -205,7 +205,7 @@ class MultiClassifier:
             dataframe = {}
             for i in range(len(param)):
                 start = time.time()
-                score = ('accuracy', 'precision', 'recall', 'f1', 'r2')
+                score = ('accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'r2')
                 scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
                                         cv=param_cv, n_jobs=-1, return_train_score=True)
                 end = time.time()
@@ -214,6 +214,8 @@ class MultiClassifier:
                 if train_score is True:
                     mean_train_acc = scores['train_accuracy'].mean()
                     mean_test_acc = scores['test_accuracy'].mean()
+                    mean_train_bacc = scores['train_balanced_accuracy'].mean()
+                    mean_test_bacc = scores['test_balanced_accuracy'].mean()
                     mean_train_precision = scores['train_precision'].mean()
                     mean_test_precision = scores['test_precision'].mean()
                     mean_train_f1 = scores['train_f1'].mean()
@@ -225,21 +227,22 @@ class MultiClassifier:
                     train_stdev = scores['train_accuracy'].std()
                     test_stdev = scores['test_accuracy'].std()
                     # scores = scores.tolist()
-                    scores_df = [mean_train_acc, mean_test_acc, mean_train_precision, mean_test_precision,
-                                 mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2, mean_train_recall,
-                                 mean_test_recall, train_stdev, test_stdev, seconds]
+                    scores_df = [mean_train_acc, mean_test_acc, mean_train_bacc, mean_test_bacc, mean_train_precision,
+                                 mean_test_precision, mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,
+                                 mean_train_recall, mean_test_recall, train_stdev, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
 
                 if train_score is False:
                     mean_test_acc = scores['test_accuracy'].mean()
+                    mean_test_bacc = scores['test_balanced_accuracy'].mean()
                     mean_test_precision = scores['test_precision'].mean()
                     mean_test_f1 = scores['test_f1'].mean()
                     mean_test_r2 = scores['test_r2'].mean()
                     mean_test_recall = scores['test_recall'].mean()
                     test_stdev = scores['test_accuracy'].std()
 
-                    scores_df = [mean_test_acc, mean_test_precision, mean_test_f1, mean_test_r2, mean_test_recall,
-                                 test_stdev]
+                    scores_df = [mean_test_acc, mean_test_bacc, mean_test_precision, mean_test_f1, mean_test_r2,
+                                 mean_test_recall, test_stdev]
                     dataframe.update({names[i]: scores_df})
             return dataframe
 
