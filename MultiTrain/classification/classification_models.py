@@ -31,7 +31,7 @@ from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score, mean_squared_error
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score, balanced_accuracy_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
 from numpy.random import randint
@@ -69,10 +69,10 @@ class MultiClassifier:
 
         self.kf_multiclass_columns_test = ["Precision Macro", "Recall Macro", "f1 Macro"]
 
-        self.t_split_binary_columns = ["Accuracy", "r2 score",
+        self.t_split_binary_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
                                        "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns = ["Accuracy", "r2 score",
+        self.t_split_multiclass_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
                                            "execution time(seconds)"]
 
     def split(self,
@@ -446,6 +446,7 @@ class MultiClassifier:
                 true = y_te
 
                 acc = accuracy_score(true, pred)
+                bacc = balanced_accuracy_score(true, pred)
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
@@ -455,8 +456,8 @@ class MultiClassifier:
                 rec = recall_score(true, pred)
 
                 time_taken = round(end - start, 2)
-                eval_bin = [acc, r2, roc, f1, pre, rec, time_taken]
-                eval_mul = [acc, r2, time_taken]
+                eval_bin = [acc, bacc, r2, roc, f1, pre, rec, time_taken]
+                eval_mul = [acc, bacc, r2, time_taken]
                 if self.target_class == 'binary':
                     dataframe.update({names[i]: eval_bin})
                 elif self.target_class == 'multiclass':
