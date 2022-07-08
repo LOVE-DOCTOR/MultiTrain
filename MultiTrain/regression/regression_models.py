@@ -10,13 +10,15 @@ from pandas import DataFrame
 import seaborn as sns
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.dummy import DummyRegressor
+from numpy.random import randint
 from numpy import reshape
 from sklearn.ensemble import GradientBoostingRegressor, HistGradientBoostingRegressor, BaggingRegressor, \
     AdaBoostRegressor
 from sklearn.isotonic import IsotonicRegression
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.linear_model import PoissonRegressor, GammaRegressor, HuberRegressor, RidgeCV, BayesianRidge, ElasticNetCV, \
+from sklearn.linear_model import PoissonRegressor, GammaRegressor, HuberRegressor, RidgeCV, BayesianRidge, \
+    ElasticNetCV, \
     LassoCV, LassoLarsIC, LassoLarsCV, Lars, LarsCV, SGDRegressor, TweedieRegressor, RANSACRegressor, \
     OrthogonalMatchingPursuitCV, PassiveAggressiveRegressor, OrthogonalMatchingPursuit, LassoLars, ARDRegression, \
     QuantileRegressor, TheilSenRegressor, Ridge, ElasticNet, Lasso, LinearRegression
@@ -37,7 +39,7 @@ from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model,
     img_plotly
 
 
-class Regression:
+class MultiRegressor:
 
     def __init__(self,
                  cores: int = -1,
@@ -147,8 +149,8 @@ class Regression:
         theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
 
         return (lr, rfr, xgb, gbr, hgbr, svr, br, nsvr, etr, etrs, ada, pr, lgbm, knr, dtr, mlp, hub, gmr, lsvr, ridg,
-               rid, byr, ttr, eltcv, elt, lcv, llic, llcv, l, lrcv, sgd, twr, lass, ranr, ompc, par, gpr, ompu, dr,
-               lassla, krid, ard, theil)
+                rid, byr, ttr, eltcv, elt, lcv, llic, llcv, l, lrcv, sgd, twr, lass, ranr, ompc, par, gpr, ompu, dr,
+                lassla, krid, ard, theil)
 
     def _get_index(self, df, the_best):
         name = list(self.regression_model_names())
@@ -486,7 +488,8 @@ class Regression:
         :param random_state:
         :param n_iter:
         :param model: This is the instance of the model to be used
-        :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
+        :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines
+        the proportion of
         candidates that are selected for each subsequent iteration. For example, factor=3 means that only one third of the
         candidates are selected.
         :param parameters: the dictionary of the model parameters

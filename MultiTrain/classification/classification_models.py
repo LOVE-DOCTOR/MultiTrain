@@ -3,7 +3,7 @@ import seaborn as sns
 import plotly.express as px
 from IPython.display import display
 from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, HistGradientBoostingClassifier
@@ -56,12 +56,12 @@ class MultiClassifier:
         self.verbose = verbose
         self.target_class = target_class
 
-        self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Precision(Train)", "Precision",
-                                        "Recall(Train)", "Recall", "f1(Train)", "f1", 'r2',
+        self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)", "Balanced Accuracy",
+                                        "Precision(Train)", "Precision", "Recall(Train)", "Recall", "f1(Train)", "f1",
                                         'r2', "Standard Deviation of Accuracy(Train)", "Standard Deviation of Accuracy",
                                         "Time Taken(s)"]
 
-        self.kf_binary_columns_test = ["Accuracy", "Precision", "Recall", "f1", "r2", "Standard Deviation of Accuracy",
+        self.kf_binary_columns_test = ["Accuracy", "Balanced Accuracy", "Precision", "Recall", "f1", "r2", "Standard Deviation of Accuracy",
                                        "Time Taken(s)"]
 
         self.kf_multiclass_columns_train = ["Precision Macro(Train)", "Precision Macro", "Recall Macro(Train)",
@@ -244,7 +244,7 @@ class MultiClassifier:
                     test_stdev = scores['test_accuracy'].std()
 
                     scores_df = [mean_test_acc, mean_test_bacc, mean_test_precision, mean_test_f1, mean_test_r2,
-                                 mean_test_recall, test_stdev]
+                                 mean_test_recall, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
             return dataframe
 
@@ -301,7 +301,8 @@ class MultiClassifier:
             return_fastest_model: bool = False,
             show_train_score: bool = False,
             text: bool = False,
-            vectorizer: str = None
+            vectorizer: str = None,
+            n_grams: tuple = None
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
@@ -438,6 +439,26 @@ class MultiClassifier:
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                 # but dense data is required. Use X.toarray() to convert to a dense numpy array.
                                 pipeline = make_pipeline(CountVectorizer(),
+                                                         FunctionTransformer(lambda x: x.todense(),
+                                                                             accept_sparse=True),
+
+                                                         model[i])
+                                pipeline.fit(X_tr, y_tr)
+                        except Exception:
+                            pass
+
+                    elif vectorizer == 'tfidf':
+                        try:
+                            try:
+                                pipeline = make_pipeline(TfidfVectorizer(n_grams=n_grams),
+                                                         model[i])
+
+                                pipeline.fit(X_tr, y_tr)
+                            except TypeError:
+                                # This is a fix for the error below when using gradient boosting classifier or
+                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
+                                # but dense data is required. Use X.toarray() to convert to a dense numpy array.
+                                pipeline = make_pipeline(TfidfVectorizer(),
                                                          FunctionTransformer(lambda x: x.todense(),
                                                                              accept_sparse=True),
 
