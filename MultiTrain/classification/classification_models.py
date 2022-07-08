@@ -472,6 +472,8 @@ class MultiClassifier:
                 display(f'BEST MODEL BASED ON {return_best_model}')
                 if return_best_model == 'accuracy':
                     display(df[df['accuracy'] == df['accuracy'].max()])
+                elif return_best_model == 'balanced accuracy':
+                    display(df[df['balanced accuracy'] == df['balanced accuracy'].max()])
                 elif return_best_model == 'r2 score':
                     display(df[df['r2 score'] == df['r2 score'].max()])
                 elif return_best_model == 'f1 score':
