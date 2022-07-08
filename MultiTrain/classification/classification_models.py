@@ -23,7 +23,7 @@ from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.svm import NuSVC
 from xgboost import XGBClassifier
-
+from imblearn.ensemble import BalancedBaggingClassifier
 from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel
 from skopt import BayesSearchCV
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV, cross_validate
@@ -34,6 +34,7 @@ from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_sco
 from sklearn.metrics import precision_score, recall_score
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
+from numpy.random import randint
 import pandas as pd
 import numpy as np
 import warnings
@@ -42,71 +43,19 @@ import time
 warnings.filterwarnings("ignore")
 
 
-class Classification:
+class MultiClassifier:
 
-    def __init__(self, lr=0, lrcv=0, sgdc=0, pagg=0, rfc=0, gbc=0, cat=0, xgb=0, gnb=0, lda=0, knc=0, mlp=0, svc=0,
-                 dtc=0, bnb=0, mnb=0, conb=0, hgbc=0, abc=0, etcs=0, rcl=0, rclv=0, etc=0, qda=0,
-                 lsvc=0, bc=0, per=0, nu=0, lgbm=0) -> None:
-        """
+    def __init__(self,
+                 cores: int = -1,
+                 random_state: int = randint(1000),
+                 verbose: bool = False,
+                 target_class: str = 'binary') -> None:
 
-        :param lr: Logistic Regression
-        :param lrcv: Logistic RegressionCV
-        :param sgdc: Stochastic Gradient Descent Classifier
-        :param pagg: Passive Aggressive Classifier
-        :param rfc: Random Forest Classifier
-        :param gbc: Gradient Boosting Classifier
-        :param cat: CatBoostClassifier
-        :param xgb: XGBoost Classifier
-        :param gnb: GaussianNB Classifier
-        :param lda: Linear Discriminant Analysis
-        :param knc: K Neighbors Classifier
-        :param mlp: MLP Classifier
-        :param svc: Support Vector Classifier
-        :param dtc: Decision Tree Classifier
-        :param conb: ComplementNB
-        :param hgbc: Hist Gradient Boosting Classifier
-        :param abc: Ada Boost Classifier
-        :param etcs: Extra Trees Classifier
-        :param rcl: Ridge Classifier
-        :param rclv: Ridge Classifier CV
-        :param etc: Extra Trees Classifier
-        :param gpc: Gaussian Process Classifier
-        :param qda: Quadratic Discriminant Analysis
-        :param lsvc: Linear Support Vector Classifier
-        :param bc: Bagging Classifier
-        :param per: Perceptron
-        :param nu: NuSVC
-        """
+        self.cores = cores
+        self.random_state = random_state
+        self.verbose = verbose
+        self.target_class = target_class
 
-        self.lr = lr
-        self.lrcv = lrcv
-        self.sgdc = sgdc
-        self.pagg = pagg
-        self.rfc = rfc
-        self.gbc = gbc
-        self.cat = cat
-        self.xgb = xgb
-        self.gnb = gnb
-        self.lda = lda
-        self.knc = knc
-        self.mlp = mlp
-        self.svc = svc
-        self.dtc = dtc
-        self.bnb = bnb
-        self.mnb = mnb
-        self.conb = conb
-        self.hgbc = hgbc
-        self.abc = abc
-        self.etcs = etcs
-        self.rcl = rcl
-        self.rclv = rclv
-        self.etc = etc
-        self.qda = qda
-        self.lsvc = lsvc
-        self.bc = bc
-        self.per = per
-        self.nu = nu
-        self.lgbm = lgbm
         self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Precision(Train)", "Precision",
                                         "Recall(Train)", "Recall", "f1(Train)", "f1", 'r2',
                                         'r2', "Standard Deviation of Accuracy(Train)", "Standard Deviation of Accuracy",
@@ -184,47 +133,47 @@ class Classification:
                        "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
                        "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
-                       "Perceptron", "NuSVC", "LGBMClassifier"]
+                       "BalancedBaggingClassifier", "Perceptron", "NuSVC", "LGBMClassifier"]
         return model_names
 
     def initialize(self):
         """
         It initializes all the models that we will be using in our ensemble
         """
-        self.lr = LogisticRegression(n_jobs=-1)
-        self.lrcv = LogisticRegressionCV(n_jobs=-1, refit=True)
-        self.sgdc = SGDClassifier(n_jobs=-1)
-        self.pagg = PassiveAggressiveClassifier(n_jobs=-1)
-        self.rfc = RandomForestClassifier(n_jobs=-1)
-        self.gbc = GradientBoostingClassifier()
-        self.hgbc = HistGradientBoostingClassifier()
-        self.abc = AdaBoostClassifier()
-        self.cat = CatBoostClassifier(thread_count=-1, verbose=False)
-        self.xgb = XGBClassifier(eval_metric="mlogloss", n_jobs=-1, refit=True)
-        self.gnb = GaussianNB()
-        self.lda = LinearDiscriminantAnalysis()
-        self.knc = KNeighborsClassifier(n_jobs=-1)
-        self.mlp = MLPClassifier()
-        self.svc = SVC()
-        self.dtc = DecisionTreeClassifier()
-        self.bnb = BernoulliNB()
-        self.mnb = MultinomialNB()
-        self.conb = ComplementNB()
-        self.etcs = ExtraTreesClassifier(n_jobs=-1)
-        self.rcl = RidgeClassifier()
-        self.rclv = RidgeClassifierCV()
-        self.etc = ExtraTreeClassifier()
+        lr = LogisticRegression(n_jobs=self.cores, random_state=self.random_state)
+        lrcv = LogisticRegressionCV(n_jobs=self.cores, refit=True)
+        sgdc = SGDClassifier(n_jobs=self.cores, random_state=self.random_state)
+        pagg = PassiveAggressiveClassifier(n_jobs=self.cores, random_state=self.random_state)
+        rfc = RandomForestClassifier(n_jobs=self.cores, random_state=self.random_state)
+        gbc = GradientBoostingClassifier(random_state=self.random_state)
+        hgbc = HistGradientBoostingClassifier(random_state=self.random_state)
+        abc = AdaBoostClassifier(random_state=self.random_state)
+        cat = CatBoostClassifier(thread_count=self.cores, verbose=False, random_state=self.random_state)
+        xgb = XGBClassifier(eval_metric="mlogloss", n_jobs=self.cores, refit=True, random_state=self.random_state)
+        gnb = GaussianNB()
+        lda = LinearDiscriminantAnalysis()
+        knc = KNeighborsClassifier(n_jobs=self.cores)
+        mlp = MLPClassifier(random_state=self.random_state)
+        svc = SVC(random_state=self.random_state)
+        dtc = DecisionTreeClassifier(random_state=self.random_state)
+        bnb = BernoulliNB()
+        mnb = MultinomialNB()
+        conb = ComplementNB()
+        etcs = ExtraTreesClassifier(n_jobs=self.cores, random_state=self.random_state)
+        rcl = RidgeClassifier(random_state=self.random_state)
+        rclv = RidgeClassifierCV()
+        etc = ExtraTreeClassifier(random_state=self.random_state)
         # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
-        self.qda = QuadraticDiscriminantAnalysis()
-        self.lsvc = LinearSVC()
-        self.bc = BaggingClassifier(n_jobs=-1)
-        self.per = Perceptron(n_jobs=-1)
-        self.nu = NuSVC()
-        self.lgbm = LGBMClassifier()
+        qda = QuadraticDiscriminantAnalysis()
+        lsvc = LinearSVC(random_state=self.random_state)
+        bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
+        bbc = BalancedBaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
+        per = Perceptron(n_jobs=self.cores, random_state=self.random_state)
+        nu = NuSVC(random_state=self.random_state)
+        lgbm = LGBMClassifier(random_state=self.random_state)
 
-        return (self.lr, self.lrcv, self.sgdc, self.pagg, self.rfc, self.gbc, self.hgbc, self.abc, self.cat, self.xgb,
-                self.gnb, self.lda, self.knc, self.mlp, self.svc, self.dtc, self.bnb, self.mnb, self.conb,
-                self.etcs, self.rcl, self.rclv, self.etc, self.qda, self.lsvc, self.bc, self.per, self.nu, self.lgbm)
+        return (lr, lrcv, sgdc, pagg, rfc, gbc, hgbc, abc, cat, xgb, gnb, lda, knc, mlp, svc, dtc, bnb, mnb, conb,
+                etcs, rcl, rclv, etc, qda, lsvc, bc, bbc, per, nu, lgbm)
 
     def _get_index(self, df, the_best):
         name = list(self.classifier_model_names())
@@ -249,10 +198,10 @@ class Classification:
         index_ = name.index(best_model_name)
         return MODEL[index_]
 
-    def startKFold(self, param, param_X, param_y, param_cv, fn_target, train_score):
+    def startKFold(self, param, param_X, param_y, param_cv, train_score):
         names = self.classifier_model_names()
 
-        if fn_target == 'binary':
+        if self.target_class == 'binary':
             dataframe = {}
             for i in range(len(param)):
                 start = time.time()
@@ -294,7 +243,7 @@ class Classification:
                     dataframe.update({names[i]: scores_df})
             return dataframe
 
-        elif fn_target == 'multiclass':
+        elif self.target_class == 'multiclass':
             dataframe = {}
             for j in range(len(param)):
                 start = time.time()
@@ -345,7 +294,6 @@ class Classification:
             excel: bool = False,
             return_best_model: str = None,
             return_fastest_model: bool = False,
-            target: str = 'binary',
             show_train_score: bool = False,
             text: bool = False,
             vectorizer: str = None
@@ -437,10 +385,10 @@ class Classification:
         if kf is True and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
-        if target:
+        if self.target_class:
             accepted_targets = ['binary', 'multiclass']
-            if target not in accepted_targets:
-                raise Exception(f"target should be set to either binary or multiclass but target was set to {target}")
+            if self.target_class not in accepted_targets:
+                raise Exception(f"target should be set to either binary or multiclass but target was set to {self.target_class}")
 
         if splitting is True or split_self is True:
             if splitting and split_data:
@@ -454,10 +402,14 @@ class Classification:
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):
-                print(model[i])
+                if self.verbose is True:
+                    print(model[i])
                 start = time.time()
                 if text is False:
-                    model[i].fit(X_tr, y_tr)
+                    try:
+                        model[i].fit(X_tr, y_tr)
+                    except Exception:
+                        pass
                     end = time.time()
                     try:
                         pred = model[i].predict(X_te)
@@ -467,20 +419,24 @@ class Classification:
                 elif text is True:
                     if vectorizer == 'count':
                         try:
-                            pipeline = make_pipeline(CountVectorizer(),
-                                                     model[i])
+                            try:
+                                pipeline = make_pipeline(CountVectorizer(),
+                                                         model[i])
 
-                            pipeline.fit(X_tr, y_tr)
-                        except TypeError:
-                            # This is a fix for the error below when using gradient boosting classifier or
-                            # HistGradientBoostingClassifier TypeError: A sparse matrix was passed, but dense data is
-                            # required. Use X.toarray() to convert to a dense numpy array.
-                            pipeline = make_pipeline(CountVectorizer(),
-                                                     FunctionTransformer(lambda x: x.todense(),
-                                                                         accept_sparse=True),
+                                pipeline.fit(X_tr, y_tr)
+                            except TypeError:
+                                # This is a fix for the error below when using gradient boosting classifier or
+                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed, but dense data is
+                                # required. Use X.toarray() to convert to a dense numpy array.
+                                pipeline = make_pipeline(CountVectorizer(),
+                                                         FunctionTransformer(lambda x: x.todense(),
+                                                                             accept_sparse=True),
 
-                                                     model[i])
-                            pipeline.fit(X_tr, y_tr)
+                                                         model[i])
+                                pipeline.fit(X_tr, y_tr)
+                        except Exception:
+                            pass
+
                         end = time.time()
                         try:
                             pred = pipeline.predict(X_te)
@@ -492,38 +448,24 @@ class Classification:
                 acc = accuracy_score(true, pred)
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
-                try:
-                    r2 = r2_score(true, pred)
-                except ValueError:
-                    r2 = None
-                try:
-                    roc = roc_auc_score(true, pred)
-                except ValueError:
-                    roc = None
-                try:
-                    f1 = f1_score(true, pred)
-                except ValueError:
-                    f1 = None
-                try:
-                    pre = precision_score(true, pred)
-                except ValueError:
-                    pre = None
-                try:
-                    rec = recall_score(true, pred)
-                except ValueError:
-                    rec = None
+                r2 = r2_score(true, pred)
+                roc = roc_auc_score(true, pred)
+                f1 = f1_score(true, pred)
+                pre = precision_score(true, pred)
+                rec = recall_score(true, pred)
+
 
                 time_taken = round(end - start, 2)
                 eval_bin = [acc, r2, roc, f1, pre, rec, time_taken]
                 eval_mul = [acc, r2, time_taken]
-                if target == 'binary':
+                if self.target_class == 'binary':
                     dataframe.update({names[i]: eval_bin})
-                elif target == 'multiclass':
+                elif self.target_class == 'multiclass':
                     dataframe.update({names[i]: eval_mul})
 
-            if target == 'binary':
+            if self.target_class == 'binary':
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_binary_columns)
-            elif target == 'multiclass':
+            elif self.target_class == 'multiclass':
                 df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_multiclass_columns)
 
             if return_best_model is not None:
@@ -552,9 +494,12 @@ class Classification:
             KFoldModel = self.initialize()
             names = self.classifier_model_names()
 
-            if target == 'binary':
+            if self.target == 'binary':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target,
+                dataframe = self.startKFold(param=KFoldModel,
+                                            param_X=X,
+                                            param_y=y,
+                                            param_cv=fold,
                                             train_score=show_train_score)
 
                 if show_train_score is True:
@@ -565,9 +510,12 @@ class Classification:
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
 
-            elif target == 'multiclass':
+            elif self.target == 'multiclass':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold, fn_target=target,
+                dataframe = self.startKFold(param=KFoldModel,
+                                            param_X=X,
+                                            param_y=y,
+                                            param_cv=fold,
                                             train_score=show_train_score)
 
                 if show_train_score is True:
@@ -717,8 +665,7 @@ class Classification:
                   t_split: bool = False,
                   size=(15, 8),
                   save: str = None,
-                  save_name='dir1',
-                  target='binary'
+                  save_name='dir1'
                   ):
 
         """
@@ -808,7 +755,7 @@ class Classification:
             display(plot1)
 
         elif t_split is True:
-            if target == 'binary':
+            if self.target_class == 'binary':
                 plt.figure(figsize=size)
                 plot = sns.barplot(x="model_names", y="Accuracy", data=param)
                 plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
@@ -853,7 +800,7 @@ class Classification:
                     name = save_name
                     img(FILENAME=name, FILE_PATH=file_path, type_='picture')
 
-            elif target == 'multiclass':
+            elif self.target == 'multiclass':
                 plt.figure(figsize=size)
                 plot = sns.barplot(x="model_names", y="Accuracy", data=param)
                 plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
@@ -880,8 +827,7 @@ class Classification:
              kf: bool = False,
              t_split: bool = False,
              save: bool = False,
-             save_name=None,
-             target='binary',
+             save_name=None
              ):
         """
                 The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
@@ -907,7 +853,7 @@ class Classification:
             if t_split is True:
                 raise Exception("set kf to True if you used KFold or set t_split to True"
                                 "if you used the split method.")
-            if target == 'binary':
+            if self.target_class == 'binary':
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_binary_columns_train)):
                     IMAGE_COLUMNS.append(self.kf_binary_columns_train[i] + ".png")
@@ -930,12 +876,12 @@ class Classification:
                             img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
-                                label=target,
+                                label=self.target_class,
                                 FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
 
-            elif target == 'multiclass':
+            elif self.target_class=='multiclass':
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_multiclass_columns_train)):
                     IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
@@ -958,7 +904,7 @@ class Classification:
                             img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
-                                label=target,
+                                label=self.target_class,
                                 FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
@@ -968,7 +914,7 @@ class Classification:
                 raise Exception("set kf to True if you used KFold or set t_split to True"
                                 "if you used the split method.")
 
-            if target == 'binary':
+            if self.target_class == 'binary':
                 IMAGE_COLUMNS = []
                 for i in range(len(self.t_split_binary_columns)):
                     IMAGE_COLUMNS.append(self.t_split_binary_columns[i] + ".png")
@@ -991,12 +937,12 @@ class Classification:
                             img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
-                                label=target,
+                                label=self.target_class,
                                 FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
 
-            elif target == 'multiclass':
+            elif self.target_class == 'multiclass':
                 IMAGE_COLUMNS = []
                 for i in range(len(self.t_split_multiclass_columns)):
                     IMAGE_COLUMNS.append(self.t_split_multiclass_columns[i] + ".png")
@@ -1019,7 +965,7 @@ class Classification:
                             img_plotly(
                                 name=IMAGE_COLUMNS[j],
                                 figure=fig,
-                                label=target,
+                                label=self.target_class,
                                 FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
