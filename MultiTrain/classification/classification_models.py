@@ -489,7 +489,10 @@ class MultiClassifier:
                 if text is False:
 
                     if self.imbalanced is False:
-                        model[i].fit(X_tr, y_tr)
+                        try:
+                            model[i].fit(X_tr, y_tr)
+                        except ValueError:
+                            pass
 
                     elif self.imbalanced is True:
                         method = self._get_sample_index_method()
@@ -498,7 +501,10 @@ class MultiClassifier:
                         X_tr, y_tr = method.fit_resample(X_tr, y_tr)
                         if self.verbose is True:
                             print(f'After resampling: {Counter(y_tr)}')
-                        model[i].fit(X_tr, y_tr)
+                        try:
+                            model[i].fit(X_tr, y_tr)
+                        except ValueError:
+                            pass
 
                     end = time.time()
 
