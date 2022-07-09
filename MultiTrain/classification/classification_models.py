@@ -255,7 +255,7 @@ class MultiClassifier:
         index_ = name.index(best_model_name)
         return MODEL[index_]
 
-    def startKFold(self, param, param_X, param_y, param_cv, train_score):
+    def _startKFold_(self, param, param_X, param_y, param_cv, train_score):
         names = self.classifier_model_names()
 
         if self.target_class == 'binary':
@@ -426,6 +426,10 @@ class MultiClassifier:
             if text is False:
                 if vectorizer is not None:
                     raise Exception('parameter vectorizer can only be accepted when parameter text is True')
+
+        if self.imbalanced is False:
+            if self.strategy:
+                raise Exception('this parameter can only be used if "imbalanced" is set to True')
 
         if isinstance(splitting, bool) is False:
             raise TypeError(
@@ -615,7 +619,7 @@ class MultiClassifier:
 
             if self.target_class == 'binary':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel,
+                dataframe = self._startKFold_(param=KFoldModel,
                                             param_X=X,
                                             param_y=y,
                                             param_cv=fold,
@@ -631,7 +635,7 @@ class MultiClassifier:
 
             elif self.target_class == 'multiclass':
                 PrintLog("Training started")
-                dataframe = self.startKFold(param=KFoldModel,
+                dataframe = self._startKFold_(param=KFoldModel,
                                             param_X=X,
                                             param_y=y,
                                             param_cv=fold,
