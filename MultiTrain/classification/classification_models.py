@@ -42,6 +42,7 @@ from sklearn.metrics import precision_score, recall_score, balanced_accuracy_sco
 from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
 from numpy.random import randint
+from imblearn.pipeline import Pipeline as imbpipe
 import pandas as pd
 import numpy as np
 import warnings
@@ -165,7 +166,6 @@ class MultiClassifier:
 
                 elif shuffle_data is True:
 
-                    if self.imbalanced is False:
                         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
                                                                             train_size=1 - sizeOfTest,
                                                                             stratify=y, random_state=randomState,
@@ -173,36 +173,14 @@ class MultiClassifier:
 
                         return X_train, X_test, y_train, y_test
 
-                    elif self.imbalanced is True:
-                        method = self._get_sample_index_method()
 
-                        X_new, y_new = method.fit_resample(X, y)
-                        if self.verbose is True:
-                            print(f'Before Resampling {Counter(y)}')
-                            print(f'After Resampling {Counter(y_new)}')
-
-                        X_train, X_test, y_train, y_test = train_test_split(X_new, y_new, test_size=sizeOfTest,
-                                                                            train_size=1 - sizeOfTest,
-                                                                            stratify=y, random_state=randomState,
-                                                                            shuffle=shuffle_data)
 
             else:
-                if self.imbalanced is False:
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                        train_size=1 - sizeOfTest)
-                    return X_train, X_test, y_train, y_test
 
-                elif self.imbalanced is True:
-                    method = self._get_sample_index_method()
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                    train_size=1 - sizeOfTest)
+                return X_train, X_test, y_train, y_test
 
-                    X_new, y_new = method.fit_resample(X, y)
-                    if self.verbose is True:
-                        print(f'Before Resampling {Counter(y)}')
-                        print(f'After Resampling {Counter(y_new)}')
-
-                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                        train_size=1 - sizeOfTest)
-                    return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self):
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
@@ -283,12 +261,24 @@ class MultiClassifier:
         if self.target_class == 'binary':
             dataframe = {}
             for i in range(len(param)):
+
                 if self.verbose is True:
                     print(param[i])
-                start = time.time()
+
                 score = ('accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'r2')
-                scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
-                                        cv=param_cv, n_jobs=-1, return_train_score=True)
+
+                if self.imbalanced is False:
+                    start = time.time()
+
+                    scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
+                                            cv=param_cv, n_jobs=self.cores, return_train_score=train_score)
+
+                elif self.imbalanced is True:
+                    start = time.time()
+                    method = self._get_sample_index_method()
+                    pipeline = imbpipe(steps=[('sample', method), ('model', param[i])])
+                    scores = cross_validate(estimator=pipeline, X=param_X, y=param_y, scoring=score,
+                                            cv=param_cv, n_jobs=self.cores, return_train_score=train_score)
                 end = time.time()
                 seconds = end - start
 
@@ -381,12 +371,13 @@ class MultiClassifier:
             show_train_score: bool = False,
             text: bool = False,
             vectorizer: str = None,
-            n_grams: tuple = None
+            ngrams: tuple = None
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param n_grams:
         :param vectorizer:
         :param text:
         :param show_train_score:
@@ -494,12 +485,19 @@ class MultiClassifier:
                 if self.verbose is True:
                     print(model[i])
                 start = time.time()
+
                 if text is False:
-                    try:
+
+                    if self.imbalanced is False:
                         model[i].fit(X_tr, y_tr)
-                    except Exception:
-                        pass
+
+                    elif self.imbalanced is True:
+                        method = self._get_sample_index_method()
+                        X_tr, y_tr = method.fit_resample(X_tr, y_tr)
+                        model[i].fit(X_tr, y_tr)
+
                     end = time.time()
+
                     try:
                         pred = model[i].predict(X_te)
                     except AttributeError:
@@ -529,7 +527,7 @@ class MultiClassifier:
                     elif vectorizer == 'tfidf':
                         try:
                             try:
-                                pipeline = make_pipeline(TfidfVectorizer(n_grams=n_grams),
+                                pipeline = make_pipeline(TfidfVectorizer(ngram_range=ngrams),
                                                          model[i])
 
                                 pipeline.fit(X_tr, y_tr)
@@ -537,7 +535,7 @@ class MultiClassifier:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                 # but dense data is required. Use X.toarray() to convert to a dense numpy array.
-                                pipeline = make_pipeline(TfidfVectorizer(),
+                                pipeline = make_pipeline(TfidfVectorizer(ngram_range=ngrams),
                                                          FunctionTransformer(lambda x: x.todense(),
                                                                              accept_sparse=True),
 
