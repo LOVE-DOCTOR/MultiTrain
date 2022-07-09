@@ -493,7 +493,11 @@ class MultiClassifier:
 
                     elif self.imbalanced is True:
                         method = self._get_sample_index_method()
+                        if self.verbose is True:
+                            print(f'Before resampling: {Counter(y_tr)}')
                         X_tr, y_tr = method.fit_resample(X_tr, y_tr)
+                        if self.verbose is True:
+                            print(f'After resampling: {Counter(y_tr)}')
                         model[i].fit(X_tr, y_tr)
 
                     end = time.time()
