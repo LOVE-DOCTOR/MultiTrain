@@ -103,7 +103,7 @@ class MultiClassifier:
         self.t_split_multiclass_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
                                            "execution time(seconds)"]
 
-    def strategies(self):
+    def strategies(self)->None:
         print(f'Over-Sampling Methods = {self.oversampling_list}')
         print("\n")
         print(f'Under-Sampling Methods = {self.undersampling_list}')
@@ -173,8 +173,6 @@ class MultiClassifier:
 
                         return X_train, X_test, y_train, y_test
 
-
-
             else:
 
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
@@ -182,7 +180,7 @@ class MultiClassifier:
                 return X_train, X_test, y_train, y_test
 
 
-    def classifier_model_names(self):
+    def classifier_model_names(self) -> list[str]:
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
                        "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
                        "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
@@ -428,6 +426,9 @@ class MultiClassifier:
                 if vectorizer is not None:
                     raise Exception('parameter vectorizer can only be accepted when parameter text is True')
 
+                if ngrams is not None:
+                    raise Exception('parameter ngrams can only be accepted when parameter text is True')
+
         if self.imbalanced is False:
             if self.strategy:
                 raise Exception('this parameter can only be used if "imbalanced" is set to True')
@@ -456,11 +457,7 @@ class MultiClassifier:
             if splitting:
                 raise ValueError("KFold cross validation cannot be true if splitting is true and splitting cannot be "
                                  "true if KFold is true")
-            """
-            if skf:
-                raise TypeError("kf cannot be true if skf is true and skf cannot be true if kf is true. You can only "
-                                "use one at the same time")
-            """
+
             if split_data:
                 raise ValueError("split_data cannot be used with kf, set splitting to True to use param "
                                  "split_data")
