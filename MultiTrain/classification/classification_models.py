@@ -377,6 +377,7 @@ class MultiClassifier:
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param ngrams:
         :param n_grams:
         :param vectorizer:
         :param text:
@@ -521,7 +522,7 @@ class MultiClassifier:
                     if vectorizer == 'count':
                         try:
                             try:
-                                pipeline = make_pipeline(CountVectorizer(),
+                                pipeline = make_pipeline(CountVectorizer(ngram_range=ngrams),
                                                          model[i])
 
                                 pipeline.fit(X_tr, y_tr)
@@ -529,7 +530,7 @@ class MultiClassifier:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                 # but dense data is required. Use X.toarray() to convert to a dense numpy array.
-                                pipeline = make_pipeline(CountVectorizer(),
+                                pipeline = make_pipeline(CountVectorizer(ngram_range=ngrams),
                                                          FunctionTransformer(lambda x: x.todense(),
                                                                              accept_sparse=True),
 
@@ -558,11 +559,11 @@ class MultiClassifier:
                         except Exception:
                             pass
 
-                        end = time.time()
-                        try:
-                            pred = pipeline.predict(X_te)
-                        except AttributeError:
-                            pass
+                    end = time.time()
+                    try:
+                        pred = pipeline.predict(X_te)
+                    except AttributeError:
+                        pass
 
                 true = y_te
 
