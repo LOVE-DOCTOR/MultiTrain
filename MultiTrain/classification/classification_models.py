@@ -41,7 +41,6 @@ from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, make_scorer
 from sklearn.metrics import mean_absolute_error, r2_score, f1_score, roc_auc_score, mean_squared_error
 from sklearn.metrics import precision_score, recall_score, balanced_accuracy_score
-from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 from matplotlib import pyplot as plt
 from numpy.random import randint
 from imblearn.pipeline import Pipeline as imbpipe
@@ -50,6 +49,9 @@ import numpy as np
 import warnings
 import time
 
+import logging
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
 
@@ -99,20 +101,20 @@ class MultiClassifier:
 
         self.kf_multiclass_columns_test = ["Precision Macro", "Recall Macro", "f1 Macro"]
 
-        self.t_split_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
+        self.t_split_binary_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
                                              "Balanced Accuracy", "r2 score(Train)", "r2 score", "ROC AUC(Train)",
                                              "ROC AUC", "f1 score(Train)", "f1 score", "Precision(Train)", "Precision",
                                              "Recall(Train)", "Recall", "execution time(seconds)"]
 
-        self.t_split_binary_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score",
+        self.t_split_binary_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "r2 score",
                                             "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
+        self.t_split_multiclass_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
                                                  "Balanced Accuracy", "r2 score(Train)", "r2 score",
                                                  "f1 score(Train)", "f1 score", "Precision(Train)", "Precision",
                                                  "Recall(Train)", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score", "f1 score", "Precision",
+        self.t_split_multiclass_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "r2 score", "f1 score", "Precision",
                                                 "Recall", "execution time(seconds)"]
 
     def strategies(self) -> None:
@@ -148,9 +150,13 @@ class MultiClassifier:
               shuffle_data: bool = True,
               dimensionality_reduction: bool = False,
               normalize: any = None,
-              columns_to_scale: list = None):
+              columns_to_scale: list = None,
+              n_components: int = None):
         """
 
+        :param n_components:
+        :param columns_to_scale:
+        :param normalize:
         :param dimensionality_reduction:
         :param X: features
         :param y: labels
@@ -217,7 +223,7 @@ class MultiClassifier:
                                     X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
                                     X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
 
-                                    pca = PCA()
+                                    pca = PCA(n_components=n_components, random_state=self.random_state)
                                     X_train = pca.fit_transform(X_train)
                                     X_test = pca.transform(X_test)
                                     return X_train, X_test, y_train, y_test
@@ -542,7 +548,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr, y_tr)
                         except ValueError:
-                            print(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} has an issue')
                             pass
 
                     elif self.imbalanced is True:
@@ -555,7 +561,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr, y_tr)
                         except ValueError:
-                            print(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} has an issue')
                             pass
 
                     end = time.time()
@@ -587,7 +593,7 @@ class MultiClassifier:
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
                         except Exception:
-                            print(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} has an issue')
                             pass
 
                     elif vectorizer == 'tfidf':
@@ -608,7 +614,7 @@ class MultiClassifier:
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
                         except Exception:
-                            print(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} has an issue')
                             pass
 
                     end = time.time()
@@ -646,39 +652,39 @@ class MultiClassifier:
                         pre = precision_score(true, pred, average='macro')
                         rec = recall_score(true, pred, average='macro')
 
-                if show_train_score is True:
-                    tacc = accuracy_score(true_train, pred_train)
-                    tbacc = balanced_accuracy_score(true_train, pred_train)
-                    tclr = classification_report(true_train, pred_train)
-                    tcfm = confusion_matrix(true_train, pred_train)
-                    tr2 = r2_score(true_train, pred_train)
-                    try:
-                        troc = roc_auc_score(true_train, pred_train)
-                    except ValueError:
-                        troc = None
-                    if self.target_class == 'binary':
-                        tf1 = f1_score(true_train, pred_train)
-                        tpre = precision_score(true_train, pred_train)
-                        trec = recall_score(true_train, pred_train)
+                tacc = accuracy_score(true_train, pred_train)
+                tbacc = balanced_accuracy_score(true_train, pred_train)
+                tclr = classification_report(true_train, pred_train)
+                tcfm = confusion_matrix(true_train, pred_train)
+                tr2 = r2_score(true_train, pred_train)
+                try:
+                    troc = roc_auc_score(true_train, pred_train)
+                except ValueError:
 
-                    elif self.target_class == 'multiclass':
-                        if self.imbalanced is True:
-                            tf1 = f1_score(true_train, pred_train, average='micro')
-                            tpre = precision_score(true_train, pred_train, average='micro')
-                            trec = recall_score(true_train, pred_train, average='micro')
-                        elif self.imbalanced is False:
-                            tf1 = f1_score(true_train, pred_train, average='macro')
-                            tpre = precision_score(true_train, pred_train, average='macro')
-                            trec = recall_score(true_train, pred_train, average='macro')
+                    troc = None
+                if self.target_class == 'binary':
+                    tf1 = f1_score(true_train, pred_train)
+                    tpre = precision_score(true_train, pred_train)
+                    trec = recall_score(true_train, pred_train)
 
+                elif self.target_class == 'multiclass':
+                    if self.imbalanced is True:
+                        tf1 = f1_score(true_train, pred_train, average='micro')
+                        tpre = precision_score(true_train, pred_train, average='micro')
+                        trec = recall_score(true_train, pred_train, average='micro')
+                    elif self.imbalanced is False:
+                        tf1 = f1_score(true_train, pred_train, average='macro')
+                        tpre = precision_score(true_train, pred_train, average='macro')
+                        trec = recall_score(true_train, pred_train, average='macro')
+                overfit = True if (tacc - acc) > 0.1 else False
                 time_taken = round(end - start, 2)
                 if show_train_score is False:
-                    eval_bin = [acc, bacc, r2, roc, f1, pre, rec, time_taken]
-                    eval_mul = [acc, bacc, r2, f1, pre, rec, time_taken]
+                    eval_bin = [overfit, acc, bacc, r2, roc, f1, pre, rec, time_taken]
+                    eval_mul = [overfit, acc, bacc, r2, f1, pre, rec, time_taken]
                 elif show_train_score is True:
-                    eval_bin = [tacc, acc, tbacc, bacc, tr2, r2, troc, roc, tf1, f1, tpre,
+                    eval_bin = [overfit, tacc, acc, tbacc, bacc, tr2, r2, troc, roc, tf1, f1, tpre,
                                 pre, trec, rec, time_taken]
-                    eval_mul = [tacc, acc, tbacc, bacc, tr2, r2, tf1, f1, tpre, pre, trec, rec,
+                    eval_mul = [overfit, tacc, acc, tbacc, bacc, tr2, r2, tf1, f1, tpre, pre, trec, rec,
                                 time_taken]
 
                 if self.target_class == 'binary':
@@ -737,7 +743,7 @@ class MultiClassifier:
             names = self.classifier_model_names()
 
             if self.target_class == 'binary':
-                PrintLog("Training started")
+                logger.info("Training started")
                 dataframe = self._startKFold_(param=KFoldModel,
                                               param_X=X,
                                               param_y=y,
@@ -758,7 +764,7 @@ class MultiClassifier:
                 return kf_
 
             elif self.target_class == 'multiclass':
-                PrintLog("Training started")
+                logger.info("Training started")
                 dataframe = self._startKFold_(param=KFoldModel,
                                               param_X=X,
                                               param_y=y,

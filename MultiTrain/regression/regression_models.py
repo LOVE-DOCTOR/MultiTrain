@@ -34,7 +34,6 @@ from skopt import BayesSearchCV
 from skopt.learning import ExtraTreesRegressor, GaussianProcessRegressor, RandomForestRegressor
 from xgboost import XGBRegressor
 
-from MultiTrain.LOGGING import PrintLog
 from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model, img, directory, \
     img_plotly
 

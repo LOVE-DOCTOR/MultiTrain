@@ -1,9 +1,12 @@
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 from IPython.display import display
-from MultiTrain.LOGGING.log_message import PrintLog, WarnLog
 import os
 import shutil
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def write_to_excel(name: any,
@@ -59,11 +62,11 @@ def directory(FOLDER_NAME):
                             raise ValueError("Invalid character specified in folder name")
                         else:
                             os.mkdir(FOLDER_NAME_)
-                            PrintLog(f"Directory {FOLDER_NAME_} successfully created")
+                            logger.info(f"Directory {FOLDER_NAME_} successfully created")
                             return FOLDER_NAME_
 
             else:
-                WarnLog("Select from y/n")
+                logger.info("Select from y/n")
 
 
 def img_plotly(figure: any,
@@ -118,7 +121,8 @@ def img(FILENAME: any,
 def kf_best_model(df, best, excel):
     if best is not None:
         metrics_high = ["Accuracy", "Precision",
-                        "Precision Macro", "Recall", "Recall Macro", "Standard Deviation of Accuracy", "Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
+                        "Precision Macro", "Recall", "Recall Macro", "Standard Deviation of Accuracy",
+                        "Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
                         "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
                         "Neg Median Absolute Percentage Error"]
 
@@ -142,7 +146,7 @@ def kf_best_model(df, best, excel):
 
 def t_best_model(df, best, excel):
     if best is not None:
-        PrintLog(f'BEST MODEL BASED ON {best}')
+        logger.info(f'BEST MODEL BASED ON {best}')
         minimum = ["Mean Absolute Error", 'Root Mean Squared Error', 'Root Mean Squared Log Error',
                    'Median Absolute Error', 'Mean Absolute Percentage Error']
         maximum = ['r2 score']
