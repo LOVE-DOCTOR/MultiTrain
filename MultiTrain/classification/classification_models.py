@@ -9,8 +9,10 @@ from imblearn.over_sampling import SMOTE, RandomOverSampler, SMOTENC, SMOTEN, AD
 from imblearn.under_sampling import CondensedNearestNeighbour, EditedNearestNeighbours, RepeatedEditedNearestNeighbours, \
     AllKNN, InstanceHardnessThreshold, NearMiss, NeighbourhoodCleaningRule, OneSidedSelection, RandomUnderSampler, \
     TomekLinks
+from sklearn.decomposition import PCA
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, HistGradientBoostingClassifier
@@ -107,10 +109,11 @@ class MultiClassifier:
 
         self.t_split_multiclass_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
                                                  "Balanced Accuracy", "r2 score(Train)", "r2 score",
-                                                 "execution time(seconds)"]
+                                                 "f1 score(Train)", "f1 score", "Precision(Train)", "Precision",
+                                                 "Recall(Train)", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score",
-                                                "execution time(seconds)"]
+        self.t_split_multiclass_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score", "f1 score", "Precision",
+                                                "Recall", "execution time(seconds)"]
 
     def strategies(self) -> None:
         print(f'Over-Sampling Methods = {self.oversampling_list}')
@@ -142,9 +145,13 @@ class MultiClassifier:
               strat: bool = False,
               sizeOfTest: float = 0.2,
               randomState: int = None,
-              shuffle_data: bool = True):
+              shuffle_data: bool = True,
+              dimensionality_reduction: bool = False,
+              normalize: any = None,
+              columns_to_scale: list = None):
         """
 
+        :param dimensionality_reduction:
         :param X: features
         :param y: labels
         :param strat: used to initialize stratify = y in train_test_split if True
@@ -168,19 +175,52 @@ class MultiClassifier:
             raise ValueError("value of sizeOfTest should be between 0 and 1")
 
         else:
+            # values for normalize
+            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
             if strat is True:
 
                 if shuffle_data is False:
                     raise TypeError("shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
-
                     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
                                                                         train_size=1 - sizeOfTest,
                                                                         stratify=y, random_state=randomState,
                                                                         shuffle=shuffle_data)
+                    if dimensionality_reduction is False:
+                        return X_train, X_test, y_train, y_test
 
-                    return X_train, X_test, y_train, y_test
+                    if dimensionality_reduction is True:
+                        if normalize is None:
+                            raise ValueError('Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler" to '
+                                             'normalize if dimensionality_reduction is True')
+
+                        if normalize is not None:
+                            if columns_to_scale is None:
+                                if isinstance(columns_to_scale, list) is False:
+                                    raise ValueError('Pass a list or tuple containing the columns to be scaled to the '
+                                                     'column_to_scale parameter')
+                                elif isinstance(columns_to_scale, tuple) is False:
+                                    raise ValueError('Pass a list or tuple containing the columns to be scaled to the '
+                                                     'column_to_scale parameter')
+
+                            if columns_to_scale is not None and isinstance(columns_to_scale, list) or \
+                                    isinstance(columns_to_scale, tuple):
+                                if normalize in norm:
+                                    if normalize == 'StandardScaler':
+                                        scale = StandardScaler()
+                                    elif normalize == 'MinMaxScaler':
+                                        scale = MinMaxScaler()
+                                    elif normalize == 'RobustScaler':
+                                        scale = RobustScaler()
+
+                                    X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
+                                    X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+
+                                    pca = PCA()
+                                    X_train = pca.fit_transform(X_train)
+                                    X_test = pca.transform(X_test)
+                                    return X_train, X_test, y_train, y_test
 
             else:
 
@@ -377,7 +417,7 @@ class MultiClassifier:
             show_train_score: bool = False,
             text: bool = False,
             vectorizer: str = None,
-            ngrams: tuple = None
+            ngrams: tuple = None,
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
@@ -586,29 +626,60 @@ class MultiClassifier:
                 clr = classification_report(true, pred)
                 cfm = confusion_matrix(true, pred)
                 r2 = r2_score(true, pred)
-                roc = roc_auc_score(true, pred)
-                f1 = f1_score(true, pred)
-                pre = precision_score(true, pred)
-                rec = recall_score(true, pred)
+                try:
+                    roc = roc_auc_score(true, pred)
+                except ValueError:
+                    roc = None
+
+                if self.target_class == 'binary':
+                    f1 = f1_score(true, pred)
+                    pre = precision_score(true, pred)
+                    rec = recall_score(true, pred)
+
+                elif self.target_class == 'multiclass':
+                    if self.imbalanced is True:
+                        f1 = f1_score(true, pred, average='micro')
+                        pre = precision_score(true, pred, average='micro')
+                        rec = recall_score(true, pred, average='micro')
+                    elif self.imbalanced is False:
+                        f1 = f1_score(true, pred, average='macro')
+                        pre = precision_score(true, pred, average='macro')
+                        rec = recall_score(true, pred, average='macro')
+
                 if show_train_score is True:
                     tacc = accuracy_score(true_train, pred_train)
                     tbacc = balanced_accuracy_score(true_train, pred_train)
                     tclr = classification_report(true_train, pred_train)
                     tcfm = confusion_matrix(true_train, pred_train)
                     tr2 = r2_score(true_train, pred_train)
-                    troc = roc_auc_score(true_train, pred_train)
-                    tf1 = f1_score(true_train, pred_train)
-                    tpre = precision_score(true_train, pred_train)
-                    trec = recall_score(true_train, pred_train)
+                    try:
+                        troc = roc_auc_score(true_train, pred_train)
+                    except ValueError:
+                        troc = None
+                    if self.target_class == 'binary':
+                        tf1 = f1_score(true_train, pred_train)
+                        tpre = precision_score(true_train, pred_train)
+                        trec = recall_score(true_train, pred_train)
+
+                    elif self.target_class == 'multiclass':
+                        if self.imbalanced is True:
+                            tf1 = f1_score(true_train, pred_train, average='micro')
+                            tpre = precision_score(true_train, pred_train, average='micro')
+                            trec = recall_score(true_train, pred_train, average='micro')
+                        elif self.imbalanced is False:
+                            tf1 = f1_score(true_train, pred_train, average='macro')
+                            tpre = precision_score(true_train, pred_train, average='macro')
+                            trec = recall_score(true_train, pred_train, average='macro')
 
                 time_taken = round(end - start, 2)
                 if show_train_score is False:
                     eval_bin = [acc, bacc, r2, roc, f1, pre, rec, time_taken]
-                    eval_mul = [acc, bacc, r2, time_taken]
+                    eval_mul = [acc, bacc, r2, f1, pre, rec, time_taken]
                 elif show_train_score is True:
                     eval_bin = [tacc, acc, tbacc, bacc, tr2, r2, troc, roc, tf1, f1, tpre,
                                 pre, trec, rec, time_taken]
-                    eval_mul = [tacc, acc, tbacc, bacc, tr2, r2, time_taken]
+                    eval_mul = [tacc, acc, tbacc, bacc, tr2, r2, tf1, f1, tpre, pre, trec, rec,
+                                time_taken]
 
                 if self.target_class == 'binary':
                     dataframe.update({names[i]: eval_bin})
