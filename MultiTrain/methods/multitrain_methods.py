@@ -117,10 +117,10 @@ def img(FILENAME: any,
 
 def kf_best_model(df, best, excel):
     if best is not None:
-        metrics_high = ["Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
+        metrics_high = ["Accuracy", "Precision",
+                        "Precision Macro", "Recall", "Recall Macro", "Standard Deviation of Accuracy", "Neg Mean Absolute Error", "Neg Root Mean Squared Error", "r2",
                         "Neg Root Mean Squared Log Error", "Neg Median Absolute Error",
-                        "Neg Median Absolute Percentage Error", "Accuracy", "Precision",
-                        "Precision Macro", "Recall", "Recall Macro", "Standard Deviation of Accuracy"]
+                        "Neg Median Absolute Percentage Error"]
 
         metrics_low = ["Mean Absolute Error", "Root Mean Squared Error", "Root Mean Squared Log Error",
                        "Median Absolute Error", "Median Absolute Percentage Error"]

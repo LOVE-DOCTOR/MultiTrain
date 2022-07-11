@@ -97,13 +97,22 @@ class MultiClassifier:
 
         self.kf_multiclass_columns_test = ["Precision Macro", "Recall Macro", "f1 Macro"]
 
-        self.t_split_binary_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
-                                       "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
+        self.t_split_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
+                                             "Balanced Accuracy", "r2 score(Train)", "r2 score", "ROC AUC(Train)",
+                                             "ROC AUC", "f1 score(Train)", "f1 score", "Precision(Train)", "Precision",
+                                             "Recall(Train)", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns = ["Accuracy", "Balanced Accuracy", "r2 score",
-                                           "execution time(seconds)"]
+        self.t_split_binary_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score",
+                                            "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
 
-    def strategies(self)->None:
+        self.t_split_multiclass_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
+                                                 "Balanced Accuracy", "r2 score(Train)", "r2 score",
+                                                 "execution time(seconds)"]
+
+        self.t_split_multiclass_columns_test = ["Accuracy", "Balanced Accuracy", "r2 score",
+                                                "execution time(seconds)"]
+
+    def strategies(self) -> None:
         print(f'Over-Sampling Methods = {self.oversampling_list}')
         print("\n")
         print(f'Under-Sampling Methods = {self.undersampling_list}')
@@ -166,12 +175,12 @@ class MultiClassifier:
 
                 elif shuffle_data is True:
 
-                        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                            train_size=1 - sizeOfTest,
-                                                                            stratify=y, random_state=randomState,
-                                                                            shuffle=shuffle_data)
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest,
+                                                                        stratify=y, random_state=randomState,
+                                                                        shuffle=shuffle_data)
 
-                        return X_train, X_test, y_train, y_test
+                    return X_train, X_test, y_train, y_test
 
             else:
 
@@ -179,8 +188,7 @@ class MultiClassifier:
                                                                     train_size=1 - sizeOfTest)
                 return X_train, X_test, y_train, y_test
 
-
-    def classifier_model_names(self) -> list[str]:
+    def classifier_model_names(self) -> list:
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
                        "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
                        "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
@@ -494,6 +502,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr, y_tr)
                         except ValueError:
+                            print(f'{model[i]} has an issue')
                             pass
 
                     elif self.imbalanced is True:
@@ -506,12 +515,16 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr, y_tr)
                         except ValueError:
+                            print(f'{model[i]} has an issue')
                             pass
 
                     end = time.time()
 
                     try:
+
                         pred = model[i].predict(X_te)
+                        if show_train_score is True:
+                            pred_train = model[i].predict(X_tr)
                     except AttributeError:
                         pass
 
@@ -534,6 +547,7 @@ class MultiClassifier:
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
                         except Exception:
+                            print(f'{model[i]} has an issue')
                             pass
 
                     elif vectorizer == 'tfidf':
@@ -554,16 +568,19 @@ class MultiClassifier:
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
                         except Exception:
+                            print(f'{model[i]} has an issue')
                             pass
 
                     end = time.time()
                     try:
                         pred = pipeline.predict(X_te)
+                        if show_train_score is True:
+                            pred_train = pipeline.predict(X_tr)
                     except AttributeError:
                         pass
 
                 true = y_te
-
+                true_train = y_tr
                 acc = accuracy_score(true, pred)
                 bacc = balanced_accuracy_score(true, pred)
                 clr = classification_report(true, pred)
@@ -573,19 +590,52 @@ class MultiClassifier:
                 f1 = f1_score(true, pred)
                 pre = precision_score(true, pred)
                 rec = recall_score(true, pred)
+                if show_train_score is True:
+                    tacc = accuracy_score(true_train, pred_train)
+                    tbacc = balanced_accuracy_score(true_train, pred_train)
+                    tclr = classification_report(true_train, pred_train)
+                    tcfm = confusion_matrix(true_train, pred_train)
+                    tr2 = r2_score(true_train, pred_train)
+                    troc = roc_auc_score(true_train, pred_train)
+                    tf1 = f1_score(true_train, pred_train)
+                    tpre = precision_score(true_train, pred_train)
+                    trec = recall_score(true_train, pred_train)
 
                 time_taken = round(end - start, 2)
-                eval_bin = [acc, bacc, r2, roc, f1, pre, rec, time_taken]
-                eval_mul = [acc, bacc, r2, time_taken]
+                if show_train_score is False:
+                    eval_bin = [acc, bacc, r2, roc, f1, pre, rec, time_taken]
+                    eval_mul = [acc, bacc, r2, time_taken]
+                elif show_train_score is True:
+                    eval_bin = [tacc, acc, tbacc, bacc, tr2, r2, troc, roc, tf1, f1, tpre,
+                                pre, trec, rec, time_taken]
+                    eval_mul = [tacc, acc, tbacc, bacc, tr2, r2, time_taken]
+
                 if self.target_class == 'binary':
                     dataframe.update({names[i]: eval_bin})
                 elif self.target_class == 'multiclass':
                     dataframe.update({names[i]: eval_mul})
 
-            if self.target_class == 'binary':
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_binary_columns)
-            elif self.target_class == 'multiclass':
-                df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.t_split_multiclass_columns)
+            if show_train_score is False:
+                if self.target_class == 'binary':
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.t_split_binary_columns_test)
+
+                elif self.target_class == 'multiclass':
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.t_split_multiclass_columns_test)
+
+            elif show_train_score is True:
+                if self.target_class == 'binary':
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.t_split_binary_columns_train)
+
+                elif self.target_class == 'multiclass':
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.t_split_multiclass_columns_train)
 
             if return_best_model is not None:
                 display(f'BEST MODEL BASED ON {return_best_model}')
@@ -618,15 +668,20 @@ class MultiClassifier:
             if self.target_class == 'binary':
                 PrintLog("Training started")
                 dataframe = self._startKFold_(param=KFoldModel,
-                                            param_X=X,
-                                            param_y=y,
-                                            param_cv=fold,
-                                            train_score=show_train_score)
+                                              param_X=X,
+                                              param_y=y,
+                                              param_cv=fold,
+                                              train_score=show_train_score)
 
                 if show_train_score is True:
-                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_binary_columns_train)
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.kf_binary_columns_train)
+
                 elif show_train_score is False:
-                    df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_binary_columns_test)
+                    df = pd.DataFrame.from_dict(dataframe,
+                                                orient='index',
+                                                columns=self.kf_binary_columns_test)
 
                 kf_ = kf_best_model(df, return_best_model, excel)
                 return kf_
@@ -634,10 +689,10 @@ class MultiClassifier:
             elif self.target_class == 'multiclass':
                 PrintLog("Training started")
                 dataframe = self._startKFold_(param=KFoldModel,
-                                            param_X=X,
-                                            param_y=y,
-                                            param_cv=fold,
-                                            train_score=show_train_score)
+                                              param_X=X,
+                                              param_y=y,
+                                              param_cv=fold,
+                                              train_score=show_train_score)
 
                 if show_train_score is True:
                     df = pd.DataFrame.from_dict(dataframe, orient='index', columns=self.kf_multiclass_columns_train)
