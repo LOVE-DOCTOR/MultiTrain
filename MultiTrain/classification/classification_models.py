@@ -50,6 +50,7 @@ import warnings
 import time
 
 import logging
+
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
@@ -88,12 +89,14 @@ class MultiClassifier:
         self.over_under_list = ['SMOTEENN', 'SMOTETomek']
         self.over_under_methods = [SMOTEENN(), SMOTETomek()]
 
-        self.kf_binary_columns_train = ["Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)", "Balanced Accuracy",
+        self.kf_binary_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)",
+                                        "Balanced Accuracy",
                                         "Precision(Train)", "Precision", "Recall(Train)", "Recall", "f1(Train)", "f1",
                                         'r2', "Standard Deviation of Accuracy(Train)", "Standard Deviation of Accuracy",
                                         "Time Taken(s)"]
 
-        self.kf_binary_columns_test = ["Accuracy", "Balanced Accuracy", "Precision", "Recall", "f1", "r2",
+        self.kf_binary_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "Precision", "Recall", "f1",
+                                       "r2",
                                        "Standard Deviation of Accuracy", "Time Taken(s)"]
 
         self.kf_multiclass_columns_train = ["Precision Macro(Train)", "Precision Macro", "Recall Macro(Train)",
@@ -109,12 +112,14 @@ class MultiClassifier:
         self.t_split_binary_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "r2 score",
                                             "ROC AUC", "f1 score", "Precision", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(Train)",
+        self.t_split_multiclass_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy",
+                                                 "Balanced Accuracy(Train)",
                                                  "Balanced Accuracy", "r2 score(Train)", "r2 score",
                                                  "f1 score(Train)", "f1 score", "Precision(Train)", "Precision",
                                                  "Recall(Train)", "Recall", "execution time(seconds)"]
 
-        self.t_split_multiclass_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "r2 score", "f1 score", "Precision",
+        self.t_split_multiclass_columns_test = ["Overfitting", "Accuracy", "Balanced Accuracy", "r2 score", "f1 score",
+                                                "Precision",
                                                 "Recall", "execution time(seconds)"]
 
     def strategies(self) -> None:
@@ -334,40 +339,37 @@ class MultiClassifier:
                 end = time.time()
                 seconds = end - start
 
+                mean_train_acc = scores['train_accuracy'].mean()
+                mean_test_acc = scores['test_accuracy'].mean()
+                mean_train_bacc = scores['train_balanced_accuracy'].mean()
+                mean_test_bacc = scores['test_balanced_accuracy'].mean()
+                mean_train_precision = scores['train_precision'].mean()
+                mean_test_precision = scores['test_precision'].mean()
+                mean_train_f1 = scores['train_f1'].mean()
+                mean_test_f1 = scores['test_f1'].mean()
+                mean_train_r2 = scores['train_r2'].mean()
+                mean_test_r2 = scores['test_r2'].mean()
+                mean_train_recall = scores['train_recall'].mean()
+                mean_test_recall = scores['test_recall'].mean()
+                train_stdev = scores['train_accuracy'].std()
+                test_stdev = scores['test_accuracy'].std()
+                overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                # scores = scores.tolist()
                 if train_score is True:
-                    mean_train_acc = scores['train_accuracy'].mean()
-                    mean_test_acc = scores['test_accuracy'].mean()
-                    mean_train_bacc = scores['train_balanced_accuracy'].mean()
-                    mean_test_bacc = scores['test_balanced_accuracy'].mean()
-                    mean_train_precision = scores['train_precision'].mean()
-                    mean_test_precision = scores['test_precision'].mean()
-                    mean_train_f1 = scores['train_f1'].mean()
-                    mean_test_f1 = scores['test_f1'].mean()
-                    mean_train_r2 = scores['train_r2'].mean()
-                    mean_test_r2 = scores['test_r2'].mean()
-                    mean_train_recall = scores['train_recall'].mean()
-                    mean_test_recall = scores['test_recall'].mean()
-                    train_stdev = scores['train_accuracy'].std()
-                    test_stdev = scores['test_accuracy'].std()
-                    # scores = scores.tolist()
-                    scores_df = [mean_train_acc, mean_test_acc, mean_train_bacc, mean_test_bacc, mean_train_precision,
+                    scores_df = [overfitting, mean_train_acc, mean_test_acc, mean_train_bacc, mean_test_bacc,
+                                 mean_train_precision,
                                  mean_test_precision, mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,
                                  mean_train_recall, mean_test_recall, train_stdev, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
+                    return dataframe
 
-                if train_score is False:
-                    mean_test_acc = scores['test_accuracy'].mean()
-                    mean_test_bacc = scores['test_balanced_accuracy'].mean()
-                    mean_test_precision = scores['test_precision'].mean()
-                    mean_test_f1 = scores['test_f1'].mean()
-                    mean_test_r2 = scores['test_r2'].mean()
-                    mean_test_recall = scores['test_recall'].mean()
-                    test_stdev = scores['test_accuracy'].std()
-
-                    scores_df = [mean_test_acc, mean_test_bacc, mean_test_precision, mean_test_f1, mean_test_r2,
+                elif train_score is False:
+                    scores_df = [overfitting, mean_test_acc, mean_test_bacc, mean_test_precision, mean_test_f1,
+                                 mean_test_r2,
                                  mean_test_recall, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
-            return dataframe
+                    return dataframe
+
 
         elif self.target_class == 'multiclass':
             dataframe = {}
