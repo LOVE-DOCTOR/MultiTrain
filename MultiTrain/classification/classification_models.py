@@ -569,8 +569,8 @@ class MultiClassifier:
                     try:
 
                         pred = model[i].predict(X_te)
-                        if show_train_score is True:
-                            pred_train = model[i].predict(X_tr)
+
+                        pred_train = model[i].predict(X_tr)
                     except AttributeError:
                         pass
 
@@ -620,8 +620,8 @@ class MultiClassifier:
                     end = time.time()
                     try:
                         pred = pipeline.predict(X_te)
-                        if show_train_score is True:
-                            pred_train = pipeline.predict(X_tr)
+
+                        pred_train = pipeline.predict(X_tr)
                     except AttributeError:
                         pass
 
@@ -1064,8 +1064,26 @@ class MultiClassifier:
                 plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
                 plt.title("R2 SCORE")
 
+                plt.figure(figsize=size)
+                plot2 = sns.barplot(x="model_names", y="f1 score", data=param)
+                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
+                plt.title("F1 SCORE")
+
+                plt.figure(figsize=size)
+                plot3 = sns.barplot(x='model_names', y='Precision', data=param)
+                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
+                plt.title("PRECISION")
+
+                plt.figure(figsize=size)
+                plot4 = sns.barplot(x='model_names', y='Recall', data=param)
+                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                plt.title("RECALL")
+
                 display(plot)
                 display(plot1)
+                display(plot2)
+                display(plot3)
+                display(plot4)
 
                 if save == 'pdf':
                     name = save_name + ".pdf"
@@ -1169,8 +1187,8 @@ class MultiClassifier:
 
             if self.target_class == 'binary':
                 IMAGE_COLUMNS = []
-                for i in range(len(self.t_split_binary_columns)):
-                    IMAGE_COLUMNS.append(self.t_split_binary_columns[i] + ".png")
+                for i in range(len(self.t_split_binary_columns_test)):
+                    IMAGE_COLUMNS.append(self.t_split_binary_columns_test[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -1178,8 +1196,8 @@ class MultiClassifier:
 
                     fig = px.bar(data_frame=param,
                                  x="model_names",
-                                 y=self.t_split_binary_columns[j],
-                                 hover_data=[self.t_split_binary_columns[j], "model_names"],
+                                 y=self.t_split_binary_columns_test[j],
+                                 hover_data=[self.t_split_binary_columns_test[j], "model_names"],
                                  color="execution time(seconds)")
                     display(fig)
                     if save is True:
@@ -1197,17 +1215,17 @@ class MultiClassifier:
 
             elif self.target_class == 'multiclass':
                 IMAGE_COLUMNS = []
-                for i in range(len(self.t_split_multiclass_columns)):
-                    IMAGE_COLUMNS.append(self.t_split_multiclass_columns[i] + ".png")
+                for i in range(len(self.t_split_multiclass_columns_test)):
+                    IMAGE_COLUMNS.append(self.t_split_multiclass_columns_test[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
 
-                for j in range(len(self.t_split_multiclass_columns)):
+                for j in range(len(self.t_split_multiclass_columns_test)):
                     fig = px.bar(data_frame=param,
                                  x="model_names",
-                                 y=self.t_split_multiclass_columns[j],
-                                 hover_data=[self.t_split_multiclass_columns[j], "model_names"],
+                                 y=self.t_split_multiclass_columns_test[j],
+                                 hover_data=[self.t_split_multiclass_columns_test[j], "model_names"],
                                  color="execution time(seconds)")
                     display(fig)
                     if save is True:
