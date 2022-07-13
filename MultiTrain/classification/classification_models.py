@@ -64,30 +64,44 @@ class MultiClassifier:
                  verbose: bool = False,
                  target_class: str = 'binary',
                  imbalanced: bool = False,
-                 strategy: str = None) -> None:
+                 sampling: str = None,
+                 strategy: str | float = "auto") -> None:
 
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
         self.target_class = target_class
-        self.strategy = strategy
+        self.sampling = sampling
         self.imbalanced = imbalanced
+        self.strategy = strategy
         self.oversampling_list = ['SMOTE', 'RandomOverSampler', 'SMOTEN', 'ADASYN',
                                   'BorderlineSMOTE', 'KMeansSMOTE', 'SVMSMOTE']
-        self.oversampling_methods = [SMOTE(), RandomOverSampler(), SMOTEN(), ADASYN(),
-                                     BorderlineSMOTE(), KMeansSMOTE(), SVMSMOTE()]
+        self.oversampling_methods = [SMOTE(sampling_strategy=self.strategy),
+                                     RandomOverSampler(sampling_strategy=self.strategy),
+                                     SMOTEN(sampling_strategy=self.strategy),
+                                     ADASYN(sampling_strategy=self.strategy),
+                                     BorderlineSMOTE(sampling_strategy=self.strategy),
+                                     KMeansSMOTE(sampling_strategy=self.strategy),
+                                     SVMSMOTE(sampling_strategy=self.strategy)]
 
         self.undersampling_list = ['CondensedNearestNeighbour', 'EditedNearestNeighbours',
                                    'RepeatedEditedNearestNeighbours', 'AllKNN', 'InstanceHardnessThreshold',
                                    'NearMiss', 'NeighbourhoodCleaningRule', 'OneSidedSelection', 'RandomUnderSampler',
                                    'TomekLinks']
-        self.undersampling_methods = [CondensedNearestNeighbour(), EditedNearestNeighbours(),
-                                      RepeatedEditedNearestNeighbours(), AllKNN(), InstanceHardnessThreshold(),
-                                      NearMiss(), NeighbourhoodCleaningRule(), OneSidedSelection(),
-                                      RandomUnderSampler(), TomekLinks()]
+        self.undersampling_methods = [CondensedNearestNeighbour(sampling_strategy=self.strategy),
+                                      EditedNearestNeighbours(sampling_strategy=self.strategy),
+                                      RepeatedEditedNearestNeighbours(sampling_strategy=self.strategy),
+                                      AllKNN(sampling_strategy=self.strategy),
+                                      InstanceHardnessThreshold(sampling_strategy=self.strategy),
+                                      NearMiss(sampling_strategy=self.strategy),
+                                      NeighbourhoodCleaningRule(sampling_strategy=self.strategy),
+                                      OneSidedSelection(sampling_strategy=self.strategy),
+                                      RandomUnderSampler(sampling_strategy=self.strategy),
+                                      TomekLinks(sampling_strategy=self.strategy)]
 
         self.over_under_list = ['SMOTEENN', 'SMOTETomek']
-        self.over_under_methods = [SMOTEENN(), SMOTETomek()]
+        self.over_under_methods = [SMOTEENN(sampling_strategy=self.strategy),
+                                   SMOTETomek(sampling_strategy=self.strategy)]
 
         self.kf_binary_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)",
                                         "Balanced Accuracy",
@@ -131,18 +145,18 @@ class MultiClassifier:
 
     def _get_sample_index_method(self):
 
-        if self.strategy in self.oversampling_list:
-            index_ = self.oversampling_list.index(self.strategy)
+        if self.sampling in self.oversampling_list:
+            index_ = self.oversampling_list.index(self.sampling)
             method = self.oversampling_methods[index_]
             return method
 
-        elif self.strategy in self.undersampling_list:
-            index_ = self.undersampling_list.index(self.strategy)
+        elif self.sampling in self.undersampling_list:
+            index_ = self.undersampling_list.index(self.sampling)
             method = self.undersampling_methods[index_]
             return method
 
-        elif self.strategy in self.over_under_list:
-            index_ = self.over_under_list.index(self.strategy)
+        elif self.sampling in self.over_under_list:
+            index_ = self.over_under_list.index(self.sampling)
             method = self.over_under_methods[index_]
             return method
 
@@ -370,7 +384,6 @@ class MultiClassifier:
                     dataframe.update({names[i]: scores_df})
                     return dataframe
 
-
         elif self.target_class == 'multiclass':
             dataframe = {}
             for j in range(len(param)):
@@ -426,11 +439,13 @@ class MultiClassifier:
             text: bool = False,
             vectorizer: str = None,
             ngrams: tuple = None,
+            sort: any = None
             ) -> DataFrame:
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         variables X_train, X_test, y_train, and y_test
 
+        :param sort:
         :param ngrams:
         :param n_grams:
         :param vectorizer:
@@ -486,7 +501,7 @@ class MultiClassifier:
                     raise Exception('parameter ngrams can only be accepted when parameter text is True')
 
         if self.imbalanced is False:
-            if self.strategy:
+            if self.sampling:
                 raise Exception('this parameter can only be used if "imbalanced" is set to True')
 
         if isinstance(splitting, bool) is False:
@@ -664,6 +679,7 @@ class MultiClassifier:
                 except ValueError:
 
                     troc = None
+
                 if self.target_class == 'binary':
                     tf1 = f1_score(true_train, pred_train)
                     tpre = precision_score(true_train, pred_train)
@@ -674,15 +690,19 @@ class MultiClassifier:
                         tf1 = f1_score(true_train, pred_train, average='micro')
                         tpre = precision_score(true_train, pred_train, average='micro')
                         trec = recall_score(true_train, pred_train, average='micro')
+
                     elif self.imbalanced is False:
                         tf1 = f1_score(true_train, pred_train, average='macro')
                         tpre = precision_score(true_train, pred_train, average='macro')
                         trec = recall_score(true_train, pred_train, average='macro')
+
                 overfit = True if (tacc - acc) > 0.1 else False
                 time_taken = round(end - start, 2)
+
                 if show_train_score is False:
                     eval_bin = [overfit, acc, bacc, r2, roc, f1, pre, rec, time_taken]
                     eval_mul = [overfit, acc, bacc, r2, f1, pre, rec, time_taken]
+
                 elif show_train_score is True:
                     eval_bin = [overfit, tacc, acc, tbacc, bacc, tr2, r2, troc, roc, tf1, f1, tpre,
                                 pre, trec, rec, time_taken]
@@ -717,17 +737,9 @@ class MultiClassifier:
                                                 columns=self.t_split_multiclass_columns_train)
 
             if return_best_model is not None:
-                display(f'BEST MODEL BASED ON {return_best_model}')
-                if return_best_model == 'accuracy':
-                    display(df[df['accuracy'] == df['accuracy'].max()])
-                elif return_best_model == 'balanced accuracy':
-                    display(df[df['balanced accuracy'] == df['balanced accuracy'].max()])
-                elif return_best_model == 'r2 score':
-                    display(df[df['r2 score'] == df['r2 score'].max()])
-                elif return_best_model == 'f1 score':
-                    display(df[df['f1 score'] == df['f1 score'].max()])
-                elif return_best_model == 'ROC AUC':
-                    display(df[df['ROC AUC'] == df['ROC AUC'].max()])
+                logger.info(f'BEST MODEL BASED ON {return_best_model}')
+                display(df.sort_values(by=return_best_model, ascending=False))
+
             elif return_best_model is None:
                 display(df.style.highlight_max(color="yellow"))
 
