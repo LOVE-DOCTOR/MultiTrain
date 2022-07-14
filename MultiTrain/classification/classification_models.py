@@ -76,32 +76,45 @@ class MultiClassifier:
         self.strategy = strategy
         self.oversampling_list = ['SMOTE', 'RandomOverSampler', 'SMOTEN', 'ADASYN',
                                   'BorderlineSMOTE', 'KMeansSMOTE', 'SVMSMOTE']
-        self.oversampling_methods = [SMOTE(sampling_strategy=self.strategy),
-                                     RandomOverSampler(sampling_strategy=self.strategy),
-                                     SMOTEN(sampling_strategy=self.strategy),
-                                     ADASYN(sampling_strategy=self.strategy),
-                                     BorderlineSMOTE(sampling_strategy=self.strategy),
-                                     KMeansSMOTE(sampling_strategy=self.strategy),
-                                     SVMSMOTE(sampling_strategy=self.strategy)]
+        self.oversampling_methods = [SMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     RandomOverSampler(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     SMOTEN(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     ADASYN(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     BorderlineSMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     KMeansSMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
+                                     SVMSMOTE(sampling_strategy=self.strategy, random_state=self.random_state)]
 
         self.undersampling_list = ['CondensedNearestNeighbour', 'EditedNearestNeighbours',
                                    'RepeatedEditedNearestNeighbours', 'AllKNN', 'InstanceHardnessThreshold',
                                    'NearMiss', 'NeighbourhoodCleaningRule', 'OneSidedSelection', 'RandomUnderSampler',
                                    'TomekLinks']
-        self.undersampling_methods = [CondensedNearestNeighbour(sampling_strategy=self.strategy),
-                                      EditedNearestNeighbours(sampling_strategy=self.strategy),
-                                      RepeatedEditedNearestNeighbours(sampling_strategy=self.strategy),
-                                      AllKNN(sampling_strategy=self.strategy),
-                                      InstanceHardnessThreshold(sampling_strategy=self.strategy),
-                                      NearMiss(sampling_strategy=self.strategy),
-                                      NeighbourhoodCleaningRule(sampling_strategy=self.strategy),
-                                      OneSidedSelection(sampling_strategy=self.strategy),
-                                      RandomUnderSampler(sampling_strategy=self.strategy),
-                                      TomekLinks(sampling_strategy=self.strategy)]
+        self.undersampling_methods = [CondensedNearestNeighbour(sampling_strategy=self.strategy,
+                                                                random_state=self.random_state,
+                                                                n_jobs=self.cores),
+                                      EditedNearestNeighbours(sampling_strategy=self.strategy,
+                                                              n_jobs=self.cores),
+                                      RepeatedEditedNearestNeighbours(sampling_strategy=self.strategy,
+                                                                      n_jobs=self.cores),
+                                      AllKNN(sampling_strategy=self.strategy, n_jobs=self.cores),
+                                      InstanceHardnessThreshold(sampling_strategy=self.strategy,
+                                                                random_state=self.random_state,
+                                                                n_jobs=self.cores),
+                                      NearMiss(sampling_strategy=self.strategy, n_jobs=self.cores),
+                                      NeighbourhoodCleaningRule(sampling_strategy=self.strategy,
+                                                                n_jobs=self.cores),
+                                      OneSidedSelection(sampling_strategy=self.strategy,
+                                                        n_jobs=self.cores),
+                                      RandomUnderSampler(sampling_strategy=self.strategy,
+                                                         random_state=self.random_state),
+                                      TomekLinks(sampling_strategy=self.strategy, n_jobs=self.cores)]
 
         self.over_under_list = ['SMOTEENN', 'SMOTETomek']
-        self.over_under_methods = [SMOTEENN(sampling_strategy=self.strategy),
-                                   SMOTETomek(sampling_strategy=self.strategy)]
+        self.over_under_methods = [SMOTEENN(sampling_strategy=self.strategy,
+                                            random_state=self.random_state,
+                                            n_jobs=self.cores),
+                                   SMOTETomek(sampling_strategy=self.strategy,
+                                              random_state=self.random_state,
+                                              n_jobs=self.cores)]
 
         self.kf_binary_columns_train = ["Overfitting", "Accuracy(Train)", "Accuracy", "Balanced Accuracy(train)",
                                         "Balanced Accuracy",
@@ -573,11 +586,12 @@ class MultiClassifier:
 
                         if self.verbose is True:
                             print(f'Before resampling: {Counter(y_tr)}')
-                        X_tr, y_tr = method.fit_resample(X_tr, y_tr)
+                        X_tr_, y_tr_ = method.fit_resample(X_tr, y_tr)
                         if self.verbose is True:
-                            print(f'After resampling: {Counter(y_tr)}')
+                            print(f'After resampling: {Counter(y_tr_)}')
+                            print("\n")
                         try:
-                            model[i].fit(X_tr, y_tr)
+                            model[i].fit(X_tr_, y_tr_)
                         except ValueError:
                             logger.error(f'{model[i]} has an issue')
                             pass
