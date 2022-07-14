@@ -65,7 +65,7 @@ class MultiClassifier:
                  target_class: str = 'binary',
                  imbalanced: bool = False,
                  sampling: str = None,
-                 strategy: str | float = "auto") -> None:
+                 strategy: str or float = "auto") -> None:
 
         self.cores = cores
         self.random_state = random_state
@@ -570,6 +570,7 @@ class MultiClassifier:
 
                     elif self.imbalanced is True:
                         method = self._get_sample_index_method()
+
                         if self.verbose is True:
                             print(f'Before resampling: {Counter(y_tr)}')
                         X_tr, y_tr = method.fit_resample(X_tr, y_tr)
