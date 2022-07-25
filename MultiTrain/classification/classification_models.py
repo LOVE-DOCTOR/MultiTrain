@@ -270,7 +270,7 @@ class MultiClassifier:
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
                        "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
                        "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
-                       "LinearDiscriminantAnalysis", "KNeighborsClassifier", "SVC",
+                       "LinearDiscriminantAnalysis", "KNeighborsClassifier", "MLPClassifier", "SVC",
                        "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
                        "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
@@ -294,7 +294,7 @@ class MultiClassifier:
         gnb = GaussianNB()
         lda = LinearDiscriminantAnalysis()
         knc = KNeighborsClassifier(n_jobs=self.cores)
-        #mlp = MLPClassifier(random_state=self.random_state)
+        mlp = MLPClassifier(random_state=self.random_state)
         svc = SVC(random_state=self.random_state)
         dtc = DecisionTreeClassifier(random_state=self.random_state)
         bnb = BernoulliNB()
@@ -313,7 +313,7 @@ class MultiClassifier:
         nu = NuSVC(random_state=self.random_state)
         lgbm = LGBMClassifier(random_state=self.random_state)
 
-        return (lr, lrcv, sgdc, pagg, rfc, gbc, hgbc, abc, cat, xgb, gnb, lda, knc, svc, dtc, bnb, mnb, conb,
+        return (lr, lrcv, sgdc, pagg, rfc, gbc, hgbc, abc, cat, xgb, gnb, lda, knc, mlp, svc, dtc, bnb, mnb, conb,
                 etcs, rcl, rclv, etc, qda, lsvc, bc, bbc, per, nu, lgbm)
 
     def _get_index(self, df, the_best):
