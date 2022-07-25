@@ -270,7 +270,7 @@ class MultiClassifier:
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
                        "RandomForestClassifier", "GradientBoostingClassifier", "HistGradientBoostingClassifier",
                        "AdaBoostClassifier", "CatBoostClassifier", "XGBClassifier", "GaussianNB",
-                       "LinearDiscriminantAnalysis", "KNeighborsClassifier", "MLPClassifier", "SVC",
+                       "LinearDiscriminantAnalysis", "KNeighborsClassifier", "SVC",
                        "DecisionTreeClassifier", "BernoulliNB", "MultinomialNB", "ComplementNB",
                        "ExtraTreesClassifier", "RidgeClassifier", "RidgeClassifierCV", "ExtraTreeClassifier",
                        "QuadraticDiscriminantAnalysis", "LinearSVC", "BaggingClassifier",
@@ -294,7 +294,7 @@ class MultiClassifier:
         gnb = GaussianNB()
         lda = LinearDiscriminantAnalysis()
         knc = KNeighborsClassifier(n_jobs=self.cores)
-        mlp = MLPClassifier(random_state=self.random_state)
+        #mlp = MLPClassifier(random_state=self.random_state)
         svc = SVC(random_state=self.random_state)
         dtc = DecisionTreeClassifier(random_state=self.random_state)
         bnb = BernoulliNB()
@@ -313,7 +313,7 @@ class MultiClassifier:
         nu = NuSVC(random_state=self.random_state)
         lgbm = LGBMClassifier(random_state=self.random_state)
 
-        return (lr, lrcv, sgdc, pagg, rfc, gbc, hgbc, abc, cat, xgb, gnb, lda, knc, mlp, svc, dtc, bnb, mnb, conb,
+        return (lr, lrcv, sgdc, pagg, rfc, gbc, hgbc, abc, cat, xgb, gnb, lda, knc, svc, dtc, bnb, mnb, conb,
                 etcs, rcl, rclv, etc, qda, lsvc, bc, bbc, per, nu, lgbm)
 
     def _get_index(self, df, the_best):
@@ -353,16 +353,18 @@ class MultiClassifier:
 
                 if self.imbalanced is False:
                     start = time.time()
-
-                    scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
-                                            cv=param_cv, n_jobs=self.cores, return_train_score=train_score)
+                    try:
+                        scores = cross_validate(estimator=param[i], X=param_X, y=param_y, scoring=score,
+                                                cv=param_cv, n_jobs=self.cores, return_train_score=True)
+                    except Exception:
+                        logger.info(f'{param[i]} has a problem')
 
                 elif self.imbalanced is True:
                     start = time.time()
                     method = self._get_sample_index_method()
                     pipeline = imbpipe(steps=[('sample', method), ('model', param[i])])
                     scores = cross_validate(estimator=pipeline, X=param_X, y=param_y, scoring=score,
-                                            cv=param_cv, n_jobs=self.cores, return_train_score=train_score)
+                                            cv=param_cv, n_jobs=self.cores, return_train_score=True)
                 end = time.time()
                 seconds = end - start
 
@@ -388,14 +390,13 @@ class MultiClassifier:
                                  mean_test_precision, mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,
                                  mean_train_recall, mean_test_recall, train_stdev, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
-                    return dataframe
 
                 elif train_score is False:
                     scores_df = [overfitting, mean_test_acc, mean_test_bacc, mean_test_precision, mean_test_f1,
                                  mean_test_r2,
                                  mean_test_recall, test_stdev, seconds]
                     dataframe.update({names[i]: scores_df})
-                    return dataframe
+            return dataframe
 
         elif self.target_class == 'multiclass':
             dataframe = {}
@@ -502,6 +503,7 @@ class MultiClassifier:
 
         fit(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
+        global y_te
         if text:
             if isinstance(text, bool) is False:
                 raise TypeError('parameter text is of type bool only. set to true or false')
@@ -614,6 +616,10 @@ class MultiClassifier:
                                                          model[i])
 
                                 pipeline.fit(X_tr, y_tr)
+                                pred = pipeline.predict(X_te)
+
+                                pred_train = pipeline.predict(X_tr)
+
                             except TypeError:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
@@ -624,6 +630,10 @@ class MultiClassifier:
 
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
+                                pred = pipeline.predict(X_te)
+
+                                pred_train = pipeline.predict(X_tr)
+
                         except Exception:
                             logger.error(f'{model[i]} has an issue')
                             pass
@@ -635,6 +645,10 @@ class MultiClassifier:
                                                          model[i])
 
                                 pipeline.fit(X_tr, y_tr)
+                                pred = pipeline.predict(X_te)
+
+                                pred_train = pipeline.predict(X_tr)
+
                             except TypeError:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
@@ -645,20 +659,19 @@ class MultiClassifier:
 
                                                          model[i])
                                 pipeline.fit(X_tr, y_tr)
+
                         except Exception:
                             logger.error(f'{model[i]} has an issue')
                             pass
 
                     end = time.time()
-                    try:
-                        pred = pipeline.predict(X_te)
 
-                        pred_train = pipeline.predict(X_tr)
-                    except AttributeError:
-                        pass
+                    #pred = pipeline.predict(X_te)
+                    #pred_train = pipeline.predict(X_tr)
 
                 true = y_te
                 true_train = y_tr
+                #print(f'{model[i]}: {accuracy_score(true, pred)}')
                 acc = accuracy_score(true, pred)
                 bacc = balanced_accuracy_score(true, pred)
                 clr = classification_report(true, pred)
@@ -905,6 +918,9 @@ class MultiClassifier:
                 tuned_model = GridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
                                            verbose=verbose, error_score=error_score, pre_dispatch=pre_dispatch,
                                            return_train_score=return_train_score, scoring=scorers, refit=refit)
+                if self.verbose is True:
+                    print(f'Best Score: {tuned_model.best_score_}')
+                    print(f'Best Parameters: {tuned_model.best_params_}')
                 return tuned_model
 
             elif tune == 'random':
@@ -912,6 +928,9 @@ class MultiClassifier:
                                                  verbose=verbose, random_state=random_state, n_iter=n_iter,
                                                  return_train_score=return_train_score, error_score=error_score,
                                                  scoring=scorers, refit=refit, pre_dispatch=pre_dispatch)
+                if self.verbose is True:
+                    print(f'Best Score: {tuned_model.best_score_}')
+                    print(f'Best Parameters: {tuned_model.best_params_}')
                 return tuned_model
 
             elif tune == 'bayes':
@@ -921,6 +940,9 @@ class MultiClassifier:
                                             error_score=error_score, optimizer_kwargs=optimizer_kwargs,
                                             n_points=n_points, n_iter=n_iter, fit_params=fit_params,
                                             pre_dispatch=pre_dispatch)
+                if self.verbose is True:
+                    print(f'Best Score: {tuned_model.best_score_}')
+                    print(f'Best Parameters: {tuned_model.best_params_}')
                 return tuned_model
 
             elif tune == 'half-grid':
@@ -929,6 +951,9 @@ class MultiClassifier:
                                                   scoring=score, resource=resource, min_resources=min_resources_grid,
                                                   max_resources=max_resources, error_score=error_score,
                                                   aggressive_elimination=aggressive_elimination)
+                if self.verbose is True:
+                    print(f'Best Score: {tuned_model.best_score_}')
+                    print(f'Best Parameters: {tuned_model.best_params_}')
 
                 return tuned_model
 
@@ -938,6 +963,9 @@ class MultiClassifier:
                                                     scoring=score, resource=resource, error_score=error_score,
                                                     min_resources=min_resources_rand, max_resources=max_resources,
                                                     aggressive_elimination=aggressive_elimination)
+                if self.verbose is True:
+                    print(f'Best Score: {tuned_model.best_score_}')
+                    print(f'Best Parameters: {tuned_model.best_params_}')
                 return tuned_model
 
     def visualize(self,
