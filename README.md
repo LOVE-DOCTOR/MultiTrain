@@ -16,7 +16,8 @@ pip install MultiTrain
 *CLASSIFICATION*
 
 ### MultiClassifier
-The MultiClassifier is a combination of several classifier estimators in which each of the estimators is fitted on the training data and a pandas dataframe containing evaluation metrics such as accuracy, balanced accuracy, r2 score, f1 score, precision, recall, roc auc score are reported for each of the models. 
+The MultiClassifier is a mixture of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
+f1 score, precision, recall, roc auc score for each of the models.
 ```python
 #This is a code snippet of how to import the MultiClassifier and the parameters contained in an instance
 
@@ -31,7 +32,8 @@ train = MultiClassifier(cores=-1, #this parameter works exactly the same as sett
                                         #read more in the imbalanced learn documentation before using this parameter
                         )
 ```
-In continuation of the code snippet above, incase you're confused about the different sampling methods you could use after setting imbalanced to True when working on an imalanced dataset, a code snippet is provided below to return a list of all the sampling methods available.
+In continuation of the code snippet above, if you're unsure about the various sampling techniques accessible after setting imbalanced to True when working on an imbalanced dataset, 
+a code snippet is provided below to generate a list of all available sampling techniques.
 
 ```python
 from MultiTrain import MultiClassifier
@@ -46,15 +48,15 @@ To return a list of all models available for training
 
 ```
 ### Split
-This function works exactly like the train_test_split function in the scikit-learn framework, 
-but it comes with some additional functionalities.
-For example, below is a basic code snippet of how you can use the split function
+This function operates identically like the scikit-learn framework's train test split function.
+However, it has some extra features.
+For example, the split method is demonstrated in the code below.
 ```python
 
 
 ```
-If you wish to perform Principal Component Analysis on your dataset for the purpose of dimensionality reduction,
-the split function allows you to do that. Check code snippet below
+If you want to run Principal Component Analysis on your dataset to reduce its dimensionality,
+You can achieve this with the split function. See the code excerpt below.
 ```python
 import pandas as pd
 from MultiTrain import MultiClassifier #import the module
@@ -75,7 +77,10 @@ split = train.split(X=features, #the features of the dataset
                     columns_to_scale=pretend_columns #pass in a list of the columns in your dataset that you wish to scale 
                     ) 
 ```
-
+###Fit
+Now that the dataset has been split using the split method, it is time to train on it using the fit method.
+Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
+It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
 
 **REGRESSION**
 ```
