@@ -666,12 +666,12 @@ class MultiClassifier:
 
                     end = time.time()
 
-                    #pred = pipeline.predict(X_te)
-                    #pred_train = pipeline.predict(X_tr)
+                    # pred = pipeline.predict(X_te)
+                    # pred_train = pipeline.predict(X_tr)
 
                 true = y_te
                 true_train = y_tr
-                #print(f'{model[i]}: {accuracy_score(true, pred)}')
+                # print(f'{model[i]}: {accuracy_score(true, pred)}')
                 acc = accuracy_score(true, pred)
                 bacc = balanced_accuracy_score(true, pred)
                 clr = classification_report(true, pred)
@@ -908,19 +908,12 @@ class MultiClassifier:
             raise TypeError("The 'parameters' argument only accepts a dictionary of the parameters for the "
                             "model you want to train with.")
         if tune:
-            scorers = {
-                'precision_score': make_scorer(precision_score),
-                'recall_score': make_scorer(recall_score),
-                'accuracy_score': make_scorer(accuracy_score)
-            }
+            scorers = make_scorer(accuracy_score)
 
             if tune == 'grid':
                 tuned_model = GridSearchCV(estimator=model, param_grid=parameters, n_jobs=use_cpu, cv=cv,
                                            verbose=verbose, error_score=error_score, pre_dispatch=pre_dispatch,
                                            return_train_score=return_train_score, scoring=scorers, refit=refit)
-                if self.verbose is True:
-                    print(f'Best Score: {tuned_model.best_score_}')
-                    print(f'Best Parameters: {tuned_model.best_params_}')
                 return tuned_model
 
             elif tune == 'random':
@@ -928,9 +921,7 @@ class MultiClassifier:
                                                  verbose=verbose, random_state=random_state, n_iter=n_iter,
                                                  return_train_score=return_train_score, error_score=error_score,
                                                  scoring=scorers, refit=refit, pre_dispatch=pre_dispatch)
-                if self.verbose is True:
-                    print(f'Best Score: {tuned_model.best_score_}')
-                    print(f'Best Parameters: {tuned_model.best_params_}')
+
                 return tuned_model
 
             elif tune == 'bayes':
@@ -940,9 +931,7 @@ class MultiClassifier:
                                             error_score=error_score, optimizer_kwargs=optimizer_kwargs,
                                             n_points=n_points, n_iter=n_iter, fit_params=fit_params,
                                             pre_dispatch=pre_dispatch)
-                if self.verbose is True:
-                    print(f'Best Score: {tuned_model.best_score_}')
-                    print(f'Best Parameters: {tuned_model.best_params_}')
+
                 return tuned_model
 
             elif tune == 'half-grid':
@@ -951,9 +940,6 @@ class MultiClassifier:
                                                   scoring=score, resource=resource, min_resources=min_resources_grid,
                                                   max_resources=max_resources, error_score=error_score,
                                                   aggressive_elimination=aggressive_elimination)
-                if self.verbose is True:
-                    print(f'Best Score: {tuned_model.best_score_}')
-                    print(f'Best Parameters: {tuned_model.best_params_}')
 
                 return tuned_model
 
@@ -963,9 +949,7 @@ class MultiClassifier:
                                                     scoring=score, resource=resource, error_score=error_score,
                                                     min_resources=min_resources_rand, max_resources=max_resources,
                                                     aggressive_elimination=aggressive_elimination)
-                if self.verbose is True:
-                    print(f'Best Score: {tuned_model.best_score_}')
-                    print(f'Best Parameters: {tuned_model.best_params_}')
+
                 return tuned_model
 
     def visualize(self,
