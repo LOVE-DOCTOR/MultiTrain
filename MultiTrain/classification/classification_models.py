@@ -455,54 +455,53 @@ class MultiClassifier:
             ngrams: tuple = None,
             sort: any = None
             ) -> DataFrame:
-        """
-        If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
-        variables X_train, X_test, y_train, and y_test
+        # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
+        # variables X_train, X_test, y_train, and y_test
 
-        :param sort:
-        :param ngrams:
-        :param n_grams:
-        :param vectorizer:
-        :param text:
-        :param show_train_score:
-        :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
-        of the fastest model
+        # :param sort:
+        # :param ngrams:
+        # :param n_grams:
+        # :param vectorizer:
+        # :param text:
+        # :param show_train_score:
+        # :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
+        # of the fastest model
 
-        :param return_best_model: defaults to False, set to True when you want the method to only return a dataframe of
-        the best model
+        # :param return_best_model: defaults to False, set to True when you want the method to only return a dataframe of
+        # the best model
 
-        :param split_self: defaults to False, set to True when you split the data yourself
+        # :param split_self: defaults to False, set to True when you split the data yourself
 
-        :param excel: defaults to False, set to True when you want the dataframe to save to an excel file in your
-        current working directory
+        # :param excel: defaults to False, set to True when you want the dataframe to save to an excel file in your
+        # current working directory
 
-        :param y: labels
+        # :param y: labels
 
-        :param X: features
+        # :param X: features
 
-        :type fold: object
-        :param fold: arguments for KFold where 10 is the n_splits, 1 is the random_state and True is to allow shuffling
-        :param kf: defaults to False, set to True when you want to use KFold cross validation as your splitting method
-        :param X_train: The training data
-        :param X_test: The test data
-        :param y_train: The training set labels
-        :param y_test: The test set labels
-        :param split_data: str = None, splitting: bool = False
-        :type split_data: str
-        :param splitting: bool = False, defaults to False
-        :type splitting: bool (optional)
-        :param target: defaults to binary, this is used to specify if the target is binary or multiclass
-        If using splitting = True
-        df = pd.read_csv("nameOfFile.csv")
-        X = df.drop("nameOfLabelColumn", axis=1)
-        y = df["nameOfLabelColumn")
-        the_split_data = split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
-        fit_eval_models(splitting = True, split_data = the_split_data)
+        # :type fold: object
+        # :param fold: arguments for KFold where 10 is the n_splits, 1 is the random_state and True is to allow shuffling
+        # :param kf: defaults to False, set to True when you want to use KFold cross validation as your splitting method
+        # :param X_train: The training data
+        # :param X_test: The test data
+        # :param y_train: The training set labels
+        # :param y_test: The test set labels
+        # :param split_data: str = None, splitting: bool = False
+        # :type split_data: str
+        # :param splitting: bool = False, defaults to False
+        # :type splitting: bool (optional)
+        # :param target: defaults to binary, this is used to specify if the target is binary or multiclass
+        # If using splitting = True
+        # df = pd.read_csv("nameOfFile.csv")
+        # X = df.drop("nameOfLabelColumn", axis=1)
+        # y = df["nameOfLabelColumn")
+        # the_split_data = split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
+        # fit_eval_models(splitting = True, split_data = the_split_data)
 
-        If using kf = True
+        # If using kf = True
 
-        fit(X = features, y = labels, kf = True, fold = (10, 42, True))
-        """
+        # fit(X = features, y = labels, kf = True, fold = (10, 42, True))
+
         global y_te
         if text:
             if isinstance(text, bool) is False:
