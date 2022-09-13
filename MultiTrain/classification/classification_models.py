@@ -185,13 +185,12 @@ class MultiClassifier:
               columns_to_scale: list = None,
               n_components: int = None):
         """
-
-        :param n_components:
-        :param columns_to_scale:
-        :param normalize:
-        :param dimensionality_reduction:
         :param X: features
         :param y: labels
+        :param n_components: This sets the number of components to keep
+        :param columns_to_scale:
+        :param normalize: Transforms input into the range [0,1] or any other range with one of MinMaxScaler, StandardScaler or RobustScaler.
+        :param dimensionality_reduction: Utilizes PCA to reduce the dimension of the training and test features
         :param strat: used to initialize stratify = y in train_test_split if True
         :param sizeOfTest: define size of test data
         :param randomState: define random state
