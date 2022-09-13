@@ -26,7 +26,9 @@ train = MultiClassifier(cores=-1, #this parameter works exactly the same as sett
                         verbose=True, #set this to True to display the name of the estimators being fitted at a particular time
                         target_class='binary', #Recommended: set this to one of binary or multiclass to allow the library to adjust to the type of classification problem
                         imbalanced=True, #set this parameter to true if you are working with an imbalanced dataset
-                        sampling='SMOTE' #set this parameter to any over_sampling, under_sampling or over_under_sampling methods if imbalanced is True
+                        sampling='SMOTE', #set this parameter to any over_sampling, under_sampling or over_under_sampling methods if imbalanced is True
+                        strategy='auto' #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
+                                        #read more in the imbalanced learn documentation before using this parameter
                         )
 ```
 In continuation of the code snippet above, incase you're confused about the different sampling methods you could use after setting imbalanced to True when working on an imalanced dataset, a code snippet is provided below to return a list of all the sampling methods available.
