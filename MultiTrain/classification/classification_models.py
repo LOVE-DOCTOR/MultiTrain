@@ -156,11 +156,7 @@ class MultiClassifier:
         print("\n")
         print(f'Combination of over and under-sampling methods = {self.over_under_list}')
 
-    def _get_sample_index_method(self) -> SMOTE | RandomOverSampler | SMOTEN | ADASYN | BorderlineSMOTE | KMeansSMOTE \
-                                          | SVMSMOTE | CondensedNearestNeighbour | EditedNearestNeighbours \
-                                          | RepeatedEditedNearestNeighbours | AllKNN | InstanceHardnessThreshold \
-                                          | NearMiss | NeighbourhoodCleaningRule | OneSidedSelection \
-                                          | RandomUnderSampler | TomekLinks | SMOTEENN | SMOTETomek:
+    def _get_sample_index_method(self):
 
         if self.sampling in self.oversampling_list:
             index_ = self.oversampling_list.index(self.sampling)
