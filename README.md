@@ -240,7 +240,7 @@ fit = train.fit(X=features,
 ```
 After training on your dataset, it is only normal that you'd want to make use of the best algorithm based on a specific metric. 
 A method is also provided for you to do this easily.
-Using the code snippet above - after training, to use the best algorithm based on it's name
+Continuing from any of the code snippets above(for the fit method) - after training, to use the best algorithm based on it's name
 ```python
 mod=train.use_best_model(df=fit, model='LogisticRegression')
 ```
@@ -251,6 +251,6 @@ mod=train.use_best_model(df=fit, best='Balanced Accuracy')
 
 **REGRESSION**
 ```
-mod=train.use_best_model(df=fit, model='LogisticRegression')
+
 ```
 
