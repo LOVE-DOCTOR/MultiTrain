@@ -15,7 +15,7 @@
 
 # MultiTrain
 
-MultiTrain is a python module for machine built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
+MultiTrain is a python module for machine learning, built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
 
 ## REQUIREMENTS
 
