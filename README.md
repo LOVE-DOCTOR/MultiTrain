@@ -21,6 +21,12 @@ MultiTrain is a python module for machine learning, built with the aim of assist
 
 MultiTrain requires:
 
+- matplotlib==3.5.3
+- numpy==1.23.3
+- pandas==1.4.4
+- plotly==5.10.0
+- scikit-learn==1.1.2
+
 ## INSTALLATION
 Install MultiTrain using:
 ```commandline
