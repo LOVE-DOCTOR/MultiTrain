@@ -441,7 +441,7 @@ class MultiClassifier:
             X_test: str = None,
             y_train: str = None,
             y_test: str = None,
-            split_data = None,
+            split_data=None,
             splitting: bool = False,
             kf: bool = False,
             fold: int = 5,
