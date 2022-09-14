@@ -215,15 +215,15 @@ After training on your dataset, it is only normal that you'd want to make use of
 A method is also provided for you to do this easily.
 Using the code snippet above - after training, to use the best algorithm based on it's name
 ```python
-
+mod=train.use_best_model(df=fit, model='LogisticRegression')
 ```
 Or else if you want to automatically select the best algorithm based on a particular metric of your choice
 ```python
-
+mod=train.use_best_model(df=fit, best='Balanced Accuracy')
 ```
 
 **REGRESSION**
 ```
-
+mod=train.use_best_model(df=fit, model='LogisticRegression')
 ```
 
