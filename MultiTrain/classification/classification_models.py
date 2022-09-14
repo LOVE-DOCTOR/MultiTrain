@@ -156,7 +156,11 @@ class MultiClassifier:
         print("\n")
         print(f'Combination of over and under-sampling methods = {self.over_under_list}')
 
-    def _get_sample_index_method(self):
+    def _get_sample_index_method(self) -> SMOTE | RandomOverSampler | SMOTEN | ADASYN | BorderlineSMOTE | KMeansSMOTE \
+                                          | SVMSMOTE | CondensedNearestNeighbour | EditedNearestNeighbours \
+                                          | RepeatedEditedNearestNeighbours | AllKNN | InstanceHardnessThreshold \
+                                          | NearMiss | NeighbourhoodCleaningRule | OneSidedSelection \
+                                          | RandomUnderSampler | TomekLinks | SMOTEENN | SMOTETomek:
 
         if self.sampling in self.oversampling_list:
             index_ = self.oversampling_list.index(self.sampling)
@@ -178,12 +182,12 @@ class MultiClassifier:
               y: any,
               strat: bool = False,
               sizeOfTest: float = 0.2,
-              randomState: int = None,
+              randomState: int | None = None,
               shuffle_data: bool = True,
               dimensionality_reduction: bool = False,
               normalize: any = None,
-              columns_to_scale: list = None,
-              n_components: int = None):
+              columns_to_scale: list | None = None,
+              n_components: int | None = None) -> tuple[any, any, any, any]:
         """
         :param X: features
         :param y: labels
@@ -276,7 +280,7 @@ class MultiClassifier:
                        "BalancedBaggingClassifier", "Perceptron", "NuSVC", "LGBMClassifier"]
         return model_names
 
-    def initialize(self):
+    def _initialize_(self):
         """
         It initializes all the models that we will be using in our ensemble
         """
@@ -317,7 +321,7 @@ class MultiClassifier:
 
     def _get_index(self, df, the_best):
         name = list(self.classifier_model_names())
-        MODEL = self.initialize()
+        MODEL = self._initialize_()
         df['model_names'] = name
         high = ['accuracy', 'balanced accuracy', 'f1 score', 'r2 score', 'ROC AUC', 'Test Acc', 'Test Precision',
                 'Test Recall', 'Test f1', 'Test r2', 'Test Precision Macro', 'Test Recall Macro',
@@ -441,7 +445,7 @@ class MultiClassifier:
             X_test: str = None,
             y_train: str = None,
             y_test: str = None,
-            split_data: str = None,
+            split_data: tuple[any, any, any, any] = None,
             splitting: bool = False,
             kf: bool = False,
             fold: int = 5,
@@ -455,10 +459,10 @@ class MultiClassifier:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
 
-        # :param ngrams:
-        # :param vectorizer:
-        # :param text:
-        # :param show_train_score:
+        # :param ngrams: It can be used when text is set to True.
+        # :param vectorizer: It can only be used when text is set to True.
+        # :param text: Set this parameter to True only if you’re working on an NLP problem.
+        # :param show_train_score: Set this parameter to True to show the train scores together with the test scores
         # :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
         # of the fastest model
 
@@ -560,7 +564,7 @@ class MultiClassifier:
                     and y_train is not None \
                     and y_test is not None:
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-            model = self.initialize()
+            model = self._initialize_()
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):
@@ -771,7 +775,7 @@ class MultiClassifier:
         elif kf is True:
 
             # Fitting the models and predicting the values of the test set.
-            KFoldModel = self.initialize()
+            KFoldModel = self._initialize_()
             names = self.classifier_model_names()
 
             if self.target_class == 'binary':
@@ -823,7 +827,7 @@ class MultiClassifier:
         """
 
         name = self.classifier_model_names()
-        MODEL = self.initialize()
+        MODEL = self._initialize_()
 
         if model is not None and best is not None:
             raise Exception('You can only use one of the two arguments.')
