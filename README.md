@@ -11,6 +11,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/love-doctor/train-with-models?style=social)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
+![Downloads](https://pepy.tech/project/MultiTrain)
 
 # MultiTrain
 
