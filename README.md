@@ -54,12 +54,19 @@ This function operates identically like the scikit-learn framework's train test 
 However, it has some extra features.
 For example, the split method is demonstrated in the code below.
 ```python
+import pandas as pd
 from MultiTrain import MultiClassifier
-train = MultiClassifer()
+
+train = MultiClassifier()
 df = pd.read_csv("nameofFile.csv")
-X = df.drop("nameOflabelcolum", axis = 1)
-y = df["nameOflabelcolum"]
-split = train.split(X = X, y = y, sizeofTest = 0.3, randomState = 42)
+
+features = df.drop("nameOflabelcolum", axis = 1)
+labels = df["nameOflabelcolum"]
+
+split = train.split(X=features, 
+                    y=labels, 
+                    sizeOfTest=0.3, 
+                    randomState=42)
 
 ```
 If you want to run Principal Component Analysis on your dataset to reduce its dimensionality,
@@ -71,9 +78,11 @@ from MultiTrain import MultiClassifier #import the module
 
 train = MultiClassifier()
 df = pd.read_csv('NameOfFile.csv')
-features = df.drop("Labelname", axis=1)
+
+features = df.drop("nameOfLabelColumn", axis=1)
 labels = df['nameOfLabelColumn']
 pretend_columns = ['columnA', 'columnB', 'columnC']
+
 #It's important to note that when using the split function, it must be assigned to a variable as it returns values.
 split = train.split(X=features, #the features of the dataset
                     y=labels,   #the labels of the dataset
@@ -90,13 +99,26 @@ Now that the dataset has been split using the split method, it is time to train 
 Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
 It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
 ```python
+import pandas as pd
 from MultiTrain import MultiClassifier
+
 train = MultiClassifier()
-df = pd.read_csv('nameOfLabelColumn')
-X = df.drop("nameOflabelcolum", axis = 1)
-y = df["nameOflabelcolum"]
-split = train.split(X = X, y = y, sizeofTest = 0.3, randomState = 42,strat = True, shuffle_date = True)
-fit = train.fit(X = X, y = y, excel = True)
+df = pd.read_csv('file.csv')
+
+features = df.drop("nameOflabelcolumn", axis = 1)
+labels = df["nameOflabelcolumn"]
+
+split = train.split(X=features, 
+                    y=labels, 
+                    sizeOfTest=0.3, 
+                    randomState=42,
+                    strat=True,
+                    shuffle_data=True)
+
+fit = train.fit(X=features,
+                y=labels,
+                splitting=True,
+                split_data=split)
 ```
 Now, we would be looking at the various ways the fit method can be implemented. 
 #### If you used the traditional train_test_split method available in scikit-learn
@@ -169,6 +191,3 @@ fit = train.fit(X=features,
 
 ```
 
-
-
-You can only use this code on classification problems
