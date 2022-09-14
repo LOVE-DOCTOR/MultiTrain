@@ -178,12 +178,12 @@ class MultiClassifier:
               y: any,
               strat: bool = False,
               sizeOfTest: float = 0.2,
-              randomState: int | None = None,
+              randomState: int = None,
               shuffle_data: bool = True,
               dimensionality_reduction: bool = False,
               normalize: any = None,
-              columns_to_scale: list | None = None,
-              n_components: int | None = None) -> tuple[any, any, any, any]:
+              columns_to_scale: list = None,
+              n_components: int = None):
         """
         :param X: features
         :param y: labels
@@ -441,7 +441,7 @@ class MultiClassifier:
             X_test: str = None,
             y_train: str = None,
             y_test: str = None,
-            split_data: tuple[any, any, any, any] = None,
+            split_data = None,
             splitting: bool = False,
             kf: bool = False,
             fold: int = 5,

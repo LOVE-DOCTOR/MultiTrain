@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name='MultiTrain',  # name of package
-    version="0.1.13",
+    version="0.1.14",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
@@ -19,10 +19,10 @@ setup(
                                     'MultiTrain.regression', 'MultiTrain.classification']),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6"
-        "Programming Language :: Python :: 3.7"
-        "Programming Language :: Python :: 3.8"
-        "Programming Language :: Python :: 3.9"
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
