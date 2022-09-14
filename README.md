@@ -249,6 +249,39 @@ Or else if you want to automatically select the best algorithm based on a partic
 mod=train.use_best_model(df=fit, best='Balanced Accuracy')
 ```
 
+It gets interesting. After model training, it is obvious that you get a dataframe containing all algorithms and their performance.
+What if you could visualize this dataframe instead and even save all the plots to your directory?
+Check the code snippet below to see how
+
+Note: In order to visualize your model training results, you must have passed the fit method into a variable.
+#### If you want to visualize the plots with matplotlib
+```python
+#this code is a continuation of the implementations of the fit method above
+
+#if you only want to visualize the results in your notebook, use this code
+train.visualize(param=fit, #this parameter takes in the dataframe of the training results 
+                t_split=True, #set t_split to true here if you split your data with the split method provided by MultiTrain
+                kf=False, #set kf to True here if you used KFold split to train, note t_split and kf can't be set to True at the same time
+                size=(15,8) #this sets the size of each plots to be displayed in your notebook
+                )
+
+#if you want to visualize the results in your notebook and save the plots to your system
+train.visualize(param=fit,
+                t_split=True,
+                size=(15,8),
+                file_path='C:/Users/lenovo/', #you can set your own filepath here)
+                save='png', #you can choose to set this parameter to either 'png' or 'pdf'
+                save_name='dir1'
+                )
+
+# the value set to save_name becomes the name of the pdf file if you set save='pdf'
+# the value set to save_name becomes the name of a folder created to accommodate the png file if you set save='png'
+
+```
+#### If you want to visualize the plots with plotly
+Plotly unlike matplotlib provides you with interactive plots. The code syntax is exactly the same with the visualize function.
+The only exception is that you need to use train.show() instead of train.visualize()
+
 **REGRESSION**
 ```
 
