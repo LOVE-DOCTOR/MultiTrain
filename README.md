@@ -1,3 +1,17 @@
+![PyPI](https://img.shields.io/pypi/v/MultiTrain?label=pypi%20package)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/MultiTrain)
+![GitHub branch checks state](https://img.shields.io/github/checks-status/LOVE-DOCTOR/train-with-models/main?style=plastic)
+![Languages](https://img.shields.io/github/languages/top/LOVE-DOCTOR/train-with-models)
+![GitHub repo size](https://img.shields.io/github/repo-size/LOVE-DOCTOR/train-with-models)
+![GitHub issues](https://img.shields.io/github/issues/LOVE-DOCTOR/train-with-models)
+![GitHub closed issues](https://img.shields.io/github/issues-closed/LOVE-DOCTOR/train-with-models)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/LOVE-DOCTOR/train-with-models)
+![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed-raw/LOVE-DOCTOR/train-with-models)
+![GitHub](https://img.shields.io/github/license/LOVE-DOCTOR/train-with-models)
+![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models?style=social)
+![GitHub forks](https://img.shields.io/github/forks/love-doctor/train-with-models?style=social)
+![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
+
 # MultiTrain
 
 MultiTrain is a python module for machine built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
@@ -184,7 +198,16 @@ fit = train.fit(X=features,
                 show_train_score=True,
                 excel=True)     
 ```
-   
+After training on your dataset, it is only normal that you'd want to make use of the best algorithm based on a specific metric. 
+A method is also provided for you to do this easily.
+Using the code snippet above - after training, to use the best algorithm based on it's name
+```python
+
+```
+Or else if you want to automatically select the best algorithm based on a particular metric of your choice
+```python
+
+```
 
 **REGRESSION**
 ```
