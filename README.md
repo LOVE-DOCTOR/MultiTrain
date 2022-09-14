@@ -8,7 +8,7 @@ MultiTrain requires:
 
 ## INSTALLATION
 Install MultiTrain using:
-```
+```commandline
 pip install MultiTrain
 ```
 
@@ -16,7 +16,7 @@ pip install MultiTrain
 *CLASSIFICATION*
 
 ### MultiClassifier
-The MultiClassifier is a mixture of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
+The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
 f1 score, precision, recall, roc auc score for each of the models.
 ```python
 #This is a code snippet of how to import the MultiClassifier and the parameters contained in an instance
@@ -57,6 +57,7 @@ For example, the split method is demonstrated in the code below.
 ```
 If you want to run Principal Component Analysis on your dataset to reduce its dimensionality,
 You can achieve this with the split function. See the code excerpt below.
+
 ```python
 import pandas as pd
 from MultiTrain import MultiClassifier #import the module
@@ -77,10 +78,37 @@ split = train.split(X=features, #the features of the dataset
                     columns_to_scale=pretend_columns #pass in a list of the columns in your dataset that you wish to scale 
                     ) 
 ```
-###Fit
+### Fit
 Now that the dataset has been split using the split method, it is time to train on it using the fit method.
 Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
 It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
+```python
+
+```
+Now, we would be looking at the various ways the fit method can be implemented.
+1. If you used the traditional train_test_split method available in scikit-learn
+    ```python
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+    from MultiTrain import MultiClassifier
+    train = MultiClassifier()
+   
+    df = pd.read_csv('filename.csv')
+   
+    features = df.drop('labelName', axis=1)
+    labels = df['labelName']
+    
+    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+    fit = train.fit(X_train=X_train, 
+                    X_test=X_test, 
+                    y_train=y_train, 
+                    y_test=y_test, 
+                    split_self=True, #always set this to true if you used the traditional train_test_split
+                    show_train_score=True, #only set this to true if you want to compare train equivalent of all the metrics shown on the dataframe
+                    return_best_model=True, #setting this to True means that you'll get a dataframe containing only the best performing model
+                    
+                    ) 
+    ```
 
 **REGRESSION**
 ```

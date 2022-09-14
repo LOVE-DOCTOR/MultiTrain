@@ -446,20 +446,16 @@ class MultiClassifier:
             kf: bool = False,
             fold: int = 5,
             excel: bool = False,
-            return_best_model: str = None,
-            return_fastest_model: bool = False,
+            return_best_model: bool = None,
             show_train_score: bool = False,
             text: bool = False,
             vectorizer: str = None,
-            ngrams: tuple = None,
-            sort: any = None
+            ngrams: tuple = None
             ) -> DataFrame:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
 
-        # :param sort:
         # :param ngrams:
-        # :param n_grams:
         # :param vectorizer:
         # :param text:
         # :param show_train_score:
@@ -769,10 +765,6 @@ class MultiClassifier:
             elif return_best_model is None:
                 display(df.style.highlight_max(color="yellow"))
 
-            if return_fastest_model is True:
-                # df.drop(df[df['execution time(seconds)'] == 0.0].index, axis=0, inplace=True)
-                display(f"FASTEST MODEL")
-                display(df[df["execution time(seconds)"].max()])
             write_to_excel(excel, df)
             return df
 
