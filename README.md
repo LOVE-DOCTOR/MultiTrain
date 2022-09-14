@@ -209,7 +209,34 @@ fit = train.fit(X=features,
                 kf=True, #set this to true if you want to train on your dataset with KFold
                 fold=5, #you can adjust this to use any number of folds you want for kfold, higher numbers leads to higher training times
                 show_train_score=True,
-                excel=True)     
+                excel=True)
+```
+#### If you're working on an NLP problem
+```python
+import pandas as pd
+from MultiTrain import MultiClassifier
+
+train = MultiClassifier()
+df = pd.read_csv('filename.csv')
+
+features = df.drop('LabelName', axis=1)
+labels = df['labelName']
+
+data_split = train.split(X=features,
+                         y=labels,
+                         sizeOfTest=0.2,
+                         randomState=42)
+
+fit = train.fit(X=features,
+                y=labels,
+                splitting=True,
+                split_data=data_split,
+                show_train_score=True,
+                excel=True,
+                text=True, #setting text to True lets the method know you're working on NLP
+                vectorizer='count', #set this to one of 'count' or 'tfidf' when text is True
+                ngrams=(1,3) #this defines the sequence of N words
+ )
 ```
 After training on your dataset, it is only normal that you'd want to make use of the best algorithm based on a specific metric. 
 A method is also provided for you to do this easily.
