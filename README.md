@@ -26,6 +26,12 @@ MultiTrain requires:
 - pandas==1.4.4
 - plotly==5.10.0
 - scikit-learn==1.1.2
+- xgboost==1.6.2
+- catboost==1.0.6
+- imbalanced-learn==0.9.1
+- seaborn==0.12.0
+- lightgbm==3.3.2
+- scikit-optimize==0.9.0
 
 ## INSTALLATION
 Install MultiTrain using:
