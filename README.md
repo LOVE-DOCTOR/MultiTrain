@@ -39,6 +39,13 @@ Install MultiTrain using:
 pip install MultiTrain
 ```
 
+## ISSUES
+If you experience a bug while using MultiTrain, make sure to update to the latest version with
+```commandline
+pip install --upgrade MultiTrain
+```
+If that doesn't fix your bug, create an issue in the issue tracker
+
 ## USAGE
 *CLASSIFICATION*
 
