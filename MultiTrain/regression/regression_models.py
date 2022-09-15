@@ -4,6 +4,7 @@ from operator import __setitem__
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from IPython.display import display
 from lightgbm import LGBMRegressor
 from matplotlib import pyplot as plt
 from pandas import DataFrame
@@ -36,6 +37,10 @@ from xgboost import XGBRegressor
 
 from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model, img, directory, \
     img_plotly
+import logging
+
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 class MultiRegressor:
@@ -341,6 +346,7 @@ class MultiRegressor:
                 if self.verbose is True:
                     print(model[i])
                 try:
+                    print(f'fitting {model[i]}')
                     model[i].fit(X_tr, y_tr)
                 except ValueError:
                     X_tr, X_te = X_tr.to_numpy(), X_te.to_numpy()
@@ -352,7 +358,6 @@ class MultiRegressor:
                     model[i].fit(X_tr, y_tr)
 
                 end = time.time()
-
                 pred = model[i].predict(X_te)
                 # X_tr is X_train, X_te is X_test, y_tr is y_train, y_te is y_test
                 true = y_te
@@ -362,7 +367,7 @@ class MultiRegressor:
                 try:
                     rmsle = np.sqrt(mean_squared_log_error(true, pred))
                 except ValueError:
-                    rmsle = 'NaN'
+                    rmsle = 99.99
                 meae = median_absolute_error(true, pred)
                 mape = mean_absolute_percentage_error(true, pred)
 
@@ -384,7 +389,7 @@ class MultiRegressor:
             KFoldModel = self.initialize()
             names = self.regression_model_names()
 
-            PrintLog("Training started")
+            logger.info("Training started")
             dataframe = self.startKFold(param=KFoldModel, param_X=X, param_y=y, param_cv=fold,
                                         train_score=show_train_score)
 
@@ -806,4 +811,3 @@ class MultiRegressor:
                                 FILENAME=dire,
                                 FILE_PATH=file_path,
                             )
-
