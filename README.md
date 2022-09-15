@@ -40,7 +40,7 @@ pip install MultiTrain
 ```
 
 ## ISSUES
-If you experience a bug while using MultiTrain, make sure to update to the latest version with
+If you experience issues or come across a bug while using MultiTrain, make sure to update to the latest version with
 ```commandline
 pip install --upgrade MultiTrain
 ```
@@ -288,6 +288,81 @@ train.visualize(param=fit,
 #### If you want to visualize the plots with plotly
 Plotly unlike matplotlib provides you with interactive plots. The code syntax is exactly the same with the visualize function.
 The only exception is that you need to use train.show() instead of train.visualize()
+
+### HYPER-PARAMETER TUNING
+After training the MultiClassifier on your dataset and you have selected a model you wish to work with, you can perform hyperparameter tuning
+on such model. 
+All parameters available to use
+```python
+tune_parameters(self,
+                model: str = None,
+                parameters: dict = None,
+                tune: str = None,
+                use_cpu: int = None,
+                cv: int = 5,
+                n_iter: any = 50,
+                return_train_score: bool = False,
+                refit: bool = True,
+                random_state: int = None,
+                factor: int = 3,
+                verbose: int = 4,
+                resource: any = "n_samples",
+                max_resources: any = "auto",
+                min_resources_grid: any = "exhaust",
+                min_resources_rand: any = "smallest",
+                aggressive_elimination: any = False,
+                error_score: any = np.nan,
+                pre_dispatch: any = "2*n_jobs",
+                optimizer_kwargs: any = None,
+                fit_params: any = None,
+                n_points: any = 1,
+                score='accuracy')
+     
+```
+The different hyper parameter tuning methods available are listed below
+```text
+1. GridSearchCV represented with 'grid'
+2. RandomizedSearchCV represented with 'random'
+3. BayesSearchCV represented with 'bayes'
+4. HalvingGridSearchCV represented with 'half-grid'
+5. HalvingRandomizedSearchCV represented with 'half-random'
+```
+Let's train a new model and then perform hyperparameter tuning on it.
+```python
+import pandas as pd
+from MultiTrain import MultiClassifier
+
+df = pd.read_csv('data.csv')
+features = df.drop('thelabels', axis=1)
+labels = df['thelabels']
+
+train = MultiClassifier(random_state=42,
+                        verbose=True)
+
+fit = train.fit(X=features,
+                y=labels,
+                kf=True,
+                fold=5)
+
+mod = train.use_best_model(df=fit, best='Balanced Accuracy')
+
+param = {'random_state': [1, 2, 3, 4]} #remember to set your own parameters here
+
+#using grid search
+tuned_model_grid = train.tune_parameters(model=mod,
+                                    parameters=param,
+                                    use_cpu=-1, #uses all cores of the cpu
+                                    tune='grid',
+                                    cv=5)
+
+#using random search
+tuned_model_random = train.tune_parameters(model=mod,
+                                           parameters=param,
+                                           use_cpu=-1, #uses all cores of the cpu
+                                           tune='random',
+                                           cv=5)
+```
+Notice how you only had to had to change the value of tune to use another hyperparameter tuning algorithm. That's the simplicity MultiTrain provides you.
 
 **REGRESSION**
 ```

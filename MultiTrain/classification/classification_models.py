@@ -235,35 +235,64 @@ class MultiClassifier:
                         if normalize is not None:
                             if columns_to_scale is None:
                                 if isinstance(columns_to_scale, list) is False:
-                                    raise ValueError('Pass a list or tuple containing the columns to be scaled to the '
-                                                     'column_to_scale parameter')
-                                elif isinstance(columns_to_scale, tuple) is False:
-                                    raise ValueError('Pass a list or tuple containing the columns to be scaled to the '
-                                                     'column_to_scale parameter')
+                                    raise ValueError('Pass a list containing the columns to be scaled to the '
+                                                     'column_to_scale parameter when using normalize')
 
-                            if columns_to_scale is not None and isinstance(columns_to_scale, list) or \
-                                    isinstance(columns_to_scale, tuple):
-                                if normalize in norm:
-                                    if normalize == 'StandardScaler':
-                                        scale = StandardScaler()
-                                    elif normalize == 'MinMaxScaler':
-                                        scale = MinMaxScaler()
-                                    elif normalize == 'RobustScaler':
-                                        scale = RobustScaler()
+                            if columns_to_scale is not None:
+                                if isinstance(columns_to_scale, tuple):
+                                    raise ValueError('You can only pass a list to columns_to_scale')
+                                elif isinstance(columns_to_scale, list):
+                                    if normalize in norm:
+                                        if normalize == 'StandardScaler':
+                                            scale = StandardScaler()
+                                        elif normalize == 'MinMaxScaler':
+                                            scale = MinMaxScaler()
+                                        elif normalize == 'RobustScaler':
+                                            scale = RobustScaler()
 
-                                    X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
-                                    X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+                                        X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
+                                        X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
 
-                                    pca = PCA(n_components=n_components, random_state=self.random_state)
-                                    X_train = pca.fit_transform(X_train)
-                                    X_test = pca.transform(X_test)
-                                    return X_train, X_test, y_train, y_test
+                                        pca = PCA(n_components=n_components, random_state=self.random_state)
+                                        X_train = pca.fit_transform(X_train)
+                                        X_test = pca.transform(X_test)
+                                        return X_train, X_test, y_train, y_test
 
             else:
+                norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+                if normalize:
+                    if columns_to_scale is None:
+                        raise ValueError('Pass a list containing the columns to be scaled to the '
+                                         'column_to_scale parameter when using normalize')
+                    if columns_to_scale:
+                        if isinstance(columns_to_scale, tuple):
+                            raise ValueError('You can only pass a list to columns_to_scale')
 
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                    train_size=1 - sizeOfTest)
-                return X_train, X_test, y_train, y_test
+                        if isinstance(columns_to_scale, list):
+                            if normalize in norm:
+                                if normalize == 'StandardScaler':
+                                    scale = StandardScaler()
+                                elif normalize == 'MinMaxScaler':
+                                    scale = MinMaxScaler()
+                                elif normalize == 'RobustScaler':
+                                    scale = RobustScaler()
+
+                                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                                    train_size=1 - sizeOfTest,
+                                                                                    random_state=randomState,
+                                                                                    shuffle=shuffle_data)
+
+                                X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
+                                X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+
+                                return X_train, X_test, y_train, y_test
+
+                else:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest,
+                                                                        random_state=randomState,
+                                                                        shuffle=shuffle_data)
+                    return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self) -> list:
         model_names = ["Logistic Regression", "LogisticRegressionCV", "SGDClassifier", "PassiveAggressiveClassifier",
