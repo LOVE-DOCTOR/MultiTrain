@@ -13,6 +13,19 @@
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
 
+# LINKS
+- [MultiTrain](#multitrain)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Issues](#issues)
+- [Usage](#usage)
+    - [Classification](#classification)
+        > [MultiClassifier](#multi-classifier)
+        1. [Classifier Model Names](#classifier-model-names)
+        2. [Split](#split-classifier)
+        3. [Fit](#fit-classifier)
+        4. [Visualize training results](#visualize-training-results)
+        5. [Hyperparameter Tuning](#hyperparameter-tuning)
 # MultiTrain
 
 MultiTrain is a python module for machine learning, built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
@@ -47,9 +60,9 @@ pip install --upgrade MultiTrain
 If that doesn't fix your bug, create an issue in the issue tracker
 
 ## USAGE
-*CLASSIFICATION*
+CLASSIFICATION
 
-### MultiClassifier
+### MULTI-CLASSIFIER
 The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
 f1 score, precision, recall, roc auc score for each of the models.
 ```python
@@ -75,7 +88,7 @@ train = MultiClassifier()
 print(train.strategies()) #this line of codes returns all the under sampling, over sampling and over_under sampling methods available for use
 ```
 
-### Classifier Model Names
+### CLASSIFIER MODEL NAMES
 To return a list of all models available for training
 ```python
 from MultiTrain import MultiClassifier
@@ -83,7 +96,7 @@ train = MultiClassifier()
 print(train.classifier_model_names())
 
 ```
-### Split
+### SPLIT CLASSIFIER
 This function operates identically like the scikit-learn framework's train test split function.
 However, it has some extra features.
 For example, the split method is demonstrated in the code below.
@@ -128,7 +141,7 @@ split = train.split(X=features, #the features of the dataset
                     columns_to_scale=pretend_columns #pass in a list of the columns in your dataset that you wish to scale 
                     ) 
 ```
-### Fit
+### FIT CLASSIFIER
 Now that the dataset has been split using the split method, it is time to train on it using the fit method.
 Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
 It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
@@ -255,7 +268,7 @@ Or else if you want to automatically select the best algorithm based on a partic
 ```python
 mod=train.use_best_model(df=fit, best='Balanced Accuracy')
 ```
-
+### VISUALIZE TRAINING RESULTS
 It gets interesting. After model training, it is obvious that you get a dataframe containing all algorithms and their performance.
 What if you could visualize this dataframe instead and even save all the plots to your directory?
 Check the code snippet below to see how
@@ -289,7 +302,7 @@ train.visualize(param=fit,
 Plotly unlike matplotlib provides you with interactive plots. The code syntax is exactly the same with the visualize function.
 The only exception is that you need to use train.show() instead of train.visualize()
 
-### HYPER-PARAMETER TUNING
+### HYPERPARAMETER TUNING
 After training the MultiClassifier on your dataset and you have selected a model you wish to work with, you can perform hyperparameter tuning
 on such model. 
 All parameters available to use
@@ -365,7 +378,17 @@ tuned_model_random = train.tune_parameters(model=mod,
 Notice how you only had to had to change the value of tune to use another hyperparameter tuning algorithm. That's the simplicity MultiTrain provides you.
 
 **REGRESSION**
+
+The MultiRegressor is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics for each of the models.
+```python
+#This is a code snippet of how to import the MultiClassifier and the parameters contained in an instance
+
+from MultiTrain import MultiRegressor
+train = MultiRegressor(cores=-1, #this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make training faster
+                       random_state=42, #setting random state here automatically sets a unified random state across function imports
+                       verbose=True #set this to True to display the name of the estimators being fitted at a particular time
+                      )
 ```
 
-```
+
 
