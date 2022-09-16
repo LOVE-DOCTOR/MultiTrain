@@ -19,18 +19,23 @@
 - [Installation](#installation)
 - [Issues](#issues)
 - [Usage](#usage)
+    1. [Visualize training results](#visualize-training-results)
+    2. [Hyperparameter Tuning](#hyperparameter-tuning)
     - [Classification](#classification)
-        > [MultiClassifier](#multi-classifier)
+        > [MultiClassifier](#multiclassifier)
         1. [Classifier Model Names](#classifier-model-names)
         2. [Split](#split-classifier)
         3. [Fit](#fit-classifier)
-        4. [Visualize training results](#visualize-training-results)
-        5. [Hyperparameter Tuning](#hyperparameter-tuning)
+    - [Regression](#regression)
+        > [MultiRegressor](#multiregressor)
+        1. [Regression Model Names](#regression-model-names)
+        2. [Split](#split-regression)
+        3. [Fit](#fit-regression)
 # MultiTrain
 
 MultiTrain is a python module for machine learning, built with the aim of assisting you to find the machine learning model that works best on a particular dataset.
 
-## REQUIREMENTS
+# REQUIREMENTS
 
 MultiTrain requires:
 
@@ -46,23 +51,23 @@ MultiTrain requires:
 - lightgbm==3.3.2
 - scikit-optimize==0.9.0
 
-## INSTALLATION
+# INSTALLATION
 Install MultiTrain using:
 ```commandline
 pip install MultiTrain
 ```
 
-## ISSUES
+# ISSUES
 If you experience issues or come across a bug while using MultiTrain, make sure to update to the latest version with
 ```commandline
 pip install --upgrade MultiTrain
 ```
 If that doesn't fix your bug, create an issue in the issue tracker
 
-## USAGE
-CLASSIFICATION
+# USAGE
+## CLASSIFICATION
 
-### MULTI-CLASSIFIER
+### MULTICLASSIFIER
 The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
 f1 score, precision, recall, roc auc score for each of the models.
 ```python
@@ -107,8 +112,8 @@ from MultiTrain import MultiClassifier
 train = MultiClassifier()
 df = pd.read_csv("nameofFile.csv")
 
-features = df.drop("nameOflabelcolum", axis = 1)
-labels = df["nameOflabelcolum"]
+features = df.drop("nameOflabelcolumn", axis = 1)
+labels = df["nameOflabelcolumn"]
 
 split = train.split(X=features, 
                     y=labels, 
@@ -118,7 +123,7 @@ split = train.split(X=features,
 ```
 If you want to run Principal Component Analysis on your dataset to reduce its dimensionality,
 You can achieve this with the split function. See the code excerpt below.
-
+#### Dimensionality Reduction
 ```python
 import pandas as pd
 from MultiTrain import MultiClassifier #import the module
@@ -258,9 +263,11 @@ fit = train.fit(X=features,
                 ngrams=(1,3) #this defines the sequence of N words
  )
 ```
+### USE BEST MODEL
 After training on your dataset, it is only normal that you'd want to make use of the best algorithm based on a specific metric. 
 A method is also provided for you to do this easily.
 Continuing from any of the code snippets above(for the fit method) - after training, to use the best algorithm based on it's name
+
 ```python
 mod=train.use_best_model(df=fit, model='LogisticRegression')
 ```
@@ -376,8 +383,8 @@ tuned_model_random = train.tune_parameters(model=mod,
                                            cv=5)
 ```
 Notice how you only had to had to change the value of tune to use another hyperparameter tuning algorithm. That's the simplicity MultiTrain provides you.
-
-**REGRESSION**
+## REGRESSION
+### MULTIREGRESSOR
 
 The MultiRegressor is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics for each of the models.
 ```python
@@ -389,6 +396,29 @@ train = MultiRegressor(cores=-1, #this parameter works exactly the same as setti
                        verbose=True #set this to True to display the name of the estimators being fitted at a particular time
                       )
 ```
+### REGRESSION MODEL NAMES
+To return a list of all models available for training
+```python
+from MultiTrain import MultiRegressor
+train = MultiRegressor()
+print(train.regression_model_names())
+
+```
+### SPLIT REGRESSION
+This function operates identically like the scikit-learn framework's train test split function.
+However, it has some extra features.
+For example, the split method is demonstrated in the code below.
+```python
+
+```
+
+If you also want to perform dimensionality reduction using the split function, refer to this link 
+> [Dimensionality reduction](#dimensionality-reduction)
+
+All you need to do is swap out MultiClassifier with MultiRegressor and you're good to go.
+
+
+
 
 
 

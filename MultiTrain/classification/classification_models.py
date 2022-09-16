@@ -2,6 +2,8 @@ from collections import Counter
 from operator import __setitem__
 import seaborn as sns
 import plotly.express as px
+# from hyperopt import tpe
+# from hpsklearn import HyperoptEstimator, sklearn_ExtraTreesClassifier, random_forest
 from IPython.display import display
 from imblearn.combine import SMOTEENN, SMOTETomek
 from imblearn.over_sampling import SMOTE, RandomOverSampler, SMOTENC, SMOTEN, ADASYN, BorderlineSMOTE, KMeansSMOTE, \
@@ -50,6 +52,8 @@ import warnings
 import time
 
 import logging
+import os
+#os.environ['OMP_NUM_THREADS'] = "1"
 
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -74,6 +78,8 @@ class MultiClassifier:
         self.sampling = sampling
         self.imbalanced = imbalanced
         self.strategy = strategy
+        # self.param_tuning = param_tuning
+        # self.timeout = timeout
         self.oversampling_list = ['SMOTE', 'RandomOverSampler', 'SMOTEN', 'ADASYN',
                                   'BorderlineSMOTE', 'KMeansSMOTE', 'SVMSMOTE']
         self.oversampling_methods = [SMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
@@ -285,6 +291,9 @@ class MultiClassifier:
                                 X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
                                 X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
 
+                                X_train, X_test = X_train.reset_index(), X_test.reset_index()
+                                X_train, X_test = X_train.drop('index', axis=1), X_test.drop('index', axis=1)
+
                                 return X_train, X_test, y_train, y_test
 
                 else:
@@ -292,6 +301,9 @@ class MultiClassifier:
                                                                         train_size=1 - sizeOfTest,
                                                                         random_state=randomState,
                                                                         shuffle=shuffle_data)
+                    X_train, X_test = X_train.reset_index(), X_test.reset_index()
+                    X_train, X_test = X_train.drop('index', axis=1), X_test.drop('index', axis=1)
+
                     return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self) -> list:
@@ -309,6 +321,10 @@ class MultiClassifier:
         """
         It initializes all the models that we will be using in our ensemble
         """
+        #if self.param_tuning is True:
+        #    if self.timeout is False:
+        #        logger.info('It is recommended to set a timeout to avoid longer training times')
+
         lr = LogisticRegression(n_jobs=self.cores, random_state=self.random_state)
         lrcv = LogisticRegressionCV(n_jobs=self.cores, refit=True)
         sgdc = SGDClassifier(n_jobs=self.cores, random_state=self.random_state)
@@ -589,7 +605,10 @@ class MultiClassifier:
                     and y_train is not None \
                     and y_test is not None:
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
+            print('initializing')
             model = self._initialize_()
+            print('done')
+            print('getting model names')
             names = self.classifier_model_names()
             dataframe = {}
             for i in range(len(model)):

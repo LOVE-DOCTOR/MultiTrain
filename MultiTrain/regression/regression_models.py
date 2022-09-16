@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 import seaborn as sns
 from sklearn.compose import TransformedTargetRegressor
+from sklearn.decomposition import PCA
 from sklearn.dummy import DummyRegressor
 from numpy.random import randint
 from numpy import reshape
@@ -71,17 +72,21 @@ class MultiRegressor:
     def split(self,
               X: any,
               y: any,
+              strat: bool = False,
               sizeOfTest: float = 0.2,
               randomState: int = None,
               shuffle_data: bool = True,
-              normalize: str = None,
-              columns_to_scale: list = None):
+              dimensionality_reduction: bool = False,
+              normalize: any = None,
+              columns_to_scale: list = None,
+              n_components: int = None):
         """
-
-        :param columns_to_scale:
-        :param normalize:
         :param X: features
         :param y: labels
+        :param n_components: This sets the number of components to keep
+        :param columns_to_scale:
+        :param normalize: Transforms input into the range [0,1] or any other range with one of MinMaxScaler, StandardScaler or RobustScaler.
+        :param dimensionality_reduction: Utilizes PCA to reduce the dimension of the training and test features
         :param strat: used to initialize stratify = y in train_test_split if True
         :param sizeOfTest: define size of test data
         :param randomState: define random state
@@ -96,43 +101,100 @@ class MultiRegressor:
         if isinstance(X, int or bool) or isinstance(y, int or bool):
             raise ValueError(f"{X} and {y} are not valid arguments for 'split'."
                              f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})")
+        elif isinstance(strat, bool) is False:
+            raise TypeError("argument of type int or str is not valid. Parameters for strat is either False or True")
 
         elif sizeOfTest < 0 or sizeOfTest > 1:
             raise ValueError("value of sizeOfTest should be between 0 and 1")
 
         else:
+            # values for normalize
             norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
-            if normalize:
-                if columns_to_scale is None:
-                    raise ValueError('Pass a list containing the columns to be scaled to the '
-                                     'column_to_scale parameter when using normalize')
-                if columns_to_scale:
-                    if isinstance(columns_to_scale, tuple):
-                        raise ValueError('You can only pass a list to columns_to_scale')
+            if strat is True:
 
-                    if isinstance(columns_to_scale, list):
-                        if normalize in norm:
-                            if normalize == 'StandardScaler':
-                                scale = StandardScaler()
-                            elif normalize == 'MinMaxScaler':
-                                scale = MinMaxScaler()
-                            elif normalize == 'RobustScaler':
-                                scale = RobustScaler()
+                if shuffle_data is False:
+                    raise TypeError("shuffle_data can only be False if strat is False")
 
-                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                                train_size=1 - sizeOfTest, random_state=randomState,
-                                                                                shuffle=shuffle_data)
+                elif shuffle_data is True:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest,
+                                                                        stratify=y, random_state=randomState,
+                                                                        shuffle=shuffle_data)
+                    if dimensionality_reduction is False:
+                        return X_train, X_test, y_train, y_test
 
-                            X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
-                            X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+                    if dimensionality_reduction is True:
+                        if normalize is None:
+                            raise ValueError('Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler" to '
+                                             'normalize if dimensionality_reduction is True')
 
-                            return X_train, X_test, y_train, y_test
+                        if normalize is not None:
+                            if columns_to_scale is None:
+                                if isinstance(columns_to_scale, list) is False:
+                                    raise ValueError('Pass a list containing the columns to be scaled to the '
+                                                     'column_to_scale parameter when using normalize')
+
+                            if columns_to_scale is not None:
+                                if isinstance(columns_to_scale, tuple):
+                                    raise ValueError('You can only pass a list to columns_to_scale')
+                                elif isinstance(columns_to_scale, list):
+                                    if normalize in norm:
+                                        if normalize == 'StandardScaler':
+                                            scale = StandardScaler()
+                                        elif normalize == 'MinMaxScaler':
+                                            scale = MinMaxScaler()
+                                        elif normalize == 'RobustScaler':
+                                            scale = RobustScaler()
+
+                                        X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
+                                        X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+
+                                        pca = PCA(n_components=n_components, random_state=self.random_state)
+                                        X_train = pca.fit_transform(X_train)
+                                        X_test = pca.transform(X_test)
+                                        return X_train, X_test, y_train, y_test
 
             else:
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
-                                                                    train_size=1 - sizeOfTest, random_state=randomState,
-                                                                    shuffle=shuffle_data)
-                return X_train, X_test, y_train, y_test
+                norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+                if normalize:
+                    if columns_to_scale is None:
+                        raise ValueError('Pass a list containing the columns to be scaled to the '
+                                         'column_to_scale parameter when using normalize')
+                    if columns_to_scale:
+                        if isinstance(columns_to_scale, tuple):
+                            raise ValueError('You can only pass a list to columns_to_scale')
+
+                        if isinstance(columns_to_scale, list):
+                            if normalize in norm:
+                                if normalize == 'StandardScaler':
+                                    scale = StandardScaler()
+                                elif normalize == 'MinMaxScaler':
+                                    scale = MinMaxScaler()
+                                elif normalize == 'RobustScaler':
+                                    scale = RobustScaler()
+
+                                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                                    train_size=1 - sizeOfTest,
+                                                                                    random_state=randomState,
+                                                                                    shuffle=shuffle_data)
+
+                                X_train[columns_to_scale] = scale.fit_transform(X_train[columns_to_scale])
+                                X_test[columns_to_scale] = scale.transform(X_test[columns_to_scale])
+
+                                X_train, X_test = X_train.reset_index(), X_test.reset_index()
+                                X_train, X_test = X_train.drop('index', axis=1), X_test.drop('index', axis=1)
+
+                                return X_train, X_test, y_train, y_test
+
+                else:
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=sizeOfTest,
+                                                                        train_size=1 - sizeOfTest,
+                                                                        random_state=randomState,
+                                                                        shuffle=shuffle_data)
+                    X_train, X_test = X_train.reset_index(), X_test.reset_index()
+                    X_train, X_test = X_train.drop('index', axis=1), X_test.drop('index', axis=1)
+
+                    return X_train, X_test, y_train, y_test
 
     def initialize(self):
         """
