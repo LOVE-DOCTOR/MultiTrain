@@ -1,5 +1,4 @@
 ![PyPI](https://img.shields.io/pypi/v/MultiTrain?label=pypi%20package)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/MultiTrain)
 ![GitHub branch checks state](https://img.shields.io/github/checks-status/LOVE-DOCTOR/train-with-models/main?style=plastic)
 ![Languages](https://img.shields.io/github/languages/top/LOVE-DOCTOR/train-with-models)
 ![GitHub repo size](https://img.shields.io/github/repo-size/LOVE-DOCTOR/train-with-models)
