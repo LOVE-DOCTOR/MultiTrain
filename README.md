@@ -11,7 +11,8 @@
 ![GitHub forks](https://img.shields.io/github/forks/love-doctor/train-with-models?style=social)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
-
+# CONTRIBUTING
+If you wish to make small changes to the codebase, your pull requests are welcome. However, for major changes or ideas on how to improve the library, please create an issue.
 # LINKS
 - [MultiTrain](#multitrain)
 - [Requirements](#requirements)
@@ -415,7 +416,71 @@ If you also want to perform dimensionality reduction using the split function, r
 > [Dimensionality reduction](#dimensionality-reduction)
 
 All you need to do is swap out MultiClassifier with MultiRegressor and you're good to go.
+### FIT REGRESSON
+Now, we would be looking at the various ways the fit method can be implemented. 
+#### If you used the traditional train_test_split method available in scikit-learn
+```python
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from MultiTrain import MultiRegressor
+train = MultiRegressor()
 
+df = pd.read_csv('filename.csv')
+
+features = df.drop('labelName', axis=1)
+labels = df['labelName']
+
+X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+fit = train.fit(X_train=X_train, 
+                X_test=X_test, 
+                y_train=y_train, 
+                y_test=y_test, 
+                split_self=True, #always set this to true if you used the traditional train_test_split
+                show_train_score=True, #only set this to true if you want to compare train equivalent of all the metrics shown on the dataframe
+                return_best_model=True, #setting this to True means that you'll get a dataframe containing only the best performing model
+                excel=True #when this parameter is set to true, an spreadsheet report of the training is stored in your current working directory
+              ) 
+```
+#### If you used the split method provided by the MultiRegressor
+```python
+import pandas as pd
+from MultiTrain import MultiRegressor
+
+train = MultiRegressor()
+df = pd.read_csv('filename.csv')
+
+features = df.drop('labelName', axis=1)
+labels = df['labelName']
+
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    randomState=42,
+                    shuffle_data=True)
+
+fit = train.fit(splitting=True,
+                split_data=split,
+                show_train_score=True,
+                excel=True)     
+```
+#### If you want to train on your dataset with KFold
+```python
+import pandas as pd
+from MultiTrain import MultiRegressor
+
+train = MultiRegressor()
+df = pd.read_csv('filename.csv')
+
+features = df.drop('labelName', axis=1)
+labels = df['labelName']
+
+fit = train.fit(X=features,
+                y=labels,
+                kf=True, #set this to true if you want to train on your dataset with KFold
+                fold=5, #you can adjust this to use any number of folds you want for kfold, higher numbers leads to higher training times
+                show_train_score=True,
+                excel=True)
+```
 
 
 
