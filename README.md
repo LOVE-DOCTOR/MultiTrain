@@ -167,9 +167,7 @@ split = train.split(X=features,
                     strat=True,
                     shuffle_data=True)
 
-fit = train.fit(X=features,
-                y=labels,
-                splitting=True,
+fit = train.fit(splitting=True,
                 split_data=split)
 ```
 Now, we would be looking at the various ways the fit method can be implemented. 
@@ -192,7 +190,7 @@ fit = train.fit(X_train=X_train,
               y_test=y_test, 
               split_self=True, #always set this to true if you used the traditional train_test_split
               show_train_score=True, #only set this to true if you want to compare train equivalent of all the metrics shown on the dataframe
-              return_best_model=True, #setting this to True means that you'll get a dataframe containing only the best performing model
+              return_best_model='Accuracy', #Set a metric here to sort the resulting dataframe by the best performing model based on the metric 
               excel=True #when this parameter is set to true, an spreadsheet report of the training is stored in your current working directory
               ) 
 ```
@@ -252,9 +250,7 @@ data_split = train.split(X=features,
                          sizeOfTest=0.2,
                          randomState=42)
 
-fit = train.fit(X=features,
-                y=labels,
-                splitting=True,
+fit = train.fit(splitting=True,
                 split_data=data_split,
                 show_train_score=True,
                 excel=True,
@@ -447,7 +443,7 @@ fit = train.fit(X_train=X_train,
                 y_test=y_test, 
                 split_self=True, #always set this to true if you used the traditional train_test_split
                 show_train_score=True, #only set this to true if you want to compare train equivalent of all the metrics shown on the dataframe
-                return_best_model=True, #setting this to True means that you'll get a dataframe containing only the best performing model
+                return_best_model=None, #Set a metric here to sort the resulting dataframe by the best performing model based on the metric
                 excel=True #when this parameter is set to true, an spreadsheet report of the training is stored in your current working directory
               ) 
 ```

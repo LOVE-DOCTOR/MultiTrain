@@ -353,11 +353,8 @@ class MultiRegressor:
         variables X_train, X_test, y_train, and y_test
 
         :param show_train_score:
-        :param return_fastest_model: defaults to False, set to True when you want the method to only return a dataframe
-        of the fastest model
 
-        :param return_best_model: defaults to False, set to True when you want the method to only return a dataframe of
-        the best model
+        :param return_best_model: sorts the resulting dataframe according to the evaluation metric set here
 
         :param split_self: defaults to False, set to True when you split the data yourself
 

@@ -1,5 +1,6 @@
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
+import pandas as pd
 from IPython.display import display
 import os
 import shutil
@@ -161,3 +162,9 @@ def t_best_model(df, best, excel):
 
     write_to_excel(excel, df)
     return df
+
+
+def _check_target(target):
+    target_class = 'binary' if target.value_counts().count() == 2 else 'multiclass'
+    return target_class
+
