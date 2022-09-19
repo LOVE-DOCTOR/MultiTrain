@@ -25,9 +25,11 @@ jobs:
         
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        python pip install build
-        python pip install setuptools wheel twine
+        pip install --upgrade pip
+        pip install build
+        pip install setuptools
+        pip install wheel 
+        pip install twine
         python setup.py install
     - name: Build package
       run: | 
