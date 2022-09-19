@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name='MultiTrain',  # name of package
-    version="0.11.2",
+    version="0.11.21",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
