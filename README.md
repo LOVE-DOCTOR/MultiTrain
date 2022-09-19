@@ -409,14 +409,24 @@ This function operates identically like the scikit-learn framework's train test 
 However, it has some extra features.
 For example, the split method is demonstrated in the code below.
 ```python
-
+from MultiTrain import MultiRegressor
+train = MultiRegressor()
+df = pd.read_csv("FileName.csv")
+X = df.drop("LabelColumn", axis = 1)
+y = df["LabelColumn"]
+split = train.split(X=X, 
+                    y=y, 
+                    sizeofTest=0.3, 
+                    random_state = 42,  
+                    strat = True, 
+                    shuffle_data=True)
 ```
 
 If you also want to perform dimensionality reduction using the split function, refer to this link 
 > [Dimensionality reduction](#dimensionality-reduction)
 
 All you need to do is swap out MultiClassifier with MultiRegressor and you're good to go.
-### FIT REGRESSON
+### FIT REGRESSION
 Now, we would be looking at the various ways the fit method can be implemented. 
 #### If you used the traditional train_test_split method available in scikit-learn
 ```python
