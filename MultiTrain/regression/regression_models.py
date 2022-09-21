@@ -38,7 +38,7 @@ from skopt.learning import ExtraTreesRegressor, GaussianProcessRegressor, Random
 from xgboost import XGBRegressor
 
 from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model, img, directory, \
-    img_plotly, _get_cat_num, _fill, _fill_columns
+    img_plotly, get_cat_num_, fill_, fill_columns_
 import logging
 
 logging.basicConfig(level=logging.ERROR)
