@@ -91,6 +91,7 @@ from MultiTrain.methods.multitrain_methods import (
     directory,
     img_plotly,
 )
+
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -156,19 +157,18 @@ class MultiRegressor:
         ]
         return model_names
 
-    def split(
-        self,
-        X: any,
-        y: any,
-        strat: bool = False,
-        sizeOfTest: float = 0.2,
-        randomState: int = None,
-        shuffle_data: bool = True,
-        dimensionality_reduction: bool = False,
-        normalize: any = None,
-        columns_to_scale: list = None,
-        n_components: int = None,
-    ):
+    def split(self,
+              X: any,
+              y: any,
+              strat: bool = False,
+              sizeOfTest: float = 0.2,
+              randomState: int = None,
+              shuffle_data: bool = True,
+              dimensionality_reduction: bool = False,
+              normalize: any = None,
+              columns_to_scale: list = None,
+              n_components: int = None,
+              missing_values: dict = None):
         """
         :param X: features
         :param y: labels
@@ -202,7 +202,26 @@ class MultiRegressor:
 
         else:
             # values for normalize
-            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
+
+            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+            if missing_values:
+                if isinstance(missing_values, dict):
+                    if missing_values['cat'] != 'most_frequent':
+                        raise ValueError(
+                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
+                            f"categorical columns")
+                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                        raise ValueError(
+                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
+                            f"'most_frequent', 'constant'] for numerical columns")
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
+                    cat, num = _fill(categorical_values, numerical_values)
+                    X = _fill_columns(cat, num, X)
+
+                else:
+                    raise TypeError(
+                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+
             if strat is True:
 
                 if shuffle_data is False:
@@ -697,7 +716,7 @@ class MultiRegressor:
                 try:
                     rmsle = np.sqrt(mean_squared_log_error(true, pred))
                 except ValueError:
-                    rmsle = 99.99
+                    rmsle = np.nan
                 meae = median_absolute_error(true, pred)
                 mape = mean_absolute_percentage_error(true, pred)
 

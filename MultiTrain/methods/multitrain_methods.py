@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -5,6 +6,8 @@ from IPython.display import display
 import os
 import shutil
 import logging
+
+from sklearn.impute import SimpleImputer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -209,3 +212,30 @@ def t_best_model(df, best, excel):
 def _check_target(target):
     target_class = "binary" if target.value_counts().count() == 2 else "multiclass"
     return target_class
+    
+def _get_cat_num(dictionary):
+    categorical_values = ''
+    numerical_values = ''
+    for i, j in dictionary.items():
+        if i == 'cat':
+            categorical_values = j
+        else:
+            numerical_values = j
+    return categorical_values, numerical_values
+
+
+def _fill(value1, value2):
+    cat = SimpleImputer(strategy=value1, missing_values=np.nan)
+    num = SimpleImputer(strategy=value2, missing_values=np.nan)
+    return cat, num
+
+
+def _fill_columns(cat_init, num_init, features):
+    for i in features.columns:
+        if features[i].dtypes == 'object':
+            imputer = cat_init.fit(features[[i]])
+            features[[i]] = imputer.transform(features[[i]])
+        else:
+            imputer = num_init.fit(features[[i]])
+            features[[i]] = imputer.transform(features[[i]])
+    return features
