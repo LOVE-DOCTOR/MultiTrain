@@ -38,7 +38,7 @@ from skopt.learning import ExtraTreesRegressor, GaussianProcessRegressor, Random
 from xgboost import XGBRegressor
 
 from MultiTrain.methods.multitrain_methods import write_to_excel, kf_best_model, t_best_model, img, directory, \
-    img_plotly
+    img_plotly, _get_cat_num, _fill, _fill_columns
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -79,7 +79,8 @@ class MultiRegressor:
               dimensionality_reduction: bool = False,
               normalize: any = None,
               columns_to_scale: list = None,
-              n_components: int = None):
+              n_components: int = None,
+              missing_values: dict = None):
         """
         :param X: features
         :param y: labels
@@ -110,6 +111,23 @@ class MultiRegressor:
         else:
             # values for normalize
             norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+            if missing_values:
+                if isinstance(missing_values, dict):
+                    if missing_values['cat'] != 'most_frequent':
+                        raise ValueError(
+                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
+                            f"categorical columns")
+                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                        raise ValueError(
+                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
+                            f"'most_frequent', 'constant'] for numerical columns")
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
+                    cat, num = _fill(categorical_values, numerical_values)
+                    X = _fill_columns(cat, num, X)
+
+                else:
+                    raise TypeError(
+                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
             if strat is True:
 
                 if shuffle_data is False:
@@ -458,7 +476,7 @@ class MultiRegressor:
                 try:
                     rmsle = np.sqrt(mean_squared_log_error(true, pred))
                 except ValueError:
-                    rmsle = 99.99
+                    rmsle = np.nan
                 meae = median_absolute_error(true, pred)
                 mape = mean_absolute_percentage_error(true, pred)
 

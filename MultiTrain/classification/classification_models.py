@@ -36,7 +36,7 @@ from sklearn.svm import NuSVC
 from xgboost import XGBClassifier
 from imblearn.ensemble import BalancedBaggingClassifier
 from MultiTrain.methods.multitrain_methods import directory, img, img_plotly, kf_best_model, write_to_excel, \
-    _check_target
+    _check_target, _get_cat_num, _fill, _fill_columns
 from skopt import BayesSearchCV
 from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV, cross_validate
 from sklearn.experimental import enable_halving_search_cv  # noqa
@@ -191,7 +191,8 @@ class MultiClassifier:
               dimensionality_reduction: bool = False,
               normalize: any = None,
               columns_to_scale: list = None,
-              n_components: int = None):
+              n_components: int = None,
+              missing_values: dict = None):
 
         global the_y
         the_y = y
@@ -206,6 +207,7 @@ class MultiClassifier:
         :param sizeOfTest: define size of test data
         :param randomState: define random state
         :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
+        :param missing_values: Dictionary to fill missing values for categorical and numerical columns, e.g {'cat': 'most_frequent', 'num': 'mean'} where the key 'cat' represents categorical column and the corresponding value represents the strategy used to fill the missing value.
 
         Example
         df = pd.read_csv("nameOfFile.csv")
@@ -225,6 +227,25 @@ class MultiClassifier:
         else:
             # values for normalize
             norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+
+            if missing_values:
+                if isinstance(missing_values, dict):
+                    if missing_values['cat'] != 'most_frequent':
+                        raise ValueError(
+                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
+                            f"categorical columns")
+                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                        raise ValueError(
+                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
+                            f"'most_frequent', 'constant'] for numerical columns")
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
+                    cat, num = _fill(categorical_values, numerical_values)
+                    X = _fill_columns(cat, num, X)
+
+                else:
+                    raise TypeError(
+                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+
             if strat is True:
 
                 if shuffle_data is False:
@@ -634,7 +655,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr_, y_tr_)
                         except ValueError:
-                            logger.error(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} unable to fit properly')
                             pass
 
                     end = time.time()
@@ -674,7 +695,7 @@ class MultiClassifier:
                                 pred_train = pipeline.predict(X_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} has an issue')
+                            logger.error(f'{model[i]} unable to fit properly')
                             pass
 
                     elif vectorizer == 'tfidf':
@@ -700,7 +721,7 @@ class MultiClassifier:
                                 pipeline.fit(X_tr, y_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} cannot fit properly')
+                            logger.error(f'{model[i]} unable to fit properly')
                             pass
 
                     end = time.time()
