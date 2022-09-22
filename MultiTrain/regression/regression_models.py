@@ -1,5 +1,6 @@
 import time
 from operator import __setitem__
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -89,7 +90,7 @@ from MultiTrain.methods.multitrain_methods import (
     t_best_model,
     img,
     directory,
-    img_plotly,
+    img_plotly, _fill_columns, _fill, _get_cat_num, _dummy,
 )
 
 import logging
@@ -168,7 +169,8 @@ class MultiRegressor:
               normalize: any = None,
               columns_to_scale: list = None,
               n_components: int = None,
-              missing_values: dict = None):
+              missing_values: dict = None,
+              encode: Union[str, dict] = None):
         """
         :param X: features
         :param y: labels
@@ -222,6 +224,7 @@ class MultiRegressor:
                     raise TypeError(
                         f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
 
+            X = _dummy(X, encode)
             if strat is True:
 
                 if shuffle_data is False:
