@@ -1,5 +1,7 @@
 from collections import Counter
 from operator import __setitem__
+from typing import Union
+
 import seaborn as sns
 import plotly.express as px
 
@@ -75,7 +77,7 @@ from MultiTrain.methods.multitrain_methods import (
     img_plotly,
     kf_best_model,
     write_to_excel,
-    _check_target,
+    _check_target, _get_cat_num, _fill, _fill_columns, _dummy,
 )
 
 from skopt import BayesSearchCV
@@ -359,7 +361,8 @@ class MultiClassifier:
         normalize: any = None,
         columns_to_scale: list = None,
         n_components: int = None,
-        missing_values: dict = None
+        missing_values: dict = None,
+        encode: Union[str, dict] = None
     ):
 
         global the_y
@@ -406,10 +409,10 @@ class MultiClassifier:
                         raise ValueError(
                             f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
                             f"categorical columns")
-                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent']:
                         raise ValueError(
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent', 'constant'] for numerical columns")
+                            f"'most_frequent'] for numerical columns")
                     categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
@@ -417,6 +420,9 @@ class MultiClassifier:
                 else:
                     raise TypeError(
                         f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+
+            X = _dummy(X, encode)
+
                         
             if strat is True:
 
