@@ -127,6 +127,7 @@ class MultiClassifier:
         cores: int = -1,
         random_state: int = randint(1000),
         verbose: bool = False,
+        imbalanced: bool = False,
         sampling: str = None,
         strategy: str or float = "auto"
     ) -> None:
@@ -134,6 +135,7 @@ class MultiClassifier:
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
+        self.imbalanced = imbalanced
         self.sampling = sampling
         self.strategy = strategy
 
