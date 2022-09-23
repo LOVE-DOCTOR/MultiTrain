@@ -8,20 +8,17 @@ import plotly.express as px
 from IPython.display import display
 from lightgbm import LGBMRegressor
 from matplotlib import pyplot as plt
-from pandas import DataFrame
 import seaborn as sns
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.dummy import DummyRegressor
 from numpy.random import randint
-from numpy import reshape
 from sklearn.ensemble import (
     GradientBoostingRegressor,
     HistGradientBoostingRegressor,
     BaggingRegressor,
     AdaBoostRegressor,
 )
-from sklearn.isotonic import IsotonicRegression
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import (
@@ -72,7 +69,12 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    RobustScaler,
+    Normalizer
+)
 from sklearn.svm import LinearSVR
 from sklearn.tree import ExtraTreeRegressor, DecisionTreeRegressor
 from sklearn.svm import SVR, NuSVR
@@ -205,7 +207,7 @@ class MultiRegressor:
         else:
             # values for normalize
 
-            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer']
             if missing_values:
                 if isinstance(missing_values, dict):
                     if missing_values['cat'] != 'most_frequent':
@@ -271,6 +273,8 @@ class MultiRegressor:
                                             scale = MinMaxScaler()
                                         elif normalize == "RobustScaler":
                                             scale = RobustScaler()
+                                        elif normalize == 'Normalizer':
+                                            scale = Normalizer()
 
                                         X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
@@ -698,7 +702,6 @@ class MultiRegressor:
                 if self.verbose is True:
                     print(model[i])
                 try:
-                    print(f"fitting {model[i]}")
                     model[i].fit(X_tr, y_tr)
                 except ValueError:
                     X_tr, X_te = X_tr.to_numpy(), X_te.to_numpy()

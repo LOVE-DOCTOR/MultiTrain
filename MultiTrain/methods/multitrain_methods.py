@@ -246,7 +246,7 @@ def _fill_columns(cat_init, num_init, features):
 def _dummy(features, encoder):
     label = LabelEncoder()
     for i in features.columns:
-        if i.dtypes == 'object':
+        if features[i].dtypes == 'object':
             if encoder == 'labelencoder':
                 features[i] = label.fit_transform(features[i])
                 return features
@@ -279,3 +279,4 @@ def _dummy(features, encoder):
             else:
                 raise ValueError(
                     f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary')
+        return features

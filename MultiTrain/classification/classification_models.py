@@ -423,7 +423,6 @@ class MultiClassifier:
 
             X = _dummy(X, encode)
 
-                        
             if strat is True:
 
                 if shuffle_data is False:
