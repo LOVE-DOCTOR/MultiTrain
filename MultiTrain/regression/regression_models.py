@@ -1,5 +1,6 @@
 import time
 from operator import __setitem__
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -7,20 +8,17 @@ import plotly.express as px
 from IPython.display import display
 from lightgbm import LGBMRegressor
 from matplotlib import pyplot as plt
-from pandas import DataFrame
 import seaborn as sns
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.dummy import DummyRegressor
 from numpy.random import randint
-from numpy import reshape
 from sklearn.ensemble import (
     GradientBoostingRegressor,
     HistGradientBoostingRegressor,
     BaggingRegressor,
     AdaBoostRegressor,
 )
-from sklearn.isotonic import IsotonicRegression
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import (
@@ -71,7 +69,12 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    RobustScaler,
+    Normalizer
+)
 from sklearn.svm import LinearSVR
 from sklearn.tree import ExtraTreeRegressor, DecisionTreeRegressor
 from sklearn.svm import SVR, NuSVR
@@ -89,8 +92,9 @@ from MultiTrain.methods.multitrain_methods import (
     t_best_model,
     img,
     directory,
-    img_plotly,
+    img_plotly, _fill_columns, _fill, _get_cat_num, _dummy,
 )
+
 import logging
 
 logging.basicConfig(level=logging.ERROR)
@@ -156,19 +160,19 @@ class MultiRegressor:
         ]
         return model_names
 
-    def split(
-        self,
-        X: any,
-        y: any,
-        strat: bool = False,
-        sizeOfTest: float = 0.2,
-        randomState: int = None,
-        shuffle_data: bool = True,
-        dimensionality_reduction: bool = False,
-        normalize: any = None,
-        columns_to_scale: list = None,
-        n_components: int = None,
-    ):
+    def split(self,
+              X: any,
+              y: any,
+              strat: bool = False,
+              sizeOfTest: float = 0.2,
+              randomState: int = None,
+              shuffle_data: bool = True,
+              dimensionality_reduction: bool = False,
+              normalize: any = None,
+              columns_to_scale: list = None,
+              n_components: int = None,
+              missing_values: dict = None,
+              encode: Union[str, dict] = None):
         """
         :param X: features
         :param y: labels
@@ -202,7 +206,27 @@ class MultiRegressor:
 
         else:
             # values for normalize
-            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
+
+            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer']
+            if missing_values:
+                if isinstance(missing_values, dict):
+                    if missing_values['cat'] != 'most_frequent':
+                        raise ValueError(
+                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
+                            f"categorical columns")
+                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                        raise ValueError(
+                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
+                            f"'most_frequent', 'constant'] for numerical columns")
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
+                    cat, num = _fill(categorical_values, numerical_values)
+                    X = _fill_columns(cat, num, X)
+
+                else:
+                    raise TypeError(
+                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+
+            X = _dummy(X, encode)
             if strat is True:
 
                 if shuffle_data is False:
@@ -249,6 +273,8 @@ class MultiRegressor:
                                             scale = MinMaxScaler()
                                         elif normalize == "RobustScaler":
                                             scale = RobustScaler()
+                                        elif normalize == 'Normalizer':
+                                            scale = Normalizer()
 
                                         X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
@@ -676,7 +702,6 @@ class MultiRegressor:
                 if self.verbose is True:
                     print(model[i])
                 try:
-                    print(f"fitting {model[i]}")
                     model[i].fit(X_tr, y_tr)
                 except ValueError:
                     X_tr, X_te = X_tr.to_numpy(), X_te.to_numpy()
@@ -697,7 +722,7 @@ class MultiRegressor:
                 try:
                     rmsle = np.sqrt(mean_squared_log_error(true, pred))
                 except ValueError:
-                    rmsle = 99.99
+                    rmsle = np.nan
                 meae = median_absolute_error(true, pred)
                 mape = mean_absolute_percentage_error(true, pred)
 

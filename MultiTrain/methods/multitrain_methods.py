@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -5,6 +6,9 @@ from IPython.display import display
 import os
 import shutil
 import logging
+
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import LabelEncoder
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,7 +100,7 @@ def directory(FOLDER_NAME):
 
 
 def img_plotly(
-    figure: any, name: any, label: str, FILENAME: str, FILE_PATH: any
+        figure: any, name: any, label: str, FILENAME: str, FILE_PATH: any
 ) -> None:
     SOURCE_FILE_PATH = FILE_PATH + f"/{name}"
     DESTINATION_FILE_PATH = FILE_PATH + f"/{FILENAME}" + f"/{name}"
@@ -209,3 +213,70 @@ def t_best_model(df, best, excel):
 def _check_target(target):
     target_class = "binary" if target.value_counts().count() == 2 else "multiclass"
     return target_class
+
+
+def _get_cat_num(dictionary):
+    categorical_values = ''
+    numerical_values = ''
+    for i, j in dictionary.items():
+        if i == 'cat':
+            categorical_values = j
+        else:
+            numerical_values = j
+    return categorical_values, numerical_values
+
+
+def _fill(value1, value2):
+    cat = SimpleImputer(strategy=value1, missing_values=np.nan)
+    num = SimpleImputer(strategy=value2, missing_values=np.nan)
+    return cat, num
+
+
+def _fill_columns(cat_init, num_init, features):
+    for i in features.columns:
+        if features[i].dtypes == 'object':
+            imputer = cat_init.fit(features[[i]])
+            features[[i]] = imputer.transform(features[[i]])
+        else:
+            imputer = num_init.fit(features[[i]])
+            features[[i]] = imputer.transform(features[[i]])
+    return features
+
+
+def _dummy(features, encoder):
+    label = LabelEncoder()
+    for i in features.columns:
+        if features[i].dtypes == 'object':
+            if encoder == 'labelencoder':
+                features[i] = label.fit_transform(features[i])
+                return features
+
+            elif encoder == 'onehotencoder':
+                features = pd.get_dummies(features)
+                return features
+
+            elif isinstance(encoder, dict):
+                for keys, values in encoder.items():
+                    if keys == 'labelencoder':
+                        if isinstance(values, list):
+                            for i in values:
+                                features[i] = label.fit_transform(features[i])
+                        else:
+                            raise TypeError(f"received a {type(values)} in dictionary values, pass a list instead")
+
+                    elif keys == 'onehotencoder':
+                        if isinstance(values, list):
+                            features = pd.get_dummies(features, columns=[values])
+                        else:
+                            raise TypeError(f"received a {type(values)} in dictionary values, pass a list instead")
+
+                    else:
+                        raise ValueError(
+                            f"received {keys}, dictionary keys must be one of 'labelencoder' or 'onehotencoder' ")
+
+                return features
+
+            else:
+                raise ValueError(
+                    f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary')
+        return features

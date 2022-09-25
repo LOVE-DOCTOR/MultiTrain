@@ -73,11 +73,12 @@ f1 score, precision, recall, roc auc score for each of the models.
 ```python
 #This is a code snippet of how to import the MultiClassifier and the parameters contained in an instance
 
+#Note: the parameter target_class was removed in version 0.11.0, your dataset is automatically checked
+#      for binary labels or multiclass labels
 from MultiTrain import MultiClassifier
 train = MultiClassifier(cores=-1, #this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make training faster
                         random_state=42, #setting random state here automatically sets a unified random state across function imports
                         verbose=True, #set this to True to display the name of the estimators being fitted at a particular time
-                        target_class='binary', #Recommended: set this to one of binary or multiclass to allow the library to adjust to the type of classification problem
                         imbalanced=True, #set this parameter to true if you are working with an imbalanced dataset
                         sampling='SMOTE', #set this parameter to any over_sampling, under_sampling or over_under_sampling methods if imbalanced is True
                         strategy='auto' #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
@@ -146,6 +147,83 @@ split = train.split(X=features, #the features of the dataset
                     columns_to_scale=pretend_columns #pass in a list of the columns in your dataset that you wish to scale 
                     ) 
 ```
+You can also encode your categorical columns with the split function
+#### Categorical encoding
+It is important to remember that the keys are preset when using the dictionaries in the encode parameter and cannot be modified without causing an error.
+```python
+# continuation from example code above
+
+# if you want to automatically apply label encoder to all categorical columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    encode='labelencoder'
+                    )
+
+# if you want to automatically apply one hot encoder to all categorical columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    encode='onehotencoder'
+                    )
+# there can also be scenarios whereby you only want to apply the labelencoder on
+# selected columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    encode={'labelencoder':['the', 'column', 'names']}
+                    )
+
+# if you want to apply onehot encoder on selected columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    encode={'onehotencoder': ['the', 'column', 'names']}
+                    )
+
+# you can also use both label and onehotencoder together
+# this is used when there are columns you want to label encode
+# and columns you want to onehotencode in the same dataset
+columns_to_encode = {'labelencoder': ['column1', 'column2', 'column3'],
+                     'onehotencoder': ['column4', 'column5', 'column6']}
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    encode=columns_to_encode
+                    )
+```
+#### Filling missing values
+With the help of the "missing values" argument, you may quickly fill in missing values.
+
+You would need to supply a dictionary to the argument in order to fill in the missing values. Each preset key in the dictionary must be used as shown in the example below.
+
+It's important to remember that the categorical columns are represented by the key "cat" and their corresponding value is the method for filling all of the categorical columns.
+The method to fill all numerical columns is represented by the key "num," which stands in for all numerical columns.
+```python
+# the three strategies available to fill missing values are ['most_frequent', 'mean', 'median']
+
+# only fill categorical columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    missing_values={'cat': 'most_frequent'}
+                    )
+
+# only fill numerical columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    missing_values={'num': 'mean'}
+                    )
+
+# fill both categorical and numerical columns
+split = train.split(X=features,
+                    y=labels,
+                    sizeOfTest=0.2,
+                    missing_values={'cat': 'most_frequent', 'num': 'most_frequent'}
+                    )
+```
+
 ### FIT CLASSIFIER
 Now that the dataset has been split using the split method, it is time to train on it using the fit method.
 Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
@@ -420,6 +498,12 @@ split = train.split(X=X,
 
 If you also want to perform dimensionality reduction using the split function, refer to this link 
 > [Dimensionality reduction](#dimensionality-reduction)
+
+If you want to fill missing values using the split function
+> [Fill missing values](#filling-missing-values)
+
+If you want to encode your categorical columns using the split function
+> [Encode categorical columns](#categorical encoding)
 
 All you need to do is swap out MultiClassifier with MultiRegressor and you're good to go.
 ### FIT REGRESSION
