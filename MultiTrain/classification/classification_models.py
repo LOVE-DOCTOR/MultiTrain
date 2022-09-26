@@ -806,7 +806,8 @@ class MultiClassifier:
                 if i == key:
                     custom_models.append(value)
                 elif i not in self.classifier_model_names():
-                    raise ValueError(f'{i} unknown, use the "classifier_model_names" method to view the classifier algorithms available')
+                    raise ValueError(f'{i} unknown, use the "classifier_model_names" method to view the classifier '
+                                     f'algorithms available')
         return custom_models, name
 
     def _get_index(self, df, the_best):
