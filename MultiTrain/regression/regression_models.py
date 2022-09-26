@@ -160,6 +160,8 @@ class MultiRegressor:
         ]
         return model_names
 
+
+
     def split(self,
               X: any,
               y: any,
@@ -292,7 +294,7 @@ class MultiRegressor:
                                         return X_train, X_test, y_train, y_test
 
             else:
-                norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
+                norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
                 if normalize:
                     if columns_to_scale is None:
                         raise ValueError(
@@ -313,6 +315,8 @@ class MultiRegressor:
                                     scale = MinMaxScaler()
                                 elif normalize == "RobustScaler":
                                     scale = RobustScaler()
+                                elif normalize == "Normalizer":
+                                    scale = Normalizer()
 
                                 X_train, X_test, y_train, y_test = train_test_split(
                                     X,
@@ -339,6 +343,8 @@ class MultiRegressor:
                                 ), X_test.drop("index", axis=1)
 
                                 return X_train, X_test, y_train, y_test
+                            else:
+                                raise ValueError(f'{normalize} not in {norm}')
 
                 else:
                     X_train, X_test, y_train, y_test = train_test_split(

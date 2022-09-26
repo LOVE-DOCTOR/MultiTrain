@@ -1899,7 +1899,7 @@ class MultiClassifier:
             kf: bool = False,
             t_split: bool = False,
             save: bool = False,
-            save_name=None,
+            save_name: str =None
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
