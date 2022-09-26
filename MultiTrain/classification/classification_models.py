@@ -795,12 +795,18 @@ class MultiClassifier:
         )
 
     def _custom(self):
+        if type(self.select_models) not in ['tuple', 'list']:
+            raise TypeError(f'received type {type(self.select_models)} for select_models parameter, expected list or '
+                            f'tuple')
+
         custom_models = []
         name = self.select_models
         for i in self.select_models:
             for key, value in self._select_few_models().items():
                 if i == key:
                     custom_models.append(value)
+                elif i not in self.classifier_model_names():
+                    raise ValueError(f'{i} unknown, use the "classifier_model_names" method to view the classifier algorithms available')
         return custom_models, name
 
     def _get_index(self, df, the_best):
@@ -1450,12 +1456,7 @@ class MultiClassifier:
                 KFoldModel = self._initialize_()
                 names = self.classifier_model_names()
             else:
-                KFoldModel = []
-                names = self.select_models
-                for i in self.select_models:
-                    for key, value in self._select_few_models().items():
-                        if i == key:
-                            KFoldModel.append(value)
+                KFoldModel, names = self._custom()
 
             if target_class == "binary":
                 logger.info("Training started")
@@ -1517,8 +1518,11 @@ class MultiClassifier:
         :return:
         """
 
-        name = self.classifier_model_names()
-        MODEL = self._initialize_()
+        if self.select_models is None:
+            name = self.classifier_model_names()
+            MODEL = self._initialize_()
+        else:
+            MODEL, name = self._custom()
 
         if model is not None and best is not None:
             raise Exception("You can only use one of the two arguments.")

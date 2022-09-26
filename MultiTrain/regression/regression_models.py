@@ -103,11 +103,13 @@ logger = logging.getLogger(__name__)
 
 class MultiRegressor:
     def __init__(
-        self,
-        cores: int = -1,
-        random_state: int = randint(1000),
-        verbose: bool = False,
+            self,
+            cores: int = -1,
+            random_state: int = randint(1000),
+            verbose: bool = False,
+            select_models: Union[list, tuple, None] = None
     ):
+        self.select_models = select_models
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
@@ -160,7 +162,68 @@ class MultiRegressor:
         ]
         return model_names
 
+    def _select_few_models(self):
+        model_dict = {
+            'LinearRegression': LinearRegression(n_jobs=self.cores),
+            'RandomForestRegressor': RandomForestRegressor(random_state=self.random_state),
+            'XGBRegressor': XGBRegressor(random_state=self.random_state),
+            'GradientBoostingRegressor': GradientBoostingRegressor(random_state=self.random_state),
+            'HistGradientBoostingRegressor': HistGradientBoostingRegressor(random_state=self.random_state),
+            'SVR': SVR(),
+            'BaggingRegressor': BaggingRegressor(random_state=self.random_state),
+            'NuSVR': NuSVR(),
+            'ExtraTreeRegressor': ExtraTreeRegressor(random_state=self.random_state),
+            'ExtraTreesRegressor': ExtraTreesRegressor(random_state=self.random_state),
+            'AdaBoostRegressor': AdaBoostRegressor(random_state=self.random_state),
+            'PoissonRegressor': PoissonRegressor(),
+            'LGBMRegressor': LGBMRegressor(random_state=self.random_state),
+            'KNeighborsRegressor': KNeighborsRegressor(),
+            'DecisionTreeRegressor': DecisionTreeRegressor(random_state=self.random_state),
+            'MLPRegressor': MLPRegressor(random_state=self.random_state),
+            'HuberRegressor': HuberRegressor(),
+            'GammaRegressor': GammaRegressor(),
+            'LinearSVR': LinearSVR(random_state=self.random_state),
+            'RidgeCV': RidgeCV(),
+            'Ridge': Ridge(random_state=self.random_state),
+            'BayesianRidge': BayesianRidge(),
+            'TransformedTargetRegressor': TransformedTargetRegressor(),
+            'ElasticNetCV': ElasticNetCV(n_jobs=self.cores, random_state=self.random_state),
+            'ElasticNet': ElasticNet(random_state=self.random_state),
+            'LassoCV': LassoCV(n_jobs=self.cores, random_state=self.random_state),
+            'LassoLarsIC': LassoLarsIC(),
+            'LassoLarsCV': LassoLarsCV(),
+            'Lars': Lars(random_state=self.random_state),
+            'LarsCV': LarsCV(n_jobs=self.cores),
+            'SGDRegressor': SGDRegressor(random_state=self.random_state),
+            'TweedieRegressor': TweedieRegressor(),
+            'Lasso': Lasso(random_state=self.random_state),
+            'RANSACRegressor': RANSACRegressor(random_state=self.random_state),
+            'OrthogonalMatchingPursuitCV': OrthogonalMatchingPursuitCV(n_jobs=self.cores),
+            'PassiveAggressiveRegressor': PassiveAggressiveRegressor(random_state=self.random_state),
+            'GaussianProcessRegressor': GaussianProcessRegressor(random_state=self.random_state),
+            'OrthogonalMatchingPursuit': OrthogonalMatchingPursuit(),
+            'DummyRegressor': DummyRegressor(),
+            'LassoLars': LassoLars(random_state=self.random_state),
+            'KernelRidge': KernelRidge(),
+            'ARDRegression': ARDRegression(),
+            'TheilSenRegressor': TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
+        }
+        return model_dict
 
+    def _custom(self):
+        if type(self.select_models) not in ['tuple', 'list']:
+            raise TypeError(f'received type {type(self.select_models)} for select_models parameter, expected list or '
+                            f'tuple')
+
+        custom_models = []
+        name = self.select_models
+        for i in self.select_models:
+            for key, value in self._select_few_models().items():
+                if i == key:
+                    custom_models.append(value)
+                elif i not in self.regression_model_names():
+                    raise ValueError(f'{i} unknown, use the "regression_model_names" method to view the regression algorithms available')
+        return custom_models, name
 
     def split(self,
               X: any,
@@ -495,7 +558,10 @@ class MultiRegressor:
         return MODEL[index_]
 
     def startKFold(self, param, param_X, param_y, param_cv, train_score):
-        names = self.regression_model_names()
+        if self.select_models is None:
+            names = self.regression_model_names()
+        else:
+            names = self.select_models
 
         dataframe = {}
         for i in range(len(param)):
@@ -588,21 +654,21 @@ class MultiRegressor:
             return dataframe
 
     def fit(
-        self,
-        X: str = None,
-        y: str = None,
-        split_self: bool = False,
-        X_train: str = None,
-        X_test: str = None,
-        y_train: str = None,
-        y_test: str = None,
-        split_data: str = None,
-        splitting: bool = False,
-        kf: bool = False,
-        fold: int = 5,
-        excel: bool = False,
-        return_best_model: str = None,
-        show_train_score: bool = False,
+            self,
+            X: str = None,
+            y: str = None,
+            split_self: bool = False,
+            X_train: str = None,
+            X_test: str = None,
+            y_train: str = None,
+            y_test: str = None,
+            split_data: str = None,
+            splitting: bool = False,
+            kf: bool = False,
+            fold: int = 5,
+            excel: bool = False,
+            return_best_model: str = None,
+            show_train_score: bool = False,
     ):
         """
         If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
@@ -694,14 +760,19 @@ class MultiRegressor:
                     split_data[3],
                 )
             elif (
-                X_train is not None
-                and X_test is not None
-                and y_train is not None
-                and y_test is not None
+                    X_train is not None
+                    and X_test is not None
+                    and y_train is not None
+                    and y_test is not None
             ):
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-            model = self.initialize()
-            names = self.regression_model_names()
+
+            if self.select_models is None:
+                model = self.initialize()
+                names = self.regression_model_names()
+            else:
+                model, names = self._custom()
+
             dataframe = {}
             for i in range(len(model)):
                 start = time.time()
@@ -755,8 +826,11 @@ class MultiRegressor:
         elif kf is True:
 
             # Fitting the models and predicting the values of the test set.
-            KFoldModel = self.initialize()
-            names = self.regression_model_names()
+            if self.select_models is None:
+                KFoldModel = self.initialize()
+                names = self.regression_model_names()
+            else:
+                KFoldModel, names = self._custom()
 
             logger.info("Training started")
             dataframe = self.startKFold(
@@ -818,9 +892,11 @@ class MultiRegressor:
 
         :return:
         """
-
-        name = self.regression_model_names()
-        MODEL = self.initialize()
+        if self.select_models is None:
+            name = self.regression_model_names()
+            MODEL = self.initialize()
+        else:
+            MODEL, name = self._custom()
 
         if model is not None and best is not None:
             raise Exception("You can only use one of the two arguments.")
@@ -840,29 +916,29 @@ class MultiRegressor:
             return instance
 
     def tune_parameters(
-        self,
-        model: str = None,
-        parameters: dict = None,
-        tune: str = None,
-        use_cpu: int = None,
-        cv: int = 5,
-        n_iter: any = 50,
-        return_train_score: bool = False,
-        refit: bool = True,
-        random_state: int = None,
-        factor: int = 3,
-        verbose: int = 4,
-        resource: any = "n_samples",
-        max_resources: any = "auto",
-        min_resources_grid: any = "exhaust",
-        min_resources_rand: any = "smallest",
-        aggressive_elimination: any = False,
-        error_score: any = np.nan,
-        pre_dispatch: any = "2*n_jobs",
-        optimizer_kwargs: any = None,
-        fit_params: any = None,
-        n_points: any = 1,
-        score="accuracy",
+            self,
+            model: str = None,
+            parameters: dict = None,
+            tune: str = None,
+            use_cpu: int = None,
+            cv: int = 5,
+            n_iter: any = 50,
+            return_train_score: bool = False,
+            refit: bool = True,
+            random_state: int = None,
+            factor: int = 3,
+            verbose: int = 4,
+            resource: any = "n_samples",
+            max_resources: any = "auto",
+            min_resources_grid: any = "exhaust",
+            min_resources_rand: any = "smallest",
+            aggressive_elimination: any = False,
+            error_score: any = np.nan,
+            pre_dispatch: any = "2*n_jobs",
+            optimizer_kwargs: any = None,
+            fit_params: any = None,
+            n_points: any = 1,
+            score="accuracy",
     ):
         """
         :param n_points:
@@ -1002,14 +1078,14 @@ class MultiRegressor:
                 return tuned_model
 
     def visualize(
-        self,
-        param: {__setitem__},
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        size=(15, 8),
-        save: str = None,
-        save_name="dir1",
+            self,
+            param: {__setitem__},
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            size: tuple = (15, 8),
+            save: str = None,
+            save_name: str = None,
     ):
 
         """
@@ -1028,7 +1104,10 @@ class MultiRegressor:
         :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
         """
 
-        names = self.regression_model_names()
+        if self.select_models is None:
+            names = self.regression_model_names()
+        else:
+            names = self.select_models
         sns.set()
 
         param["model_names"] = names
@@ -1179,14 +1258,14 @@ class MultiRegressor:
                 img(FILENAME=name, FILE_PATH=file_path, type_="picture")
 
     def show(
-        self,
-        param: {__setitem__},
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        save: bool = False,
-        save_name=None,
-        target="binary",
+            self,
+            param: {__setitem__},
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            save: bool = False,
+            save_name=None,
+            target="binary",
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
@@ -1204,7 +1283,10 @@ class MultiRegressor:
         :param save_name: The name of the file you want to save the visualization as.
         """
 
-        names = self.regression_model_names()
+        if self.select_models is None:
+            names = self.regression_model_names()
+        else:
+            names = self.select_models
 
         param["model_names"] = names
 
