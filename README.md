@@ -81,8 +81,9 @@ train = MultiClassifier(cores=-1, #this parameter works exactly the same as sett
                         verbose=True, #set this to True to display the name of the estimators being fitted at a particular time
                         imbalanced=True, #set this parameter to true if you are working with an imbalanced dataset
                         sampling='SMOTE', #set this parameter to any over_sampling, under_sampling or over_under_sampling methods if imbalanced is True
-                        strategy='auto' #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
+                        strategy='auto', #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
                                         #read more in the imbalanced learn documentation before using this parameter
+                        select_models=['LogisticRegression', 'DecisionTreeClassifier'] #only use this parameter if you want to select your custom models for training
                         )
 ```
 In continuation of the code snippet above, if you're unsure about the various sampling techniques accessible after setting imbalanced to True when working on an imbalanced dataset, 
@@ -360,7 +361,8 @@ Note: In order to visualize your model training results, you must have passed th
 #this code is a continuation of the implementations of the fit method above
 
 #if you only want to visualize the results in your notebook, use this code
-train.visualize(param=fit, #this parameter takes in the dataframe of the training results 
+train.visualize(param=fit, #this parameter takes in the dataframe of the training results
+                y=labels,                
                 t_split=True, #set t_split to true here if you split your data with the split method provided by MultiTrain
                 kf=False, #set kf to True here if you used KFold split to train, note t_split and kf can't be set to True at the same time
                 size=(15,8) #this sets the size of each plots to be displayed in your notebook
@@ -368,6 +370,7 @@ train.visualize(param=fit, #this parameter takes in the dataframe of the trainin
 
 #if you want to visualize the results in your notebook and save the plots to your system
 train.visualize(param=fit,
+                y=labels,
                 t_split=True,
                 size=(15,8),
                 file_path='C:/Users/lenovo/', #you can set your own filepath here)

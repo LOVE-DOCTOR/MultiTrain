@@ -9,7 +9,7 @@ X = [[1, 0], [0, 1], [1, 1]]
 Y1 = [0, 1, 1]
 
 
-class testClassification(unittest.TestCase):
+class TestClassification(unittest.TestCase):
     """
     Test Classification methods
     """

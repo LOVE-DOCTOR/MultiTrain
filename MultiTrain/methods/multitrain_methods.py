@@ -280,3 +280,5 @@ def _dummy(features, encoder):
                 raise ValueError(
                     f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary')
         return features
+
+

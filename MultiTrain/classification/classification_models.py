@@ -1,18 +1,23 @@
+import logging
+import time
+import warnings
 from collections import Counter
 from operator import __setitem__
 from typing import Union
 
-import seaborn as sns
+import numpy as np
+import pandas as pd
 import plotly.express as px
-
+import seaborn as sns
 # from hyperopt import tpe
 # from hpsklearn import HyperoptEstimator, sklearn_ExtraTreesClassifier, random_forest
 from IPython.display import display
+from catboost import CatBoostClassifier
 from imblearn.combine import SMOTEENN, SMOTETomek
+from imblearn.ensemble import BalancedBaggingClassifier
 from imblearn.over_sampling import (
     SMOTE,
     RandomOverSampler,
-    SMOTENC,
     SMOTEN,
     ADASYN,
     BorderlineSMOTE,
@@ -31,22 +36,11 @@ from imblearn.under_sampling import (
     RandomUnderSampler,
     TomekLinks,
 )
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
-from catboost import CatBoostClassifier
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.ensemble import (
-    RandomForestClassifier,
-    AdaBoostClassifier,
-    HistGradientBoostingClassifier,
-)
-from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
 from lightgbm import LGBMClassifier
+from matplotlib import pyplot as plt
+from numpy.random import randint
 from pandas import DataFrame
+from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import (
     LinearDiscriminantAnalysis,
     QuadraticDiscriminantAnalysis,
@@ -56,6 +50,14 @@ from sklearn.ensemble import (
     ExtraTreesClassifier,
     BaggingClassifier,
 )
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    AdaBoostClassifier,
+    HistGradientBoostingClassifier,
+)
+from sklearn.experimental import enable_halving_search_cv  # noqa
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import (
     LogisticRegressionCV,
     SGDClassifier,
@@ -64,55 +66,48 @@ from sklearn.linear_model import (
     RidgeClassifierCV,
     Perceptron,
 )
-from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, ComplementNB
-from sklearn.neural_network import MLPClassifier
-from sklearn.svm import LinearSVC
-from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
-from sklearn.svm import NuSVC
-from xgboost import XGBClassifier
-from imblearn.ensemble import BalancedBaggingClassifier
-from MultiTrain.methods.multitrain_methods import (
-    directory,
-    img,
-    img_plotly,
-    kf_best_model,
-    write_to_excel,
-    _check_target, _get_cat_num, _fill, _fill_columns, _dummy,
+from sklearn.metrics import (
+    accuracy_score,
+    make_scorer,
 )
-
-from skopt import BayesSearchCV
+from sklearn.metrics import precision_score, recall_score, balanced_accuracy_score
+from sklearn.metrics import (
+    r2_score,
+    f1_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
 from sklearn.model_selection import (
     train_test_split,
     GridSearchCV,
     RandomizedSearchCV,
     cross_validate,
 )
-from sklearn.experimental import enable_halving_search_cv  # noqa
-from sklearn.model_selection import HalvingGridSearchCV, HalvingRandomSearchCV
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    make_scorer,
-)
-from sklearn.metrics import (
-    mean_absolute_error,
-    r2_score,
-    f1_score,
-    roc_auc_score,
-    mean_squared_error,
-)
-from sklearn.metrics import precision_score, recall_score, balanced_accuracy_score
-from matplotlib import pyplot as plt
-from numpy.random import randint
-from imblearn.pipeline import Pipeline as imbpipe
-import pandas as pd
-import numpy as np
-import warnings
-import time
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, ComplementNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import FunctionTransformer, Normalizer
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
+from sklearn.svm import LinearSVC
+from sklearn.svm import NuSVC
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from skopt import BayesSearchCV
+from xgboost import XGBClassifier
 
-import logging
-import os
+from MultiTrain.methods.multitrain_methods import (
+    directory,
+    img,
+    img_plotly,
+    kf_best_model,
+    write_to_excel,
+    _check_target,
+    _get_cat_num,
+    _fill,
+    _fill_columns,
+    _dummy
+)
 
 # os.environ['OMP_NUM_THREADS'] = "1"
 
@@ -123,13 +118,14 @@ warnings.filterwarnings("ignore")
 
 class MultiClassifier:
     def __init__(
-        self,
-        cores: int = -1,
-        random_state: int = randint(1000),
-        verbose: bool = False,
-        imbalanced: bool = False,
-        sampling: str = None,
-        strategy: str or float = "auto"
+            self,
+            cores: int = -1,
+            random_state: int = randint(1000),
+            verbose: bool = False,
+            imbalanced: bool = False,
+            sampling: str = None,
+            strategy: str or float = "auto",
+            select_models: Union[list, tuple] = None
     ) -> None:
 
         self.cores = cores
@@ -138,7 +134,7 @@ class MultiClassifier:
         self.imbalanced = imbalanced
         self.sampling = sampling
         self.strategy = strategy
-
+        self.select_models = select_models
         self.oversampling_list = [
             "SMOTE",
             "RandomOverSampler",
@@ -146,7 +142,7 @@ class MultiClassifier:
             "ADASYN",
             "BorderlineSMOTE",
             "KMeansSMOTE",
-            "SVMSMOTE",
+            "SVMSMOTE"
         ]
         self.oversampling_methods = [
             SMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
@@ -161,7 +157,7 @@ class MultiClassifier:
             KMeansSMOTE(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            SVMSMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
+            SVMSMOTE(sampling_strategy=self.strategy, random_state=self.random_state)
         ]
 
         self.undersampling_list = [
@@ -174,33 +170,41 @@ class MultiClassifier:
             "NeighbourhoodCleaningRule",
             "OneSidedSelection",
             "RandomUnderSampler",
-            "TomekLinks",
+            "TomekLinks"
         ]
         self.undersampling_methods = [
             CondensedNearestNeighbour(
                 sampling_strategy=self.strategy,
                 random_state=self.random_state,
-                n_jobs=self.cores,
+                n_jobs=self.cores
             ),
-            EditedNearestNeighbours(sampling_strategy=self.strategy, n_jobs=self.cores),
+            EditedNearestNeighbours(
+                sampling_strategy=self.strategy, n_jobs=self.cores
+            ),
             RepeatedEditedNearestNeighbours(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
-            AllKNN(sampling_strategy=self.strategy, n_jobs=self.cores),
+            AllKNN(
+                sampling_strategy=self.strategy, n_jobs=self.cores
+            ),
             InstanceHardnessThreshold(
                 sampling_strategy=self.strategy,
                 random_state=self.random_state,
-                n_jobs=self.cores,
+                n_jobs=self.cores
             ),
-            NearMiss(sampling_strategy=self.strategy, n_jobs=self.cores),
+            NearMiss(
+                sampling_strategy=self.strategy, n_jobs=self.cores
+            ),
             NeighbourhoodCleaningRule(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
-            OneSidedSelection(sampling_strategy=self.strategy, n_jobs=self.cores),
+            OneSidedSelection(
+                sampling_strategy=self.strategy,
+                n_jobs=self.cores),
             RandomUnderSampler(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            TomekLinks(sampling_strategy=self.strategy, n_jobs=self.cores),
+            TomekLinks(sampling_strategy=self.strategy, n_jobs=self.cores)
         ]
 
         self.over_under_list = ["SMOTEENN", "SMOTETomek"]
@@ -214,7 +218,7 @@ class MultiClassifier:
                 sampling_strategy=self.strategy,
                 random_state=self.random_state,
                 n_jobs=self.cores,
-            ),
+            )
         ]
 
         self.kf_binary_columns_train = [
@@ -233,7 +237,7 @@ class MultiClassifier:
             "r2",
             "Standard Deviation of Accuracy(Train)",
             "Standard Deviation of Accuracy",
-            "Time Taken(s)",
+            "Time Taken(s)"
         ]
 
         self.kf_binary_columns_test = [
@@ -245,7 +249,7 @@ class MultiClassifier:
             "f1",
             "r2",
             "Standard Deviation of Accuracy",
-            "Time Taken(s)",
+            "Time Taken(s)"
         ]
 
         self.kf_multiclass_columns_train = [
@@ -255,13 +259,13 @@ class MultiClassifier:
             "Recall Macro",
             "f1 Macro(Train)",
             "f1 Macro",
-            "Time Taken(s)",
+            "Time Taken(s)"
         ]
 
         self.kf_multiclass_columns_test = [
             "Precision Macro",
             "Recall Macro",
-            "f1 Macro",
+            "f1 Macro"
         ]
 
         self.t_split_binary_columns_train = [
@@ -280,7 +284,7 @@ class MultiClassifier:
             "Precision",
             "Recall(Train)",
             "Recall",
-            "execution time(seconds)",
+            "execution time(seconds)"
         ]
 
         self.t_split_binary_columns_test = [
@@ -292,7 +296,7 @@ class MultiClassifier:
             "f1 score",
             "Precision",
             "Recall",
-            "execution time(seconds)",
+            "execution time(seconds)"
         ]
 
         self.t_split_multiclass_columns_train = [
@@ -309,7 +313,7 @@ class MultiClassifier:
             "Precision",
             "Recall(Train)",
             "Recall",
-            "execution time(seconds)",
+            "execution time(seconds)"
         ]
 
         self.t_split_multiclass_columns_test = [
@@ -320,7 +324,7 @@ class MultiClassifier:
             "f1 score",
             "Precision",
             "Recall",
-            "execution time(seconds)",
+            "execution time(seconds)"
         ]
 
     def strategies(self) -> None:
@@ -331,6 +335,76 @@ class MultiClassifier:
         print(
             f"Combination of over and under-sampling methods = {self.over_under_list}"
         )
+
+    def _select_few_models(self):
+
+        model_dict = {
+            'LogisticRegression': LogisticRegression(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'LogisticRegressionCV': LogisticRegressionCV(
+                n_jobs=self.cores, refit=True
+            ),
+
+            'SGDClassifier': SGDClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'PassiveAggressiveClassifier': PassiveAggressiveClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'RandomForestClassifier': RandomForestClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=self.random_state),
+            'HistGradientBoostingClassifier': HistGradientBoostingClassifier(random_state=self.random_state),
+            'AdaBoostClassifier': AdaBoostClassifier(random_state=self.random_state),
+
+            'CatBoostClassifier': CatBoostClassifier(
+                thread_count=self.cores, verbose=False, random_state=self.random_state
+            ),
+
+            'XGBClassifier': XGBClassifier(
+                eval_metric='mlogloss', n_jobs=self.cores, refit=True, random_state=self.random_state),
+
+            'GuassianNB': GaussianNB(),
+            'LinearDiscriminantAnalysis': LinearDiscriminantAnalysis(),
+            'KNeighborsClassifier': KNeighborsClassifier(n_jobs=self.cores),
+            'MLPClassifier': MLPClassifier(random_state=self.random_state),
+            'SVC': SVC(random_state=self.random_state),
+            'DecisionTreeClassifier': DecisionTreeClassifier(random_state=self.random_state),
+            'BernoulliNB': BernoulliNB(),
+            'MultinomialNB': MultinomialNB(),
+            'ComplementNB': ComplementNB(),
+
+            'ExtraTreesClassifier': ExtraTreesClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'RidgeClassifier': RidgeClassifier(random_state=self.random_state),
+            'ExtraTreeClassifier': ExtraTreeClassifier(random_state=self.random_state),
+            'QuadraticDiscriminantAnalysis': QuadraticDiscriminantAnalysis(),
+            'LinearSVC': LinearSVC(random_state=self.random_state),
+
+            'BaggingClassifier': BaggingClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'BalancedBaggingClassifier': BalancedBaggingClassifier(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'Perceptron': Perceptron(
+                n_jobs=self.cores, random_state=self.random_state
+            ),
+
+            'NuSVC': NuSVC(random_state=self.random_state),
+            'LGBMClassifier': LGBMClassifier(random_state=self.random_state)
+                      }
+        return model_dict
 
     def _get_sample_index_method(self):
 
@@ -349,21 +423,24 @@ class MultiClassifier:
             method = self.over_under_methods[index_]
             return method
 
+        else:
+            raise ValueError(f"{self.sampling} is not a valid sampler. Call the 'strategies' method to view the lists "
+                             f" of all valid samplers")
 
     def split(
-        self,
-        X: any,
-        y: any,
-        strat: bool = False,
-        sizeOfTest: float = 0.2,
-        randomState: int = None,
-        shuffle_data: bool = True,
-        dimensionality_reduction: bool = False,
-        normalize: any = None,
-        columns_to_scale: list = None,
-        n_components: int = None,
-        missing_values: dict = None,
-        encode: Union[str, dict] = None
+            self,
+            X: any,
+            y: any,
+            strat: bool = False,
+            sizeOfTest: float = 0.2,
+            randomState: int = None,
+            shuffle_data: bool = True,
+            dimensionality_reduction: bool = False,
+            normalize: any = None,
+            columns_to_scale: list = None,
+            n_components: int = None,
+            missing_values: dict = None,
+            encode: Union[str, dict] = None
     ):
 
         global the_y
@@ -402,7 +479,7 @@ class MultiClassifier:
 
         else:
             # values for normalize
-            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer']
 
             if missing_values:
                 if isinstance(missing_values, dict):
@@ -470,6 +547,8 @@ class MultiClassifier:
                                             scale = MinMaxScaler()
                                         elif normalize == "RobustScaler":
                                             scale = RobustScaler()
+                                        elif normalize == "Normalizer":
+                                            scale = Normalizer()
 
                                         X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
@@ -485,6 +564,8 @@ class MultiClassifier:
                                         X_train = pca.fit_transform(X_train)
                                         X_test = pca.transform(X_test)
                                         return X_train, X_test, y_train, y_test
+                                    else:
+                                        raise ValueError(f'{normalize} not in {norm}')
 
             else:
                 norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
@@ -508,6 +589,8 @@ class MultiClassifier:
                                     scale = MinMaxScaler()
                                 elif normalize == "RobustScaler":
                                     scale = RobustScaler()
+                                elif normalize == "Normalizer":
+                                    scale = Normalizer()
 
                                 X_train, X_test, y_train, y_test = train_test_split(
                                     X,
@@ -534,6 +617,9 @@ class MultiClassifier:
                                 ), X_test.drop("index", axis=1)
 
                                 return X_train, X_test, y_train, y_test
+
+                            else:
+                                raise ValueError(f'{normalize} not in {norm}')
 
                 else:
                     X_train, X_test, y_train, y_test = train_test_split(
@@ -582,7 +668,7 @@ class MultiClassifier:
             "BalancedBaggingClassifier",
             "Perceptron",
             "NuSVC",
-            "LGBMClassifier",
+            "LGBMClassifier"
         ]
         return model_names
 
@@ -594,16 +680,30 @@ class MultiClassifier:
         #    if self.timeout is False:
         #        logger.info('It is recommended to set a timeout to avoid longer training times')
 
-        lr = LogisticRegression(n_jobs=self.cores, random_state=self.random_state)
-        lrcv = LogisticRegressionCV(n_jobs=self.cores, refit=True)
-        sgdc = SGDClassifier(n_jobs=self.cores, random_state=self.random_state)
+        lr = LogisticRegression(
+            n_jobs=self.cores, random_state=self.random_state
+        )
+        lrcv = LogisticRegressionCV(
+            n_jobs=self.cores, refit=True
+        )
+        sgdc = SGDClassifier(
+            n_jobs=self.cores, random_state=self.random_state
+        )
         pagg = PassiveAggressiveClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
-        rfc = RandomForestClassifier(n_jobs=self.cores, random_state=self.random_state)
-        gbc = GradientBoostingClassifier(random_state=self.random_state)
-        hgbc = HistGradientBoostingClassifier(random_state=self.random_state)
-        abc = AdaBoostClassifier(random_state=self.random_state)
+        rfc = RandomForestClassifier(
+            n_jobs=self.cores, random_state=self.random_state
+        )
+        gbc = GradientBoostingClassifier(
+            random_state=self.random_state
+        )
+        hgbc = HistGradientBoostingClassifier(
+            random_state=self.random_state
+        )
+        abc = AdaBoostClassifier(
+            random_state=self.random_state
+        )
         cat = CatBoostClassifier(
             thread_count=self.cores, verbose=False, random_state=self.random_state
         )
@@ -615,27 +715,51 @@ class MultiClassifier:
         )
         gnb = GaussianNB()
         lda = LinearDiscriminantAnalysis()
-        knc = KNeighborsClassifier(n_jobs=self.cores)
-        mlp = MLPClassifier(random_state=self.random_state)
-        svc = SVC(random_state=self.random_state)
-        dtc = DecisionTreeClassifier(random_state=self.random_state)
+        knc = KNeighborsClassifier(
+            n_jobs=self.cores
+        )
+        mlp = MLPClassifier(
+            random_state=self.random_state
+        )
+        svc = SVC(
+            random_state=self.random_state
+        )
+        dtc = DecisionTreeClassifier(
+            random_state=self.random_state
+        )
         bnb = BernoulliNB()
         mnb = MultinomialNB()
         conb = ComplementNB()
-        etcs = ExtraTreesClassifier(n_jobs=self.cores, random_state=self.random_state)
-        rcl = RidgeClassifier(random_state=self.random_state)
+        etcs = ExtraTreesClassifier(
+            n_jobs=self.cores, random_state=self.random_state
+        )
+        rcl = RidgeClassifier(
+            random_state=self.random_state
+        )
         rclv = RidgeClassifierCV()
-        etc = ExtraTreeClassifier(random_state=self.random_state)
+        etc = ExtraTreeClassifier(
+            random_state=self.random_state
+        )
         # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         qda = QuadraticDiscriminantAnalysis()
-        lsvc = LinearSVC(random_state=self.random_state)
-        bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
+        lsvc = LinearSVC(
+            random_state=self.random_state
+        )
+        bc = BaggingClassifier(
+            n_jobs=self.cores, random_state=self.random_state
+        )
         bbc = BalancedBaggingClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
-        per = Perceptron(n_jobs=self.cores, random_state=self.random_state)
-        nu = NuSVC(random_state=self.random_state)
-        lgbm = LGBMClassifier(random_state=self.random_state)
+        per = Perceptron(
+            n_jobs=self.cores, random_state=self.random_state
+        )
+        nu = NuSVC(
+            random_state=self.random_state
+        )
+        lgbm = LGBMClassifier(
+            random_state=self.random_state
+        )
 
         return (
             lr,
@@ -670,9 +794,21 @@ class MultiClassifier:
             lgbm,
         )
 
+    def _custom(self):
+        custom_models = []
+        name = self.select_models
+        for i in self.select_models:
+            for key, value in self._select_few_models().items():
+                if i == key:
+                    custom_models.append(value)
+        return custom_models, name
+
     def _get_index(self, df, the_best):
-        name = list(self.classifier_model_names())
-        MODEL = self._initialize_()
+        if self.select_models is None:
+            name = list(self.classifier_model_names())
+            MODEL = self._initialize_()
+        else:
+            MODEL, name = self._custom()
         df["model_names"] = name
         high = [
             "accuracy",
@@ -687,7 +823,7 @@ class MultiClassifier:
             "Test r2",
             "Test Precision Macro",
             "Test Recall Macro",
-            "Test f1 Macro",
+            "Test f1 Macro"
         ]
         low = ["mean absolute error", "mean squared error", "Test std"]
 
@@ -706,7 +842,10 @@ class MultiClassifier:
         return MODEL[index_]
 
     def _startKFold_(self, param, param_X, param_y, param_cv, train_score):
-        names = self.classifier_model_names()
+        if self.select_models is None:
+            names = self.classifier_model_names()
+        else:
+            names = self.select_models()
         target_class = _check_target(param_y)
         if self.imbalanced is True:
             logger.info("You are receiving this message because you set imbalanced to True. All resampling techniques "
@@ -897,7 +1036,7 @@ class MultiClassifier:
                         mean_test_precision,
                         mean_test_f1,
                         mean_test_recall,
-                        seconds,
+                        seconds
                     ]
 
                     dataframe.update({names[j]: scores_df})
@@ -905,24 +1044,25 @@ class MultiClassifier:
             return dataframe
 
     def fit(
-        self,
-        X: str = None,
-        y: str = None,
-        split_self: bool = False,
-        X_train: str = None,
-        X_test: str = None,
-        y_train: str = None,
-        y_test: str = None,
-        split_data=None,
-        splitting: bool = False,
-        kf: bool = False,
-        fold: int = 5,
-        excel: bool = False,
-        return_best_model: bool = None,
-        show_train_score: bool = False,
-        text: bool = False,
-        vectorizer: str = None,
-        ngrams: tuple = None,
+            self,
+            X: str = None,
+            y: str = None,
+            split_self: bool = False,
+            X_train: str = None,
+            X_test: str = None,
+            y_train: str = None,
+            y_test: str = None,
+            split_data=None,
+            splitting: bool = False,
+            kf: bool = False,
+            fold: int = 5,
+            excel: bool = False,
+            return_best_model: bool = None,
+            show_train_score: bool = False,
+            text: bool = False,
+            vectorizer: str = None,
+            ngrams: tuple = None
+
     ) -> DataFrame:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
@@ -1041,17 +1181,21 @@ class MultiClassifier:
                     split_data[0],
                     split_data[1],
                     split_data[2],
-                    split_data[3],
+                    split_data[3]
                 )
             elif (
-                X_train is not None
-                and X_test is not None
-                and y_train is not None
-                and y_test is not None
+                    X_train is not None
+                    and X_test is not None
+                    and y_train is not None
+                    and y_test is not None
             ):
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-            model = self._initialize_()
-            names = self.classifier_model_names()
+            if self.select_models is None:
+                model = self._initialize_()
+                names = self.classifier_model_names()
+            else:
+                model, names = self._custom()
+
             dataframe = {}
             for i in range(len(model)):
                 if self.verbose is True:
@@ -1114,7 +1258,7 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model[i],
+                                    model[i]
                                 )
                                 pipeline.fit(X_tr, y_tr)
                                 pred = pipeline.predict(X_te)
@@ -1146,7 +1290,7 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model[i],
+                                    model[i]
                                 )
                                 pipeline.fit(X_tr, y_tr)
 
@@ -1231,7 +1375,7 @@ class MultiClassifier:
                         pre,
                         trec,
                         rec,
-                        time_taken,
+                        time_taken
                     ]
                     eval_mul = [
                         overfit,
@@ -1247,7 +1391,7 @@ class MultiClassifier:
                         pre,
                         trec,
                         rec,
-                        time_taken,
+                        time_taken
                     ]
 
                 if target_class == "binary":
@@ -1260,14 +1404,14 @@ class MultiClassifier:
                     df = pd.DataFrame.from_dict(
                         dataframe,
                         orient="index",
-                        columns=self.t_split_binary_columns_test,
+                        columns=self.t_split_binary_columns_test
                     )
 
                 elif target_class == "multiclass":
                     df = pd.DataFrame.from_dict(
                         dataframe,
                         orient="index",
-                        columns=self.t_split_multiclass_columns_test,
+                        columns=self.t_split_multiclass_columns_test
                     )
 
             elif show_train_score is True:
@@ -1275,14 +1419,14 @@ class MultiClassifier:
                     df = pd.DataFrame.from_dict(
                         dataframe,
                         orient="index",
-                        columns=self.t_split_binary_columns_train,
+                        columns=self.t_split_binary_columns_train
                     )
 
                 elif target_class == "multiclass":
                     df = pd.DataFrame.from_dict(
                         dataframe,
                         orient="index",
-                        columns=self.t_split_multiclass_columns_train,
+                        columns=self.t_split_multiclass_columns_train
                     )
 
             if return_best_model is not None:
@@ -1302,8 +1446,16 @@ class MultiClassifier:
         elif kf is True:
 
             # Fitting the models and predicting the values of the test set.
-            KFoldModel = self._initialize_()
-            names = self.classifier_model_names()
+            if self.select_models is None:
+                KFoldModel = self._initialize_()
+                names = self.classifier_model_names()
+            else:
+                KFoldModel = []
+                names = self.select_models
+                for i in self.select_models:
+                    for key, value in self._select_few_models().items():
+                        if i == key:
+                            KFoldModel.append(value)
 
             if target_class == "binary":
                 logger.info("Training started")
@@ -1386,29 +1538,29 @@ class MultiClassifier:
             return instance
 
     def tune_parameters(
-        self,
-        model: str = None,
-        parameters: dict = None,
-        tune: str = None,
-        use_cpu: int = None,
-        cv: int = 5,
-        n_iter: any = 50,
-        return_train_score: bool = False,
-        refit: bool = True,
-        random_state: int = None,
-        factor: int = 3,
-        verbose: int = 5,
-        resource: any = "n_samples",
-        max_resources: any = "auto",
-        min_resources_grid: any = "exhaust",
-        min_resources_rand: any = "smallest",
-        aggressive_elimination: any = False,
-        error_score: any = np.nan,
-        pre_dispatch: any = "2*n_jobs",
-        optimizer_kwargs: any = None,
-        fit_params: any = None,
-        n_points: any = 1,
-        score="accuracy",
+            self,
+            model: str = None,
+            parameters: dict = None,
+            tune: str = None,
+            use_cpu: int = None,
+            cv: int = 5,
+            n_iter: any = 50,
+            return_train_score: bool = False,
+            refit: bool = True,
+            random_state: int = None,
+            factor: int = 3,
+            verbose: int = 5,
+            resource: any = "n_samples",
+            max_resources: any = "auto",
+            min_resources_grid: any = "exhaust",
+            min_resources_rand: any = "smallest",
+            aggressive_elimination: any = False,
+            error_score: any = np.nan,
+            pre_dispatch: any = "2*n_jobs",
+            optimizer_kwargs: any = None,
+            fit_params: any = None,
+            n_points: any = 1,
+            score="accuracy",
     ):
         """
         :param score:
@@ -1543,20 +1695,21 @@ class MultiClassifier:
                 return tuned_model
 
     def visualize(
-        self,
-        param: {__setitem__},
-        y: any = None,
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        size=(15, 8),
-        save: str = None,
-        save_name="dir1",
+            self,
+            param: {__setitem__},
+            y: any = None,
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            size=(15, 8),
+            save: str = None,
+            save_name: str = None
     ):
 
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
+        :param y:
         :param target:
         :param file_path:
         :param param: {__setitem__}
@@ -1571,20 +1724,25 @@ class MultiClassifier:
         :param save_name: The name of the file you want to save the visualization as, defaults to dir1 (optional)
         """
 
-        names = self.classifier_model_names()
+        if self.select_models is None:
+            names = self.classifier_model_names()
+        else:
+            names = self.select_models
         sns.set()
-        target_class = _check_target(the_y)
+        target_class = _check_target(y)
         param["model_names"] = names
         FILE_FORMATS = ["pdf", "png"]
-        if save not in FILE_FORMATS:
-            raise Exception("set save to either 'pdf' or 'png' ")
 
-        if save in FILE_FORMATS:
-            if isinstance(save_name, str) is False:
-                raise ValueError("You can only set a string to save_name")
+        if save is not None:
+            if save not in FILE_FORMATS:
+                raise Exception("set save to either 'pdf' or 'png' ")
 
-            if save_name is None:
-                raise Exception("Please set a value to save_name")
+            if save in FILE_FORMATS:
+                if isinstance(save_name, str) is False:
+                    raise ValueError("You can only set a string to save_name")
+
+                if save_name is None:
+                    raise Exception("Please set a value to save_name")
 
         if file_path:
             if save is None:
@@ -1734,17 +1892,19 @@ class MultiClassifier:
                     img(FILENAME=name, FILE_PATH=file_path, type_="picture")
 
     def show(
-        self,
-        param: {__setitem__},
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        save: bool = False,
-        save_name=None,
+            self,
+            param: {__setitem__},
+            y: any = None,
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            save: bool = False,
+            save_name=None,
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
+        :param y:
         :param save:
         :param target:
         :param file_path:
@@ -1757,10 +1917,12 @@ class MultiClassifier:
         :param size: This is the size of the plot
         :param save_name: The name of the file you want to save the visualization as.
         """
-
-        names = self.classifier_model_names()
+        if self.select_models is None:
+            names = self.classifier_model_names()
+        else:
+            names = self.select_models
         param["model_names"] = names
-        target_class = _check_target(the_y)
+        target_class = _check_target(y)
         if kf is True:
             if t_split is True:
                 raise Exception(

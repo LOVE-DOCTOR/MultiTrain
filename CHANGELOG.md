@@ -1,6 +1,8 @@
 # WHAT'S NEW
 
-
+# 0.13.0
+- Added new parameter 'select_models' that enables you to select only a few models to train with instead of using all models at once.
+- 
 # 0.12.3
 - Fixed bug that stopped models from training due to inconsistent number of columns
 - Temporarily disabled using over, under or over_under sampling techniques when using kf=True
