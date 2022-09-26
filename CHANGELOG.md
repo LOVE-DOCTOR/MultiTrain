@@ -1,5 +1,11 @@
 # WHAT'S NEW
 
+
+# 0.12.3
+- Fixed bug that stopped models from training due to inconsistent number of columns
+- Temporarily disabled using over, under or over_under sampling techniques when using kf=True
+- Added a new parameter y to 'visualize' and 'show' methods to indicate the target.
+
 # 0.12.0 
 - If model is unable to properly compute metrics, it's value is replaced with np.nan
 - Added 'encode' parameter in split method to encode categorical columns
