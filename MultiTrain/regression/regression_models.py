@@ -211,7 +211,7 @@ class MultiRegressor:
         return model_dict
 
     def _custom(self):
-        if type(self.select_models) not in ['tuple', 'list']:
+        if type(self.select_models) not in [tuple, list]:
             raise TypeError(f'received type {type(self.select_models)} for select_models parameter, expected list or '
                             f'tuple')
 
@@ -290,8 +290,9 @@ class MultiRegressor:
                 else:
                     raise TypeError(
                         f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+            if encode is not None:
+                X = _dummy(X, encode)
 
-            X = _dummy(X, encode)
             if strat is True:
 
                 if shuffle_data is False:
