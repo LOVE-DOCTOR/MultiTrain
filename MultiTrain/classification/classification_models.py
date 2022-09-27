@@ -403,7 +403,7 @@ class MultiClassifier:
 
             'NuSVC': NuSVC(random_state=self.random_state),
             'LGBMClassifier': LGBMClassifier(random_state=self.random_state)
-                      }
+        }
         return model_dict
 
     def _get_sample_index_method(self):
@@ -499,7 +499,8 @@ class MultiClassifier:
                     raise TypeError(
                         f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
 
-            X = _dummy(X, encode)
+            if encode is not None:
+                X = _dummy(X, encode)
 
             if strat is True:
 
@@ -568,7 +569,7 @@ class MultiClassifier:
                                         raise ValueError(f'{normalize} not in {norm}')
 
             else:
-                norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
+                norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
                 if normalize:
                     if columns_to_scale is None:
                         raise ValueError(
@@ -607,15 +608,6 @@ class MultiClassifier:
                                 X_test[columns_to_scale] = scale.transform(
                                     X_test[columns_to_scale]
                                 )
-
-                                X_train, X_test = (
-                                    X_train.reset_index(),
-                                    X_test.reset_index(),
-                                )
-                                X_train, X_test = X_train.drop(
-                                    "index", axis=1
-                                ), X_test.drop("index", axis=1)
-
                                 return X_train, X_test, y_train, y_test
 
                             else:
@@ -630,16 +622,12 @@ class MultiClassifier:
                         random_state=randomState,
                         shuffle=shuffle_data,
                     )
-                    X_train, X_test = X_train.reset_index(), X_test.reset_index()
-                    X_train, X_test = X_train.drop("index", axis=1), X_test.drop(
-                        "index", axis=1
-                    )
 
                     return X_train, X_test, y_train, y_test
 
     def classifier_model_names(self) -> list:
         model_names = [
-            "Logistic Regression",
+            "LogisticRegression",
             "LogisticRegressionCV",
             "SGDClassifier",
             "PassiveAggressiveClassifier",
@@ -795,7 +783,7 @@ class MultiClassifier:
         )
 
     def _custom(self):
-        if type(self.select_models) not in ['tuple', 'list']:
+        if type(self.select_models) not in [tuple, list]:
             raise TypeError(f'received type {type(self.select_models)} for select_models parameter, expected list or '
                             f'tuple')
 
@@ -1116,7 +1104,7 @@ class MultiClassifier:
 
         # fit(X = features, y = labels, kf = True, fold = (10, 42, True))
 
-        global y_te
+        global y_te, pred
 
         target_class = _check_target(y) if y is not None else _check_target(split_data[3])
         if text:
@@ -1202,7 +1190,6 @@ class MultiClassifier:
                 names = self.classifier_model_names()
             else:
                 model, names = self._custom()
-
             dataframe = {}
             for i in range(len(model)):
                 if self.verbose is True:
@@ -1210,7 +1197,6 @@ class MultiClassifier:
                 start = time.time()
 
                 if text is False:
-
                     if self.imbalanced is False:
                         try:
                             model[i].fit(X_tr, y_tr)
@@ -1244,6 +1230,7 @@ class MultiClassifier:
                         pass
 
                 elif text is True:
+
                     if vectorizer == "count":
                         try:
                             try:
@@ -1253,10 +1240,9 @@ class MultiClassifier:
 
                                 pipeline.fit(X_tr, y_tr)
                                 pred = pipeline.predict(X_te)
-
                                 pred_train = pipeline.predict(X_tr)
 
-                            except TypeError:
+                            except Exception:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                 # but dense data is required. Use X.toarray() to convert to a dense numpy array.
@@ -1274,7 +1260,6 @@ class MultiClassifier:
 
                         except Exception:
                             logger.error(f'{model[i]} unable to fit properly')
-                            pass
 
                     elif vectorizer == "tfidf":
                         try:
@@ -1288,7 +1273,7 @@ class MultiClassifier:
 
                                 pred_train = pipeline.predict(X_tr)
 
-                            except TypeError:
+                            except Exception:
                                 # This is a fix for the error below when using gradient boosting classifier or
                                 # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                 # but dense data is required. Use X.toarray() to convert to a dense numpy array.
@@ -1303,7 +1288,6 @@ class MultiClassifier:
 
                         except Exception:
                             logger.error(f'{model[i]} unable to fit properly')
-                            pass
 
                     end = time.time()
 
@@ -1904,7 +1888,7 @@ class MultiClassifier:
             kf: bool = False,
             t_split: bool = False,
             save: bool = False,
-            save_name: str =None
+            save_name: str = None
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
