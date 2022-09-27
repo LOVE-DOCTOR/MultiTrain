@@ -129,14 +129,14 @@ class MultiClassifier:
         verbose: bool = False,
         imbalanced: bool = False,
         sampling: str = None,
-        strategy: str or float = "auto",
+        strategy: str or float = "auto"
     ) -> None:
 
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
-        self.sampling = sampling
         self.imbalanced = imbalanced
+        self.sampling = sampling
         self.strategy = strategy
 
         self.oversampling_list = [
@@ -229,6 +229,7 @@ class MultiClassifier:
             "Recall",
             "f1(Train)",
             "f1",
+            "r2(Train)",
             "r2",
             "Standard Deviation of Accuracy(Train)",
             "Standard Deviation of Accuracy",
@@ -707,6 +708,10 @@ class MultiClassifier:
     def _startKFold_(self, param, param_X, param_y, param_cv, train_score):
         names = self.classifier_model_names()
         target_class = _check_target(param_y)
+        if self.imbalanced is True:
+            logger.info("You are receiving this message because you set imbalanced to True. All resampling techniques "
+                        "e.g SMOTE has been disabled in this new version till a permanent fix is implemented, "
+                        "use the split method instead if you're dealing with imbalanced data")
         if target_class == "binary":
             dataframe = {}
             for i in range(len(param)):
@@ -723,27 +728,10 @@ class MultiClassifier:
                     "r2",
                 )
 
-                if self.imbalanced is False:
-                    start = time.time()
-                    try:
-                        scores = cross_validate(
-                            estimator=param[i],
-                            X=param_X,
-                            y=param_y,
-                            scoring=score,
-                            cv=param_cv,
-                            n_jobs=self.cores,
-                            return_train_score=True,
-                        )
-                    except Exception:
-                        logger.info(f"{param[i]} has a problem")
-
-                elif self.imbalanced is True:
-                    start = time.time()
-                    method = self._get_sample_index_method()
-                    pipeline = imbpipe(steps=[("sample", method), ("model", param[i])])
+                start = time.time()
+                try:
                     scores = cross_validate(
-                        estimator=pipeline,
+                        estimator=param[i],
                         X=param_X,
                         y=param_y,
                         scoring=score,
@@ -751,24 +739,79 @@ class MultiClassifier:
                         n_jobs=self.cores,
                         return_train_score=True,
                     )
-                end = time.time()
-                seconds = end - start
+                    end = time.time()
+                    seconds = end - start
 
-                mean_train_acc = scores["train_accuracy"].mean()
-                mean_test_acc = scores["test_accuracy"].mean()
-                mean_train_bacc = scores["train_balanced_accuracy"].mean()
-                mean_test_bacc = scores["test_balanced_accuracy"].mean()
-                mean_train_precision = scores["train_precision"].mean()
-                mean_test_precision = scores["test_precision"].mean()
-                mean_train_f1 = scores["train_f1"].mean()
-                mean_test_f1 = scores["test_f1"].mean()
-                mean_train_r2 = scores["train_r2"].mean()
-                mean_test_r2 = scores["test_r2"].mean()
-                mean_train_recall = scores["train_recall"].mean()
-                mean_test_recall = scores["test_recall"].mean()
-                train_stdev = scores["train_accuracy"].std()
-                test_stdev = scores["test_accuracy"].std()
-                overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                    mean_train_acc = scores["train_accuracy"].mean()
+                    mean_test_acc = scores["test_accuracy"].mean()
+                    mean_train_bacc = scores["train_balanced_accuracy"].mean()
+                    mean_test_bacc = scores["test_balanced_accuracy"].mean()
+                    mean_train_precision = scores["train_precision"].mean()
+                    mean_test_precision = scores["test_precision"].mean()
+                    mean_train_f1 = scores["train_f1"].mean()
+                    mean_test_f1 = scores["test_f1"].mean()
+                    mean_train_r2 = scores["train_r2"].mean()
+                    mean_test_r2 = scores["test_r2"].mean()
+                    mean_train_recall = scores["train_recall"].mean()
+                    mean_test_recall = scores["test_recall"].mean()
+                    train_stdev = scores["train_accuracy"].std()
+                    test_stdev = scores["test_accuracy"].std()
+                    overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                except Exception:
+                    logger.error(f"{param[i]} unable to fit properly")
+                    seconds, mean_train_acc, mean_test_acc = np.nan, np.nan, np.nan
+                    mean_train_bacc, mean_test_bacc = np.nan, np.nan
+                    mean_train_precision, mean_test_precision = np.nan, np.nan
+                    mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2 = np.nan, np.nan, np.nan, np.nan
+                    mean_train_recall, mean_test_recall, train_stdev, test_stdev, overfitting = np.nan, np.nan, np.nan, np.nan, False
+
+                # USING RESAMPLING TECHNIQUES HAS BEEN TEMPORARILY DISABLED ON cross_validate till a more permanent
+                # fix is implemented
+
+                # elif self.imbalanced is True:
+                #    start = time.time()
+                #    method = self._get_sample_index_method()
+                #    pipeline = imbpipe(
+                #        steps=[
+                #            ("over", method), ("model", param[i])
+                #        ]
+                #    )
+                #    try:
+                #        scores = cross_validate(
+                #            estimator=pipeline,
+                #            X=param_X,
+                #            y=param_y,
+                #            scoring=score,
+                #            cv=param_cv,
+                #            n_jobs=self.cores,
+                #            return_train_score=True
+                #        )
+                #        end = time.time()
+                #        seconds = end - start
+
+                #        mean_train_acc = scores["train_accuracy"].mean()
+                #        mean_test_acc = scores["test_accuracy"].mean()
+                #        mean_train_bacc = scores["train_balanced_accuracy"].mean()
+                #        mean_test_bacc = scores["test_balanced_accuracy"].mean()
+                #        mean_train_precision = scores["train_precision"].mean()
+                #        mean_test_precision = scores["test_precision"].mean()
+                #        mean_train_f1 = scores["train_f1"].mean()
+                #        mean_test_f1 = scores["test_f1"].mean()
+                #        mean_train_r2 = scores["train_r2"].mean()
+                #        mean_test_r2 = scores["test_r2"].mean()
+                #        mean_train_recall = scores["train_recall"].mean()
+                #        mean_test_recall = scores["test_recall"].mean()
+                #        train_stdev = scores["train_accuracy"].std()
+                #        test_stdev = scores["test_accuracy"].std()
+                #        overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                #    except Exception:
+                #        logger.error(f'{param[i]} unable to fit properly')
+                #        seconds, mean_train_acc, mean_test_acc = np.nan, np.nan, np.nan
+                #        mean_train_bacc, mean_test_bacc = np.nan, np.nan
+                #        mean_train_precision, mean_test_precision = np.nan, np.nan
+                #        mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2 = np.nan, np.nan, np.nan, np.nan
+                #        mean_train_recall, mean_test_recall, train_stdev, test_stdev, overfitting = np.nan, np.nan, np.nan, np.nan, False
+
                 # scores = scores.tolist()
                 if train_score is True:
                     scores_df = [
@@ -928,7 +971,7 @@ class MultiClassifier:
 
         global y_te
 
-        target_class = _check_target(y) if y else _check_target(split_data[3])
+        target_class = _check_target(y) if y is not None else _check_target(split_data[3])
         if text:
             if isinstance(text, bool) is False:
                 raise TypeError(
@@ -1502,6 +1545,7 @@ class MultiClassifier:
     def visualize(
         self,
         param: {__setitem__},
+        y: any = None,
         file_path: any = None,
         kf: bool = False,
         t_split: bool = False,
