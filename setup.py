@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name='MultiTrain',  # name of package
-    version="0.1.31",
+    version="0.13.0",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
@@ -47,5 +47,7 @@ setup(
                       "imbalanced-learn==0.9.1",
                       "seaborn==0.12.0",
                       "scikit-optimize==0.9.0",
-                      "lightgbm==3.3.2"]
+                      "lightgbm==3.3.2",
+                      "kaleido==0.2.1",
+                      "threadpoolctl==3.1.0"]
 )
