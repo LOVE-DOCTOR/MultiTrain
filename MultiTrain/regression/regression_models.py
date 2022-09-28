@@ -322,7 +322,7 @@ class MultiRegressor:
                     if dimensionality_reduction is True:
                         if normalize is None:
                             raise ValueError(
-                                'Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler" to '
+                                'Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer" to '
                                 "normalize if dimensionality_reduction is True"
                             )
 
@@ -406,14 +406,6 @@ class MultiRegressor:
                                     X_test[columns_to_scale]
                                 )
 
-                                X_train, X_test = (
-                                    X_train.reset_index(),
-                                    X_test.reset_index(),
-                                )
-                                X_train, X_test = X_train.drop(
-                                    "index", axis=1
-                                ), X_test.drop("index", axis=1)
-
                                 return X_train, X_test, y_train, y_test
                             else:
                                 raise ValueError(f'{normalize} not in {norm}')
@@ -426,10 +418,6 @@ class MultiRegressor:
                         train_size=1 - sizeOfTest,
                         random_state=randomState,
                         shuffle=shuffle_data,
-                    )
-                    X_train, X_test = X_train.reset_index(), X_test.reset_index()
-                    X_train, X_test = X_train.drop("index", axis=1), X_test.drop(
-                        "index", axis=1
                     )
 
                     return X_train, X_test, y_train, y_test
@@ -532,8 +520,11 @@ class MultiRegressor:
         )
 
     def _get_index(self, df, the_best):
-        name = list(self.regression_model_names())
-        MODEL = self.initialize()
+        if self.select_models is None:
+            name = list(self.regression_model_names())
+            MODEL = self.initialize()
+        else:
+            MODEL, name = self._custom()
         df["model_names"] = name
 
         high = [
@@ -589,7 +580,8 @@ class MultiRegressor:
 
         dataframe = {}
         for i in range(len(param)):
-            print(param[i])
+            if self.verbose is True:
+                print(names[i])
             start = time.time()
             score = (
                 "neg_mean_absolute_error",
@@ -807,7 +799,7 @@ class MultiRegressor:
             for i in range(len(model)):
                 start = time.time()
                 if self.verbose is True:
-                    print(model[i])
+                    print(names[i])
                 try:
                     model[i].fit(X_tr, y_tr)
                 except ValueError:
