@@ -115,6 +115,11 @@ class MultiRegressor:
         self.verbose = verbose
 
     def regression_model_names(self):
+        """ Gives the all the regression model names in sklearn
+
+        Returns:
+            list: list of the regression names in sklearn package
+        """
         model_names = [
             "Linear Regression",
             "Random Forest Regressor",
@@ -272,7 +277,8 @@ class MultiRegressor:
         else:
             # values for normalize
 
-            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer']
+            norm = ['StandardScaler', 'MinMaxScaler',
+                    'RobustScaler', 'Normalizer']
             if missing_values:
                 if isinstance(missing_values, dict):
                     if missing_values['cat'] != 'most_frequent':
@@ -283,7 +289,8 @@ class MultiRegressor:
                         raise ValueError(
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
                             f"'most_frequent', 'constant'] for numerical columns")
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
+                    categorical_values, numerical_values = _get_cat_num(
+                        missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
@@ -296,7 +303,8 @@ class MultiRegressor:
             if strat is True:
 
                 if shuffle_data is False:
-                    raise TypeError("shuffle_data can only be False if strat is False")
+                    raise TypeError(
+                        "shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
                     X_train, X_test, y_train, y_test = train_test_split(
@@ -474,7 +482,8 @@ class MultiRegressor:
         krid = KernelRidge()
         ard = ARDRegression()
         # self.quant = QuantileRegressor()
-        theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
+        theil = TheilSenRegressor(
+            n_jobs=self.cores, random_state=self.random_state)
 
         return (
             lr,
@@ -559,6 +568,20 @@ class MultiRegressor:
         return MODEL[index_]
 
     def startKFold(self, param, param_X, param_y, param_cv, train_score):
+
+        """_summary_
+
+        Args:
+            param (any): _description_
+            param_X (any): _description_
+            param_y (any): _description_
+            param_cv (any): _description_
+            train_score (int or float): _description_
+
+        Returns:
+            df: dataframe
+        """
+        
         if self.select_models is None:
             names = self.regression_model_names()
         else:
@@ -593,8 +616,10 @@ class MultiRegressor:
             if train_score is True:
                 mean_train_mae = scores["train_neg_mean_absolute_error"].mean()
                 mean_test_mae = scores["test_neg_mean_absolute_error"].mean()
-                mean_train_rmse = scores["train_neg_root_mean_squared_error"].mean()
-                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean()
+                mean_train_rmse = scores["train_neg_root_mean_squared_error"].mean(
+                )
+                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean(
+                )
                 mean_train_r2 = scores["train_r2"].mean()
                 mean_test_r2 = scores["test_r2"].mean()
                 mean_train_rmsle = np.sqrt(
@@ -603,8 +628,10 @@ class MultiRegressor:
                 mean_test_rmsle = np.sqrt(
                     scores["test_neg_mean_squared_log_error"].mean()
                 )
-                mean_train_meae = scores["train_neg_median_absolute_error"].mean()
-                mean_test_meae = scores["test_neg_median_absolute_error"].mean()
+                mean_train_meae = scores["train_neg_median_absolute_error"].mean(
+                )
+                mean_test_meae = scores["test_neg_median_absolute_error"].mean(
+                )
                 mean_train_mape = scores[
                     "train_neg_mean_absolute_percentage_error"
                 ].mean()
@@ -632,12 +659,14 @@ class MultiRegressor:
 
             elif train_score is False:
                 mean_test_mae = scores["test_neg_mean_absolute_error"].mean()
-                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean()
+                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean(
+                )
                 mean_test_r2 = scores["test_r2"].mean()
                 mean_test_rmsle = np.sqrt(
                     scores["test_neg_mean_squared_log_error"].mean()
                 )
-                mean_test_meae = scores["test_neg_median_absolute_error"].mean()
+                mean_test_meae = scores["test_neg_median_absolute_error"].mean(
+                )
                 mean_test_mape = scores[
                     "test_neg_mean_absolute_percentage_error"
                 ].mean()
@@ -1088,7 +1117,6 @@ class MultiRegressor:
             save: str = None,
             save_name: str = None,
     ):
-
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
@@ -1142,7 +1170,8 @@ class MultiRegressor:
             )
         if kf is True:
             plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="Neg Mean Absolute Error", data=param)
+            plot = sns.barplot(
+                x="model_names", y="Neg Mean Absolute Error", data=param)
             plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
             plt.title("Neg Mean Absolute Error")
 
@@ -1202,7 +1231,8 @@ class MultiRegressor:
 
         elif t_split is True:
             plt.figure(figsize=size)
-            plot = sns.barplot(x="model_names", y="Mean Absolute Error", data=param)
+            plot = sns.barplot(
+                x="model_names", y="Mean Absolute Error", data=param)
             plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
             plt.title("Mean Absolute Error")
 
@@ -1325,7 +1355,8 @@ class MultiRegressor:
                 display(fig)
                 if save is True:
                     if save_name is None:
-                        raise Exception("set save to True before using save_name")
+                        raise Exception(
+                            "set save to True before using save_name")
 
                     else:
                         img_plotly(
@@ -1371,7 +1402,8 @@ class MultiRegressor:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception("set save to True before using save_name")
+                            raise Exception(
+                                "set save to True before using save_name")
 
                         else:
                             img_plotly(
