@@ -84,6 +84,7 @@ from skopt.learning import (
     GaussianProcessRegressor,
     RandomForestRegressor,
 )
+from tqdm.notebook import trange
 from xgboost import XGBRegressor
 
 from MultiTrain.methods.multitrain_methods import (
@@ -778,6 +779,25 @@ class MultiRegressor:
         if kf is True and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
+        if isinstance(splitting, bool):
+            if split_data is None:
+                raise ValueError('You must pass in the return values of the split method to split_data if splitting '
+                                 'is True')
+
+            if isinstance(split_data, tuple) is False:
+                raise TypeError('You can only pass in the return values of the split method to split_data')
+
+        elif isinstance(splitting, bool) is False:
+            raise ValueError(f'splitting can only be set to True or False, received {splitting}')
+
+        if split_data:
+            if isinstance(split_data, tuple) is False:
+                raise TypeError('You can only pass in the return values of the split method to split_data')
+
+            if splitting is None:
+                raise ValueError('You must set splitting to True or False if the split_data parameter is used')
+
+
         if splitting is True or split_self is True:
             if splitting and split_data:
                 X_tr, X_te, y_tr, y_te = (
@@ -801,7 +821,11 @@ class MultiRegressor:
                 model, names = self._custom()
 
             dataframe = {}
-            for i in range(len(model)):
+            bar = trange(len(model),
+                         desc='Training in progress: ',
+                         bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]")
+            for i in bar:
+                bar.set_postfix({'Model ': names[i]})
                 start = time.time()
                 if self.verbose is True:
                     print(names[i])
