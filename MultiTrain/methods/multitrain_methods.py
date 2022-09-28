@@ -1,14 +1,15 @@
 import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib import pyplot as plt
 import pandas as pd
-from IPython.display import display
 import os
 import shutil
 import logging
 
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
+from pandas.core.series import Series
+from IPython.display import display
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib import pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -280,3 +281,5 @@ def _dummy(features, encoder):
                 raise ValueError(
                     f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary')
         return features
+
+
