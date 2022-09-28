@@ -472,8 +472,15 @@ class MultiClassifier:
                 "argument of type int or str is not valid. Parameters for strat is either False or True"
             )
 
+        elif isinstance(dimensionality_reduction, bool) is False:
+            raise TypeError(
+                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
+            )
+
         elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
+            raise ValueError(
+                "value of sizeOfTest should be between 0 and 1"
+            )
 
         else:
             # values for normalize
