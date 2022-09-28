@@ -9,7 +9,9 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
+from tqdm.notebook import tqdm_notebook, trange
 from IPython.display import display
+from alive_progress import alive_bar
 from catboost import CatBoostClassifier
 from imblearn.combine import SMOTEENN, SMOTETomek
 from imblearn.ensemble import BalancedBaggingClassifier
@@ -1196,8 +1198,11 @@ class MultiClassifier:
             else:
                 model, names = self._custom()
             dataframe = {}
-
-            for index, model_name in enumerate(model):
+            bar = trange(len(model),
+                         desc='Training in progress: ',
+                         bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]")
+            for index in bar:
+                bar.set_postfix({'Model ': names[index]})
                 if self.verbose is True:
                     print(names[index])
                 start = time.time()
@@ -1205,7 +1210,7 @@ class MultiClassifier:
                 if text is False:
                     if self.imbalanced is False:
                         try:
-                            model_name.fit(X_tr, y_tr)
+                            model[index].fit(X_tr, y_tr)
                         except ValueError:
                             logger.error(f"{names[index]} unable to fit properly")
                             pass
@@ -1220,7 +1225,7 @@ class MultiClassifier:
                             print(f"After resampling: {Counter(y_tr_)}")
                             print("\n")
                         try:
-                            model_name.fit(X_tr_, y_tr_)
+                            model[index].fit(X_tr_, y_tr_)
                         except ValueError:
                             logger.error(f'{names[index]} unable to fit properly')
                             pass
@@ -1229,9 +1234,9 @@ class MultiClassifier:
 
                     try:
 
-                        pred = model_name.predict(X_te)
+                        pred = model[index].predict(X_te)
 
-                        pred_train = model_name.predict(X_tr)
+                        pred_train = model[index].predict(X_tr)
                     except AttributeError:
                         pass
 
@@ -1241,7 +1246,7 @@ class MultiClassifier:
                         try:
                             try:
                                 pipeline = make_pipeline(
-                                    CountVectorizer(ngram_range=ngrams), model_name
+                                    CountVectorizer(ngram_range=ngrams), model[index]
                                 )
 
                                 pipeline.fit(X_tr, y_tr)
@@ -1257,7 +1262,7 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model_name
+                                    model[index]
                                 )
                                 pipeline.fit(X_tr, y_tr)
                                 pred = pipeline.predict(X_te)
@@ -1271,7 +1276,7 @@ class MultiClassifier:
                         try:
                             try:
                                 pipeline = make_pipeline(
-                                    TfidfVectorizer(ngram_range=ngrams), model_name
+                                    TfidfVectorizer(ngram_range=ngrams), model[index]
                                 )
 
                                 pipeline.fit(X_tr, y_tr)
@@ -1288,7 +1293,7 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model_name
+                                    model[index]
                                 )
                                 pipeline.fit(X_tr, y_tr)
 
