@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
-# from hyperopt import tpe
-# from hpsklearn import HyperoptEstimator, sklearn_ExtraTreesClassifier, random_forest
+from tqdm.notebook import tqdm_notebook, trange
 from IPython.display import display
+from alive_progress import alive_bar
 from catboost import CatBoostClassifier
 from imblearn.combine import SMOTEENN, SMOTETomek
 from imblearn.ensemble import BalancedBaggingClassifier
@@ -474,8 +474,15 @@ class MultiClassifier:
                 "argument of type int or str is not valid. Parameters for strat is either False or True"
             )
 
+        elif isinstance(dimensionality_reduction, bool) is False:
+            raise TypeError(
+                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
+            )
+
         elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
+            raise ValueError(
+                "value of sizeOfTest should be between 0 and 1"
+            )
 
         else:
             # values for normalize
@@ -1191,17 +1198,21 @@ class MultiClassifier:
             else:
                 model, names = self._custom()
             dataframe = {}
-            for i in range(len(model)):
+            bar = trange(len(model),
+                         desc='Training in progress: ',
+                         bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]")
+            for index in bar:
+                bar.set_postfix({'Model ': names[index]})
                 if self.verbose is True:
-                    print(names[i])
+                    print(names[index])
                 start = time.time()
 
                 if text is False:
                     if self.imbalanced is False:
                         try:
-                            model[i].fit(X_tr, y_tr)
+                            model[index].fit(X_tr, y_tr)
                         except ValueError:
-                            logger.error(f"{model[i]} unable to fit properly")
+                            logger.error(f"{names[index]} unable to fit properly")
                             pass
 
                     elif self.imbalanced is True:
@@ -1214,18 +1225,18 @@ class MultiClassifier:
                             print(f"After resampling: {Counter(y_tr_)}")
                             print("\n")
                         try:
-                            model[i].fit(X_tr_, y_tr_)
+                            model[index].fit(X_tr_, y_tr_)
                         except ValueError:
-                            logger.error(f'{names[i]} unable to fit properly')
+                            logger.error(f'{names[index]} unable to fit properly')
                             pass
 
                     end = time.time()
 
                     try:
 
-                        pred = model[i].predict(X_te)
+                        pred = model[index].predict(X_te)
 
-                        pred_train = model[i].predict(X_tr)
+                        pred_train = model[index].predict(X_tr)
                     except AttributeError:
                         pass
 
@@ -1235,7 +1246,7 @@ class MultiClassifier:
                         try:
                             try:
                                 pipeline = make_pipeline(
-                                    CountVectorizer(ngram_range=ngrams), model[i]
+                                    CountVectorizer(ngram_range=ngrams), model[index]
                                 )
 
                                 pipeline.fit(X_tr, y_tr)
@@ -1251,7 +1262,7 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model[i]
+                                    model[index]
                                 )
                                 pipeline.fit(X_tr, y_tr)
                                 pred = pipeline.predict(X_te)
@@ -1259,13 +1270,13 @@ class MultiClassifier:
                                 pred_train = pipeline.predict(X_tr)
 
                         except Exception:
-                            logger.error(f'{names[i]} unable to fit properly')
+                            logger.error(f'{names[index]} unable to fit properly')
 
                     elif vectorizer == "tfidf":
                         try:
                             try:
                                 pipeline = make_pipeline(
-                                    TfidfVectorizer(ngram_range=ngrams), model[i]
+                                    TfidfVectorizer(ngram_range=ngrams), model[index]
                                 )
 
                                 pipeline.fit(X_tr, y_tr)
@@ -1282,12 +1293,12 @@ class MultiClassifier:
                                     FunctionTransformer(
                                         lambda x: x.todense(), accept_sparse=True
                                     ),
-                                    model[i]
+                                    model[index]
                                 )
                                 pipeline.fit(X_tr, y_tr)
 
                         except Exception:
-                            logger.error(f'{names[i]} unable to fit properly')
+                            logger.error(f'{names[index]} unable to fit properly')
 
                     end = time.time()
 
@@ -1386,9 +1397,9 @@ class MultiClassifier:
                     ]
 
                 if target_class == "binary":
-                    dataframe.update({names[i]: eval_bin})
+                    dataframe.update({names[index]: eval_bin})
                 elif target_class == "multiclass":
-                    dataframe.update({names[i]: eval_mul})
+                    dataframe.update({names[index]: eval_mul})
 
             if show_train_score is False:
                 if target_class == "binary":

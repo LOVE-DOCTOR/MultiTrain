@@ -2,6 +2,8 @@
 
 # 0.13.0
 - Added new parameter 'select_models' that enables you to select only a few models to train with instead of using all models at once.
+- Updated catboost version to latest
+- Added progress bar when training models
 - 
 # 0.12.3
 - Fixed bug that stopped models from training due to inconsistent number of columns
