@@ -851,7 +851,7 @@ class MultiClassifier:
             for i in range(len(param)):
 
                 if self.verbose is True:
-                    print(param[i])
+                    print(names[i])
 
                 score = (
                     "accuracy",
@@ -892,7 +892,7 @@ class MultiClassifier:
                     test_stdev = scores["test_accuracy"].std()
                     overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
                 except Exception:
-                    logger.error(f"{param[i]} unable to fit properly")
+                    logger.error(f"{names[i]} unable to fit properly")
                     seconds, mean_train_acc, mean_test_acc = np.nan, np.nan, np.nan
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
@@ -1193,7 +1193,7 @@ class MultiClassifier:
             dataframe = {}
             for i in range(len(model)):
                 if self.verbose is True:
-                    print(model[i])
+                    print(names[i])
                 start = time.time()
 
                 if text is False:
@@ -1216,7 +1216,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr_, y_tr_)
                         except ValueError:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f'{names[i]} unable to fit properly')
                             pass
 
                     end = time.time()
@@ -1259,7 +1259,7 @@ class MultiClassifier:
                                 pred_train = pipeline.predict(X_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f'{names[i]} unable to fit properly')
 
                     elif vectorizer == "tfidf":
                         try:
@@ -1287,7 +1287,7 @@ class MultiClassifier:
                                 pipeline.fit(X_tr, y_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f'{names[i]} unable to fit properly')
 
                     end = time.time()
 
