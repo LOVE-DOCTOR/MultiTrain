@@ -1195,7 +1195,6 @@ class MultiClassifier:
             if splitting is None:
                 raise ValueError('You must set splitting to True or False if the split_data parameter is used')
 
-
         if splitting is True or split_self is True:
             if splitting and split_data:
                 X_tr, X_te, y_tr, y_te = (
@@ -1222,8 +1221,6 @@ class MultiClassifier:
                          bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]")
             for index in bar:
                 bar.set_postfix({'Model ': names[index]})
-                if self.verbose is True:
-                    print(names[index])
                 start = time.time()
 
                 if text is False:

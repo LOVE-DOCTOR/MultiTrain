@@ -84,6 +84,7 @@ from skopt.learning import (
     GaussianProcessRegressor,
     RandomForestRegressor,
 )
+from tqdm.notebook import trange
 from xgboost import XGBRegressor
 
 from MultiTrain.methods.multitrain_methods import (
@@ -820,7 +821,11 @@ class MultiRegressor:
                 model, names = self._custom()
 
             dataframe = {}
-            for i in range(len(model)):
+            bar = trange(len(model),
+                         desc='Training in progress: ',
+                         bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]")
+            for i in bar:
+                bar.set_postfix({'Model ': names[i]})
                 start = time.time()
                 if self.verbose is True:
                     print(names[i])
