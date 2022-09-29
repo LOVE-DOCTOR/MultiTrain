@@ -43,7 +43,7 @@ setup(
                       "plotly==5.10.0",
                       "ipython==8.4.0",
                       "xgboost==1.6.2",
-                      "catboost==1.0.6",
+                      "catboost",
                       "imbalanced-learn==0.9.1",
                       "seaborn==0.12.0",
                       "scikit-optimize==0.9.0",
