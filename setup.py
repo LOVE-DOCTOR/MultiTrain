@@ -49,5 +49,6 @@ setup(
                       "scikit-optimize==0.9.0",
                       "lightgbm==3.3.2",
                       "kaleido==0.2.1",
-                      "threadpoolctl==3.1.0"]
+                      "threadpoolctl==3.1.0",
+                      "tqdm==4.64.0"]
 )
