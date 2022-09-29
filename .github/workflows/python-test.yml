@@ -42,5 +42,5 @@ jobs:
 
     - name: Test with unittest
       run: |
-        cd tests
+        cd MultiTrain/tests
         python -m unittest discover
