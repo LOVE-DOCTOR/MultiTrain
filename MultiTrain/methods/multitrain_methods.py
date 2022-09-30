@@ -1,14 +1,15 @@
 import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib import pyplot as plt
 import pandas as pd
-from IPython.display import display
 import os
 import shutil
 import logging
 
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
+from pandas.core.series import Series
+from IPython.display import display
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib import pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def directory(FOLDER_NAME):
 
 
 def img_plotly(
-        figure: any, name: any, label: str, FILENAME: str, FILE_PATH: any
+    figure: any, name: any, label: str, FILENAME: str, FILE_PATH: any
 ) -> None:
     SOURCE_FILE_PATH = FILE_PATH + f"/{name}"
     DESTINATION_FILE_PATH = FILE_PATH + f"/{FILENAME}" + f"/{name}"
@@ -125,7 +126,11 @@ def img(FILENAME: any, FILE_PATH: any, type_="file") -> None:
 
         for i in fig:
             tt = i.savefig(
-                FILE, format="pdf", dpi=550, papertype="a4", bbox_inches="tight"
+                FILE,
+                format="pdf",
+                dpi=550,
+                papertype="a4",
+                bbox_inches="tight",
             )
 
         FILE.close()
@@ -211,15 +216,17 @@ def t_best_model(df, best, excel):
 
 
 def _check_target(target):
-    target_class = "binary" if target.value_counts().count() == 2 else "multiclass"
+    target_class = (
+        "binary" if target.value_counts().count() == 2 else "multiclass"
+    )
     return target_class
 
 
 def _get_cat_num(dictionary):
-    categorical_values = ''
-    numerical_values = ''
+    categorical_values = ""
+    numerical_values = ""
     for i, j in dictionary.items():
-        if i == 'cat':
+        if i == "cat":
             categorical_values = j
         else:
             numerical_values = j
@@ -234,7 +241,7 @@ def _fill(value1, value2):
 
 def _fill_columns(cat_init, num_init, features):
     for i in features.columns:
-        if features[i].dtypes == 'object':
+        if features[i].dtypes == "object":
             imputer = cat_init.fit(features[[i]])
             features[[i]] = imputer.transform(features[[i]])
         else:
@@ -246,37 +253,45 @@ def _fill_columns(cat_init, num_init, features):
 def _dummy(features, encoder):
     label = LabelEncoder()
     for i in features.columns:
-        if features[i].dtypes == 'object':
-            if encoder == 'labelencoder':
+        if features[i].dtypes == "object":
+            if encoder == "labelencoder":
                 features[i] = label.fit_transform(features[i])
                 return features
 
-            elif encoder == 'onehotencoder':
+            elif encoder == "onehotencoder":
                 features = pd.get_dummies(features)
                 return features
 
             elif isinstance(encoder, dict):
                 for keys, values in encoder.items():
-                    if keys == 'labelencoder':
+                    if keys == "labelencoder":
                         if isinstance(values, list):
                             for i in values:
                                 features[i] = label.fit_transform(features[i])
                         else:
-                            raise TypeError(f"received a {type(values)} in dictionary values, pass a list instead")
+                            raise TypeError(
+                                f"received a {type(values)} in dictionary values, pass a list instead"
+                            )
 
-                    elif keys == 'onehotencoder':
+                    elif keys == "onehotencoder":
                         if isinstance(values, list):
-                            features = pd.get_dummies(features, columns=[values])
+                            features = pd.get_dummies(
+                                features, columns=[values]
+                            )
                         else:
-                            raise TypeError(f"received a {type(values)} in dictionary values, pass a list instead")
+                            raise TypeError(
+                                f"received a {type(values)} in dictionary values, pass a list instead"
+                            )
 
                     else:
                         raise ValueError(
-                            f"received {keys}, dictionary keys must be one of 'labelencoder' or 'onehotencoder' ")
+                            f"received {keys}, dictionary keys must be one of 'labelencoder' or 'onehotencoder' "
+                        )
 
                 return features
 
             else:
                 raise ValueError(
-                    f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary')
+                    f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary'
+                )
         return features

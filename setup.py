@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name='MultiTrain',  # name of package
-    version="0.12.3",
+    version="0.13.0",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
@@ -43,10 +43,12 @@ setup(
                       "plotly==5.10.0",
                       "ipython==8.4.0",
                       "xgboost==1.6.2",
-                      "catboost==1.0.6",
+                      "catboost",
                       "imbalanced-learn==0.9.1",
                       "seaborn==0.12.0",
                       "scikit-optimize==0.9.0",
                       "lightgbm==3.3.2",
-                      "kaleido==0.2.1"]
+                      "kaleido==0.2.1",
+                      "threadpoolctl==3.1.0",
+                      "tqdm==4.64.0"]
 )

@@ -27,7 +27,7 @@ split = train_reg.split(
 )
 
 
-class testClassification(unittest.TestCase):
+class TestClassification(unittest.TestCase):
     """
     Test Regression methods
     """
