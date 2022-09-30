@@ -94,6 +94,7 @@ from sklearn.naive_bayes import (
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
+
 from sklearn.preprocessing import (
     FunctionTransformer,
     Normalizer,
@@ -492,7 +493,6 @@ class MultiClassifier:
 
         else:
             # values for normalize
-            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
             norm = [
                 "StandardScaler",
                 "MinMaxScaler",
