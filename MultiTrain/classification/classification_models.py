@@ -156,27 +156,19 @@ class MultiClassifier:
             "SVMSMOTE",
         ]
         self.oversampling_methods = [
-            SMOTE(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
             RandomOverSampler(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            SMOTEN(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
-            ADASYN(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SMOTEN(sampling_strategy=self.strategy, random_state=self.random_state),
+            ADASYN(sampling_strategy=self.strategy, random_state=self.random_state),
             BorderlineSMOTE(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
             KMeansSMOTE(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            SVMSMOTE(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SVMSMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
         ]
 
         self.undersampling_list = [
@@ -197,9 +189,7 @@ class MultiClassifier:
                 random_state=self.random_state,
                 n_jobs=self.cores,
             ),
-            EditedNearestNeighbours(
-                sampling_strategy=self.strategy, n_jobs=self.cores
-            ),
+            EditedNearestNeighbours(sampling_strategy=self.strategy, n_jobs=self.cores),
             RepeatedEditedNearestNeighbours(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
@@ -213,9 +203,7 @@ class MultiClassifier:
             NeighbourhoodCleaningRule(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
-            OneSidedSelection(
-                sampling_strategy=self.strategy, n_jobs=self.cores
-            ),
+            OneSidedSelection(sampling_strategy=self.strategy, n_jobs=self.cores),
             RandomUnderSampler(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
@@ -357,9 +345,7 @@ class MultiClassifier:
             "LogisticRegression": LogisticRegression(
                 n_jobs=self.cores, random_state=self.random_state
             ),
-            "LogisticRegressionCV": LogisticRegressionCV(
-                n_jobs=self.cores, refit=True
-            ),
+            "LogisticRegressionCV": LogisticRegressionCV(n_jobs=self.cores, refit=True),
             "SGDClassifier": SGDClassifier(
                 n_jobs=self.cores, random_state=self.random_state
             ),
@@ -375,9 +361,7 @@ class MultiClassifier:
             "HistGradientBoostingClassifier": HistGradientBoostingClassifier(
                 random_state=self.random_state
             ),
-            "AdaBoostClassifier": AdaBoostClassifier(
-                random_state=self.random_state
-            ),
+            "AdaBoostClassifier": AdaBoostClassifier(random_state=self.random_state),
             "CatBoostClassifier": CatBoostClassifier(
                 thread_count=self.cores,
                 verbose=False,
@@ -404,9 +388,7 @@ class MultiClassifier:
                 n_jobs=self.cores, random_state=self.random_state
             ),
             "RidgeClassifier": RidgeClassifier(random_state=self.random_state),
-            "ExtraTreeClassifier": ExtraTreeClassifier(
-                random_state=self.random_state
-            ),
+            "ExtraTreeClassifier": ExtraTreeClassifier(random_state=self.random_state),
             "QuadraticDiscriminantAnalysis": QuadraticDiscriminantAnalysis(),
             "LinearSVC": LinearSVC(random_state=self.random_state),
             "BaggingClassifier": BaggingClassifier(
@@ -415,9 +397,7 @@ class MultiClassifier:
             "BalancedBaggingClassifier": BalancedBaggingClassifier(
                 n_jobs=self.cores, random_state=self.random_state
             ),
-            "Perceptron": Perceptron(
-                n_jobs=self.cores, random_state=self.random_state
-            ),
+            "Perceptron": Perceptron(n_jobs=self.cores, random_state=self.random_state),
             "NuSVC": NuSVC(random_state=self.random_state),
             "LGBMClassifier": LGBMClassifier(random_state=self.random_state),
         }
@@ -503,6 +483,7 @@ class MultiClassifier:
 
         else:
             # values for normalize
+            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
             norm = [
                 "StandardScaler",
                 "MinMaxScaler",
@@ -526,9 +507,7 @@ class MultiClassifier:
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
                             f"'most_frequent'] for numerical columns"
                         )
-                    categorical_values, numerical_values = _get_cat_num(
-                        missing_values
-                    )
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
@@ -543,9 +522,7 @@ class MultiClassifier:
             if strat is True:
 
                 if shuffle_data is False:
-                    raise TypeError(
-                        "shuffle_data can only be False if strat is False"
-                    )
+                    raise TypeError("shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
                     X_train, X_test, y_train, y_test = train_test_split(
@@ -591,14 +568,10 @@ class MultiClassifier:
                                         elif normalize == "Normalizer":
                                             scale = Normalizer()
 
-                                        X_train[
-                                            columns_to_scale
-                                        ] = scale.fit_transform(
+                                        X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
                                         )
-                                        X_test[
-                                            columns_to_scale
-                                        ] = scale.transform(
+                                        X_test[columns_to_scale] = scale.transform(
                                             X_test[columns_to_scale]
                                         )
 
@@ -610,9 +583,7 @@ class MultiClassifier:
                                         X_test = pca.transform(X_test)
                                         return X_train, X_test, y_train, y_test
                                     else:
-                                        raise ValueError(
-                                            f"{normalize} not in {norm}"
-                                        )
+                                        raise ValueError(f"{normalize} not in {norm}")
 
             else:
                 norm = [
@@ -644,12 +615,7 @@ class MultiClassifier:
                                 elif normalize == "Normalizer":
                                     scale = Normalizer()
 
-                                (
-                                    X_train,
-                                    X_test,
-                                    y_train,
-                                    y_test,
-                                ) = train_test_split(
+                                (X_train, X_test, y_train, y_test,) = train_test_split(
                                     X,
                                     y,
                                     test_size=sizeOfTest,
@@ -658,9 +624,7 @@ class MultiClassifier:
                                     shuffle=shuffle_data,
                                 )
 
-                                X_train[
-                                    columns_to_scale
-                                ] = scale.fit_transform(
+                                X_train[columns_to_scale] = scale.fit_transform(
                                     X_train[columns_to_scale]
                                 )
                                 X_test[columns_to_scale] = scale.transform(
@@ -726,17 +690,13 @@ class MultiClassifier:
         #    if self.timeout is False:
         #        logger.info('It is recommended to set a timeout to avoid longer training times')
 
-        lr = LogisticRegression(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        lr = LogisticRegression(n_jobs=self.cores, random_state=self.random_state)
         lrcv = LogisticRegressionCV(n_jobs=self.cores, refit=True)
         sgdc = SGDClassifier(n_jobs=self.cores, random_state=self.random_state)
         pagg = PassiveAggressiveClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
-        rfc = RandomForestClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        rfc = RandomForestClassifier(n_jobs=self.cores, random_state=self.random_state)
         gbc = GradientBoostingClassifier(random_state=self.random_state)
         hgbc = HistGradientBoostingClassifier(random_state=self.random_state)
         abc = AdaBoostClassifier(random_state=self.random_state)
@@ -760,18 +720,14 @@ class MultiClassifier:
         bnb = BernoulliNB()
         mnb = MultinomialNB()
         conb = ComplementNB()
-        etcs = ExtraTreesClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        etcs = ExtraTreesClassifier(n_jobs=self.cores, random_state=self.random_state)
         rcl = RidgeClassifier(random_state=self.random_state)
         rclv = RidgeClassifierCV()
         etc = ExtraTreeClassifier(random_state=self.random_state)
         # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         qda = QuadraticDiscriminantAnalysis()
         lsvc = LinearSVC(random_state=self.random_state)
-        bc = BaggingClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
         bbc = BalancedBaggingClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
@@ -936,9 +892,7 @@ class MultiClassifier:
                     train_stdev = scores["train_accuracy"].std()
                     test_stdev = scores["test_accuracy"].std()
                     overfitting = (
-                        True
-                        if (mean_train_acc - mean_test_acc) > 0.1
-                        else False
+                        True if (mean_train_acc - mean_test_acc) > 0.1 else False
                     )
                 except Exception:
                     logger.error(f"{names[i]} unable to fit properly")
@@ -949,12 +903,7 @@ class MultiClassifier:
                     )
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
-                    (
-                        mean_train_f1,
-                        mean_test_f1,
-                        mean_train_r2,
-                        mean_test_r2,
-                    ) = (
+                    (mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,) = (
                         np.nan,
                         np.nan,
                         np.nan,
@@ -1071,9 +1020,7 @@ class MultiClassifier:
 
                 if train_score is True:
 
-                    mean_train_precision = scores[
-                        "train_precision_macro"
-                    ].mean()
+                    mean_train_precision = scores["train_precision_macro"].mean()
                     mean_test_precision = scores["test_precision_macro"].mean()
                     mean_train_f1 = scores["train_f1_macro"].mean()
                     mean_test_f1 = scores["test_f1_macro"].mean()
@@ -1239,9 +1186,7 @@ class MultiClassifier:
                     "split_data"
                 )
 
-        if kf is True and (
-            X is None or y is None or (X is None and y is None)
-        ):
+        if kf is True and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
         if isinstance(splitting, bool):
@@ -1307,9 +1252,7 @@ class MultiClassifier:
                         try:
                             model[index].fit(X_tr, y_tr)
                         except ValueError:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
+                            logger.error(f"{names[index]} unable to fit properly")
                             pass
 
                     elif self.imbalanced is True:
@@ -1324,9 +1267,7 @@ class MultiClassifier:
                         try:
                             model[index].fit(X_tr_, y_tr_)
                         except ValueError:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
+                            logger.error(f"{names[index]} unable to fit properly")
                             pass
 
                     end = time.time()
@@ -1371,9 +1312,7 @@ class MultiClassifier:
                                 pred_train = pipeline.predict(X_tr)
 
                         except Exception:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
+                            logger.error(f"{names[index]} unable to fit properly")
 
                     elif vectorizer == "tfidf":
                         try:
@@ -1403,9 +1342,7 @@ class MultiClassifier:
                                 pipeline.fit(X_tr, y_tr)
 
                         except Exception:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
+                            logger.error(f"{names[index]} unable to fit properly")
 
                     end = time.time()
 
@@ -1452,21 +1389,13 @@ class MultiClassifier:
                 elif target_class == "multiclass":
                     if self.imbalanced is True:
                         tf1 = f1_score(true_train, pred_train, average="micro")
-                        tpre = precision_score(
-                            true_train, pred_train, average="micro"
-                        )
-                        trec = recall_score(
-                            true_train, pred_train, average="micro"
-                        )
+                        tpre = precision_score(true_train, pred_train, average="micro")
+                        trec = recall_score(true_train, pred_train, average="micro")
 
                     elif self.imbalanced is False:
                         tf1 = f1_score(true_train, pred_train, average="macro")
-                        tpre = precision_score(
-                            true_train, pred_train, average="macro"
-                        )
-                        trec = recall_score(
-                            true_train, pred_train, average="macro"
-                        )
+                        tpre = precision_score(true_train, pred_train, average="macro")
+                        trec = recall_score(true_train, pred_train, average="macro")
 
                 overfit = True if (tacc - acc) > 0.1 else False
                 time_taken = round(end - start, 2)
@@ -2069,9 +1998,7 @@ class MultiClassifier:
             if target_class == "binary":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_binary_columns_train)):
-                    IMAGE_COLUMNS.append(
-                        self.kf_binary_columns_train[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.kf_binary_columns_train[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2090,9 +2017,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         else:
                             img_plotly(
@@ -2106,9 +2031,7 @@ class MultiClassifier:
             elif target_class == "multiclass":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_multiclass_columns_train)):
-                    IMAGE_COLUMNS.append(
-                        self.kf_multiclass_columns_train[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2127,9 +2050,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         elif save_name:
                             img_plotly(
@@ -2150,9 +2071,7 @@ class MultiClassifier:
             if target_class == "binary":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.t_split_binary_columns_test)):
-                    IMAGE_COLUMNS.append(
-                        self.t_split_binary_columns_test[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.t_split_binary_columns_test[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2171,9 +2090,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         else:
                             img_plotly(
@@ -2208,9 +2125,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         elif save_name:
                             img_plotly(
