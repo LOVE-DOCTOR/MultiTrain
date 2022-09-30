@@ -508,7 +508,7 @@ class MultiRegressor:
         lcv = LassoCV(n_jobs=self.cores, random_state=self.random_state)
         llic = LassoLarsIC()
         llcv = LassoLarsCV()
-        l = Lars(random_state=self.random_state)
+        lars = Lars(random_state=self.random_state)
         lrcv = LarsCV(n_jobs=self.cores)
         sgd = SGDRegressor(random_state=self.random_state)
         twr = TweedieRegressor()
@@ -554,7 +554,7 @@ class MultiRegressor:
             lcv,
             llic,
             llcv,
-            l,
+            lars,
             lrcv,
             sgd,
             twr,
@@ -1074,10 +1074,6 @@ class MultiRegressor:
         :param cv:This determines the cross validation splitting strategy, defaults to 5
         :return:
         """
-        name = self.regression_model_names()
-        MODEL = self.initialize()
-        # index_ = name.index(model)
-        # mod = MODEL[index_]
 
         if isinstance(parameters, dict) is False:
             raise TypeError(
