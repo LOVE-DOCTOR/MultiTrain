@@ -69,12 +69,7 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    RobustScaler,
-    Normalizer
-)
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
 from sklearn.svm import LinearSVR
 from sklearn.tree import ExtraTreeRegressor, DecisionTreeRegressor
 from sklearn.svm import SVR, NuSVR
@@ -92,7 +87,11 @@ from MultiTrain.methods.multitrain_methods import (
     t_best_model,
     img,
     directory,
-    img_plotly, _fill_columns, _fill, _get_cat_num, _dummy,
+    img_plotly,
+    _fill_columns,
+    _fill,
+    _get_cat_num,
+    _dummy,
 )
 
 import logging
@@ -160,19 +159,21 @@ class MultiRegressor:
         ]
         return model_names
 
-    def split(self,
-              X: any,
-              y: any,
-              strat: bool = False,
-              sizeOfTest: float = 0.2,
-              randomState: int = None,
-              shuffle_data: bool = True,
-              dimensionality_reduction: bool = False,
-              normalize: any = None,
-              columns_to_scale: list = None,
-              n_components: int = None,
-              missing_values: dict = None,
-              encode: Union[str, dict] = None):
+    def split(
+        self,
+        X: any,
+        y: any,
+        strat: bool = False,
+        sizeOfTest: float = 0.2,
+        randomState: int = None,
+        shuffle_data: bool = True,
+        dimensionality_reduction: bool = False,
+        normalize: any = None,
+        columns_to_scale: list = None,
+        n_components: int = None,
+        missing_values: dict = None,
+        encode: Union[str, dict] = None,
+    ):
         """
         :param X: features
         :param y: labels
@@ -207,24 +208,32 @@ class MultiRegressor:
         else:
             # values for normalize
 
-            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler', 'Normalizer']
+            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
             if missing_values:
                 if isinstance(missing_values, dict):
-                    if missing_values['cat'] != 'most_frequent':
+                    if missing_values["cat"] != "most_frequent":
                         raise ValueError(
                             f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns")
-                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent', 'constant']:
+                            f"categorical columns"
+                        )
+                    elif missing_values["num"] not in [
+                        "mean",
+                        "median",
+                        "most_frequent",
+                        "constant",
+                    ]:
                         raise ValueError(
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent', 'constant'] for numerical columns")
+                            f"'most_frequent', 'constant'] for numerical columns"
+                        )
                     categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
                 else:
                     raise TypeError(
-                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
+                    )
 
             X = _dummy(X, encode)
             if strat is True:
@@ -273,7 +282,7 @@ class MultiRegressor:
                                             scale = MinMaxScaler()
                                         elif normalize == "RobustScaler":
                                             scale = RobustScaler()
-                                        elif normalize == 'Normalizer':
+                                        elif normalize == "Normalizer":
                                             scale = Normalizer()
 
                                         X_train[columns_to_scale] = scale.fit_transform(
@@ -360,6 +369,7 @@ class MultiRegressor:
         """
         It initializes all the models that we will be using in our ensemble
         """
+        __n_neighbors = round(np.sqrt(self.__shape[0]))
 
         lr = LinearRegression(n_jobs=self.cores)
         rfr = RandomForestRegressor(random_state=self.random_state)
@@ -694,6 +704,7 @@ class MultiRegressor:
                 and y_test is not None
             ):
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
+            self.__shape = X_tr.shape
             model = self.initialize()
             names = self.regression_model_names()
             dataframe = {}

@@ -1,6 +1,7 @@
 from collections import Counter
 from operator import __setitem__
 from typing import Union
+import math
 
 import seaborn as sns
 import plotly.express as px
@@ -77,7 +78,11 @@ from MultiTrain.methods.multitrain_methods import (
     img_plotly,
     kf_best_model,
     write_to_excel,
-    _check_target, _get_cat_num, _fill, _fill_columns, _dummy,
+    _check_target,
+    _get_cat_num,
+    _fill,
+    _fill_columns,
+    _dummy,
 )
 
 from skopt import BayesSearchCV
@@ -129,7 +134,7 @@ class MultiClassifier:
         verbose: bool = False,
         imbalanced: bool = False,
         sampling: str = None,
-        strategy: str or float = "auto"
+        strategy: str or float = "auto",
     ) -> None:
 
         self.cores = cores
@@ -349,7 +354,6 @@ class MultiClassifier:
             method = self.over_under_methods[index_]
             return method
 
-
     def split(
         self,
         X: any,
@@ -363,7 +367,7 @@ class MultiClassifier:
         columns_to_scale: list = None,
         n_components: int = None,
         missing_values: dict = None,
-        encode: Union[str, dict] = None
+        encode: Union[str, dict] = None,
     ):
 
         global the_y
@@ -402,25 +406,32 @@ class MultiClassifier:
 
         else:
             # values for normalize
-            norm = ['StandardScaler', 'MinMaxScaler', 'RobustScaler']
+            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler"]
 
             if missing_values:
                 if isinstance(missing_values, dict):
-                    if missing_values['cat'] != 'most_frequent':
+                    if missing_values["cat"] != "most_frequent":
                         raise ValueError(
                             f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns")
-                    elif missing_values['num'] not in ['mean', 'median', 'most_frequent']:
+                            f"categorical columns"
+                        )
+                    elif missing_values["num"] not in [
+                        "mean",
+                        "median",
+                        "most_frequent",
+                    ]:
                         raise ValueError(
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent'] for numerical columns")
+                            f"'most_frequent'] for numerical columns"
+                        )
                     categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
                 else:
                     raise TypeError(
-                        f'missing_values parameter can only be of type dict, type {type(missing_values)} received')
+                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
+                    )
 
             X = _dummy(X, encode)
 
@@ -709,9 +720,11 @@ class MultiClassifier:
         names = self.classifier_model_names()
         target_class = _check_target(param_y)
         if self.imbalanced is True:
-            logger.info("You are receiving this message because you set imbalanced to True. All resampling techniques "
-                        "e.g SMOTE has been disabled in this new version till a permanent fix is implemented, "
-                        "use the split method instead if you're dealing with imbalanced data")
+            logger.info(
+                "You are receiving this message because you set imbalanced to True. All resampling techniques "
+                "e.g SMOTE has been disabled in this new version till a permanent fix is implemented, "
+                "use the split method instead if you're dealing with imbalanced data"
+            )
         if target_class == "binary":
             dataframe = {}
             for i in range(len(param)):
@@ -756,14 +769,27 @@ class MultiClassifier:
                     mean_test_recall = scores["test_recall"].mean()
                     train_stdev = scores["train_accuracy"].std()
                     test_stdev = scores["test_accuracy"].std()
-                    overfitting = True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                    overfitting = (
+                        True if (mean_train_acc - mean_test_acc) > 0.1 else False
+                    )
                 except Exception:
                     logger.error(f"{param[i]} unable to fit properly")
                     seconds, mean_train_acc, mean_test_acc = np.nan, np.nan, np.nan
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
-                    mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2 = np.nan, np.nan, np.nan, np.nan
-                    mean_train_recall, mean_test_recall, train_stdev, test_stdev, overfitting = np.nan, np.nan, np.nan, np.nan, False
+                    mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2 = (
+                        np.nan,
+                        np.nan,
+                        np.nan,
+                        np.nan,
+                    )
+                    (
+                        mean_train_recall,
+                        mean_test_recall,
+                        train_stdev,
+                        test_stdev,
+                        overfitting,
+                    ) = (np.nan, np.nan, np.nan, np.nan, False)
 
                 # USING RESAMPLING TECHNIQUES HAS BEEN TEMPORARILY DISABLED ON cross_validate till a more permanent
                 # fix is implemented
@@ -971,7 +997,9 @@ class MultiClassifier:
 
         global y_te
 
-        target_class = _check_target(y) if y is not None else _check_target(split_data[3])
+        target_class = (
+            _check_target(y) if y is not None else _check_target(split_data[3])
+        )
         if text:
             if isinstance(text, bool) is False:
                 raise TypeError(
@@ -1079,7 +1107,7 @@ class MultiClassifier:
                         try:
                             model[i].fit(X_tr_, y_tr_)
                         except ValueError:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f"{model[i]} unable to fit properly")
                             pass
 
                     end = time.time()
@@ -1122,7 +1150,7 @@ class MultiClassifier:
                                 pred_train = pipeline.predict(X_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f"{model[i]} unable to fit properly")
                             pass
 
                     elif vectorizer == "tfidf":
@@ -1151,7 +1179,7 @@ class MultiClassifier:
                                 pipeline.fit(X_tr, y_tr)
 
                         except Exception:
-                            logger.error(f'{model[i]} unable to fit properly')
+                            logger.error(f"{model[i]} unable to fit properly")
                             pass
 
                     end = time.time()
