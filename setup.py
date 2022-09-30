@@ -43,11 +43,12 @@ setup(
                       "plotly==5.10.0",
                       "ipython==8.4.0",
                       "xgboost==1.6.2",
-                      "catboost==1.1",
+                      "catboost",
                       "imbalanced-learn==0.9.1",
                       "seaborn==0.12.0",
                       "scikit-optimize==0.9.0",
                       "lightgbm==3.3.2",
                       "kaleido==0.2.1",
-                      "threadpoolctl==3.1.0"]
+                      "threadpoolctl==3.1.0",
+                      "tqdm==4.64.0"]
 )

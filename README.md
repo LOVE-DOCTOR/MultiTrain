@@ -344,11 +344,11 @@ A method is also provided for you to do this easily.
 Continuing from any of the code snippets above(for the fit method) - after training, to use the best algorithm based on it's name
 
 ```python
-mod=train.use_best_model(df=fit, model='LogisticRegression')
+mod=train.use_model(df=fit, model='LogisticRegression')
 ```
 Or else if you want to automatically select the best algorithm based on a particular metric of your choice
 ```python
-mod=train.use_best_model(df=fit, best='Balanced Accuracy')
+mod=train.use_model(df=fit, best='Balanced Accuracy')
 ```
 ### VISUALIZE TRAINING RESULTS
 It gets interesting. After model training, it is obvious that you get a dataframe containing all algorithms and their performance.
