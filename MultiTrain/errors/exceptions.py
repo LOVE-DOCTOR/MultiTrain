@@ -78,7 +78,7 @@ def raise_splitting_error(splitting_, split_data_):
 
     elif isinstance(splitting_, bool) is False:
         raise ValueError(
-            f"splitting can only be set to True or False, received {splitting}"
+            f"splitting can only be set to True or False, received {splitting_}"
         )
 
 
