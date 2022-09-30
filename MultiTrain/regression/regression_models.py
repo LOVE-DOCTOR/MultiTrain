@@ -68,7 +68,7 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
+
 from sklearn.preprocessing import (
     StandardScaler,
     MinMaxScaler,
@@ -253,7 +253,8 @@ class MultiRegressor:
                     custom_models.append(value)
                 elif i not in self.regression_model_names():
                     raise ValueError(
-                        f'{i} unknown, use the "regression_model_names" method to view the regression algorithms available'
+                        f'{i} unknown, use the "regression_model_names" method to view the regression algorithms '
+                        f'available '
                     )
         return custom_models, name
 
@@ -312,7 +313,6 @@ class MultiRegressor:
         else:
             # values for normalize
 
-            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
             norm = [
                 "StandardScaler",
                 "MinMaxScaler",
@@ -336,7 +336,7 @@ class MultiRegressor:
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
                             f"'most_frequent', 'constant'] for numerical columns"
                         )
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
+
                     categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
@@ -522,7 +522,6 @@ class MultiRegressor:
         lassla = LassoLars(random_state=self.random_state)
         krid = KernelRidge()
         ard = ARDRegression()
-        # self.quant = QuantileRegressor()
         theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
 
         return (
@@ -863,8 +862,6 @@ class MultiRegressor:
             ):
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
             self.__shape = X_tr.shape
-            model = self.initialize()
-            names = self.regression_model_names()
 
             if self.select_models is None:
                 model = self.initialize()
