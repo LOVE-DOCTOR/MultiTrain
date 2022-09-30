@@ -68,16 +68,13 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-<<<<<<< HEAD
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
-=======
 from sklearn.preprocessing import (
     StandardScaler,
     MinMaxScaler,
     RobustScaler,
     Normalizer,
 )
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
 from sklearn.svm import LinearSVR
 from sklearn.tree import ExtraTreeRegressor, DecisionTreeRegressor
 from sklearn.svm import SVR, NuSVR
@@ -175,8 +172,6 @@ class MultiRegressor:
         ]
         return model_names
 
-<<<<<<< HEAD
-=======
     def _select_few_models(self):
         model_dict = {
             "LinearRegression": LinearRegression(n_jobs=self.cores),
@@ -191,19 +186,11 @@ class MultiRegressor:
                 random_state=self.random_state
             ),
             "SVR": SVR(),
-            "BaggingRegressor": BaggingRegressor(
-                random_state=self.random_state
-            ),
+            "BaggingRegressor": BaggingRegressor(random_state=self.random_state),
             "NuSVR": NuSVR(),
-            "ExtraTreeRegressor": ExtraTreeRegressor(
-                random_state=self.random_state
-            ),
-            "ExtraTreesRegressor": ExtraTreesRegressor(
-                random_state=self.random_state
-            ),
-            "AdaBoostRegressor": AdaBoostRegressor(
-                random_state=self.random_state
-            ),
+            "ExtraTreeRegressor": ExtraTreeRegressor(random_state=self.random_state),
+            "ExtraTreesRegressor": ExtraTreesRegressor(random_state=self.random_state),
+            "AdaBoostRegressor": AdaBoostRegressor(random_state=self.random_state),
             "PoissonRegressor": PoissonRegressor(),
             "LGBMRegressor": LGBMRegressor(random_state=self.random_state),
             "KNeighborsRegressor": KNeighborsRegressor(),
@@ -222,9 +209,7 @@ class MultiRegressor:
                 n_jobs=self.cores, random_state=self.random_state
             ),
             "ElasticNet": ElasticNet(random_state=self.random_state),
-            "LassoCV": LassoCV(
-                n_jobs=self.cores, random_state=self.random_state
-            ),
+            "LassoCV": LassoCV(n_jobs=self.cores, random_state=self.random_state),
             "LassoLarsIC": LassoLarsIC(),
             "LassoLarsCV": LassoLarsCV(),
             "Lars": Lars(random_state=self.random_state),
@@ -272,7 +257,6 @@ class MultiRegressor:
                     )
         return custom_models, name
 
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
     def split(
         self,
         X: any,
@@ -328,16 +312,13 @@ class MultiRegressor:
         else:
             # values for normalize
 
-<<<<<<< HEAD
             norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
-=======
             norm = [
                 "StandardScaler",
                 "MinMaxScaler",
                 "RobustScaler",
                 "Normalizer",
             ]
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
             if missing_values:
                 if isinstance(missing_values, dict):
                     if missing_values["cat"] != "most_frequent":
@@ -355,13 +336,8 @@ class MultiRegressor:
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
                             f"'most_frequent', 'constant'] for numerical columns"
                         )
-<<<<<<< HEAD
                     categorical_values, numerical_values = _get_cat_num(missing_values)
-=======
-                    categorical_values, numerical_values = _get_cat_num(
-                        missing_values
-                    )
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
@@ -369,18 +345,13 @@ class MultiRegressor:
                     raise TypeError(
                         f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
                     )
-<<<<<<< HEAD
-=======
             if encode is not None:
                 X = _dummy(X, encode)
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
 
             if strat is True:
 
                 if shuffle_data is False:
-                    raise TypeError(
-                        "shuffle_data can only be False if strat is False"
-                    )
+                    raise TypeError("shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
                     X_train, X_test, y_train, y_test = train_test_split(
@@ -426,14 +397,10 @@ class MultiRegressor:
                                         elif normalize == "Normalizer":
                                             scale = Normalizer()
 
-                                        X_train[
-                                            columns_to_scale
-                                        ] = scale.fit_transform(
+                                        X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
                                         )
-                                        X_test[
-                                            columns_to_scale
-                                        ] = scale.transform(
+                                        X_test[columns_to_scale] = scale.transform(
                                             X_test[columns_to_scale]
                                         )
 
@@ -475,12 +442,7 @@ class MultiRegressor:
                                 elif normalize == "Normalizer":
                                     scale = Normalizer()
 
-                                (
-                                    X_train,
-                                    X_test,
-                                    y_train,
-                                    y_test,
-                                ) = train_test_split(
+                                (X_train, X_test, y_train, y_test,) = train_test_split(
                                     X,
                                     y,
                                     test_size=sizeOfTest,
@@ -489,9 +451,7 @@ class MultiRegressor:
                                     shuffle=shuffle_data,
                                 )
 
-                                X_train[
-                                    columns_to_scale
-                                ] = scale.fit_transform(
+                                X_train[columns_to_scale] = scale.fit_transform(
                                     X_train[columns_to_scale]
                                 )
                                 X_test[columns_to_scale] = scale.transform(
@@ -563,9 +523,7 @@ class MultiRegressor:
         krid = KernelRidge()
         ard = ARDRegression()
         # self.quant = QuantileRegressor()
-        theil = TheilSenRegressor(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
 
         return (
             lr,
@@ -702,12 +660,8 @@ class MultiRegressor:
             if train_score is True:
                 mean_train_mae = scores["train_neg_mean_absolute_error"].mean()
                 mean_test_mae = scores["test_neg_mean_absolute_error"].mean()
-                mean_train_rmse = scores[
-                    "train_neg_root_mean_squared_error"
-                ].mean()
-                mean_test_rmse = scores[
-                    "test_neg_root_mean_squared_error"
-                ].mean()
+                mean_train_rmse = scores["train_neg_root_mean_squared_error"].mean()
+                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean()
                 mean_train_r2 = scores["train_r2"].mean()
                 mean_test_r2 = scores["test_r2"].mean()
                 mean_train_rmsle = np.sqrt(
@@ -716,12 +670,8 @@ class MultiRegressor:
                 mean_test_rmsle = np.sqrt(
                     scores["test_neg_mean_squared_log_error"].mean()
                 )
-                mean_train_meae = scores[
-                    "train_neg_median_absolute_error"
-                ].mean()
-                mean_test_meae = scores[
-                    "test_neg_median_absolute_error"
-                ].mean()
+                mean_train_meae = scores["train_neg_median_absolute_error"].mean()
+                mean_test_meae = scores["test_neg_median_absolute_error"].mean()
                 mean_train_mape = scores[
                     "train_neg_mean_absolute_percentage_error"
                 ].mean()
@@ -749,16 +699,12 @@ class MultiRegressor:
 
             elif train_score is False:
                 mean_test_mae = scores["test_neg_mean_absolute_error"].mean()
-                mean_test_rmse = scores[
-                    "test_neg_root_mean_squared_error"
-                ].mean()
+                mean_test_rmse = scores["test_neg_root_mean_squared_error"].mean()
                 mean_test_r2 = scores["test_r2"].mean()
                 mean_test_rmsle = np.sqrt(
                     scores["test_neg_mean_squared_log_error"].mean()
                 )
-                mean_test_meae = scores[
-                    "test_neg_median_absolute_error"
-                ].mean()
+                mean_test_meae = scores["test_neg_median_absolute_error"].mean()
                 mean_test_mape = scores[
                     "test_neg_mean_absolute_percentage_error"
                 ].mean()
@@ -870,9 +816,7 @@ class MultiRegressor:
                     "split_data"
                 )
 
-        if kf is True and (
-            X is None or y is None or (X is None and y is None)
-        ):
+        if kf is True and (X is None or y is None or (X is None and y is None)):
             raise ValueError("Set the values of features X and target y")
 
         if isinstance(splitting, bool):
@@ -918,11 +862,9 @@ class MultiRegressor:
                 and y_test is not None
             ):
                 X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-<<<<<<< HEAD
             self.__shape = X_tr.shape
             model = self.initialize()
             names = self.regression_model_names()
-=======
 
             if self.select_models is None:
                 model = self.initialize()
@@ -930,7 +872,6 @@ class MultiRegressor:
             else:
                 model, names = self._custom()
 
->>>>>>> 9668f8beb9d805f40cfa877f422d8704ed7c38b2
             dataframe = {}
             bar = trange(
                 len(model),
@@ -1304,9 +1245,7 @@ class MultiRegressor:
             )
         if kf is True:
             plt.figure(figsize=size)
-            plot = sns.barplot(
-                x="model_names", y="Neg Mean Absolute Error", data=param
-            )
+            plot = sns.barplot(x="model_names", y="Neg Mean Absolute Error", data=param)
             plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
             plt.title("Neg Mean Absolute Error")
 
@@ -1370,9 +1309,7 @@ class MultiRegressor:
 
         elif t_split is True:
             plt.figure(figsize=size)
-            plot = sns.barplot(
-                x="model_names", y="Mean Absolute Error", data=param
-            )
+            plot = sns.barplot(x="model_names", y="Mean Absolute Error", data=param)
             plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
             plt.title("Mean Absolute Error")
 
@@ -1495,9 +1432,7 @@ class MultiRegressor:
                 display(fig)
                 if save is True:
                     if save_name is None:
-                        raise Exception(
-                            "set save to True before using save_name"
-                        )
+                        raise Exception("set save to True before using save_name")
 
                     else:
                         img_plotly(
@@ -1543,9 +1478,7 @@ class MultiRegressor:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         else:
                             img_plotly(
