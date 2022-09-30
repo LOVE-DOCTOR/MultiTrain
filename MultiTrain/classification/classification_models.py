@@ -94,6 +94,7 @@ from sklearn.naive_bayes import (
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
+
 from sklearn.preprocessing import (
     FunctionTransformer,
     Normalizer,
@@ -107,6 +108,15 @@ from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from skopt import BayesSearchCV
 from xgboost import XGBClassifier
 
+from MultiTrain.errors.exceptions import (
+    raise_text_error,
+    raise_imbalanced_error,
+    raise_kfold1_error,
+    raise_split_data_error,
+    raise_fold_type_error,
+    raise_kfold2_error,
+    raise_self_splitting_error,
+)
 from MultiTrain.methods.multitrain_methods import (
     directory,
     img,
@@ -156,27 +166,19 @@ class MultiClassifier:
             "SVMSMOTE",
         ]
         self.oversampling_methods = [
-            SMOTE(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
             RandomOverSampler(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            SMOTEN(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
-            ADASYN(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SMOTEN(sampling_strategy=self.strategy, random_state=self.random_state),
+            ADASYN(sampling_strategy=self.strategy, random_state=self.random_state),
             BorderlineSMOTE(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
             KMeansSMOTE(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
-            SVMSMOTE(
-                sampling_strategy=self.strategy, random_state=self.random_state
-            ),
+            SVMSMOTE(sampling_strategy=self.strategy, random_state=self.random_state),
         ]
 
         self.undersampling_list = [
@@ -197,9 +199,7 @@ class MultiClassifier:
                 random_state=self.random_state,
                 n_jobs=self.cores,
             ),
-            EditedNearestNeighbours(
-                sampling_strategy=self.strategy, n_jobs=self.cores
-            ),
+            EditedNearestNeighbours(sampling_strategy=self.strategy, n_jobs=self.cores),
             RepeatedEditedNearestNeighbours(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
@@ -213,9 +213,7 @@ class MultiClassifier:
             NeighbourhoodCleaningRule(
                 sampling_strategy=self.strategy, n_jobs=self.cores
             ),
-            OneSidedSelection(
-                sampling_strategy=self.strategy, n_jobs=self.cores
-            ),
+            OneSidedSelection(sampling_strategy=self.strategy, n_jobs=self.cores),
             RandomUnderSampler(
                 sampling_strategy=self.strategy, random_state=self.random_state
             ),
@@ -357,9 +355,7 @@ class MultiClassifier:
             "LogisticRegression": LogisticRegression(
                 n_jobs=self.cores, random_state=self.random_state
             ),
-            "LogisticRegressionCV": LogisticRegressionCV(
-                n_jobs=self.cores, refit=True
-            ),
+            "LogisticRegressionCV": LogisticRegressionCV(n_jobs=self.cores, refit=True),
             "SGDClassifier": SGDClassifier(
                 n_jobs=self.cores, random_state=self.random_state
             ),
@@ -375,9 +371,7 @@ class MultiClassifier:
             "HistGradientBoostingClassifier": HistGradientBoostingClassifier(
                 random_state=self.random_state
             ),
-            "AdaBoostClassifier": AdaBoostClassifier(
-                random_state=self.random_state
-            ),
+            "AdaBoostClassifier": AdaBoostClassifier(random_state=self.random_state),
             "CatBoostClassifier": CatBoostClassifier(
                 thread_count=self.cores,
                 verbose=False,
@@ -404,9 +398,7 @@ class MultiClassifier:
                 n_jobs=self.cores, random_state=self.random_state
             ),
             "RidgeClassifier": RidgeClassifier(random_state=self.random_state),
-            "ExtraTreeClassifier": ExtraTreeClassifier(
-                random_state=self.random_state
-            ),
+            "ExtraTreeClassifier": ExtraTreeClassifier(random_state=self.random_state),
             "QuadraticDiscriminantAnalysis": QuadraticDiscriminantAnalysis(),
             "LinearSVC": LinearSVC(random_state=self.random_state),
             "BaggingClassifier": BaggingClassifier(
@@ -415,9 +407,7 @@ class MultiClassifier:
             "BalancedBaggingClassifier": BalancedBaggingClassifier(
                 n_jobs=self.cores, random_state=self.random_state
             ),
-            "Perceptron": Perceptron(
-                n_jobs=self.cores, random_state=self.random_state
-            ),
+            "Perceptron": Perceptron(n_jobs=self.cores, random_state=self.random_state),
             "NuSVC": NuSVC(random_state=self.random_state),
             "LGBMClassifier": LGBMClassifier(random_state=self.random_state),
         }
@@ -526,9 +516,7 @@ class MultiClassifier:
                             f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
                             f"'most_frequent'] for numerical columns"
                         )
-                    categorical_values, numerical_values = _get_cat_num(
-                        missing_values
-                    )
+                    categorical_values, numerical_values = _get_cat_num(missing_values)
                     cat, num = _fill(categorical_values, numerical_values)
                     X = _fill_columns(cat, num, X)
 
@@ -543,9 +531,7 @@ class MultiClassifier:
             if strat is True:
 
                 if shuffle_data is False:
-                    raise TypeError(
-                        "shuffle_data can only be False if strat is False"
-                    )
+                    raise TypeError("shuffle_data can only be False if strat is False")
 
                 elif shuffle_data is True:
                     X_train, X_test, y_train, y_test = train_test_split(
@@ -591,14 +577,10 @@ class MultiClassifier:
                                         elif normalize == "Normalizer":
                                             scale = Normalizer()
 
-                                        X_train[
-                                            columns_to_scale
-                                        ] = scale.fit_transform(
+                                        X_train[columns_to_scale] = scale.fit_transform(
                                             X_train[columns_to_scale]
                                         )
-                                        X_test[
-                                            columns_to_scale
-                                        ] = scale.transform(
+                                        X_test[columns_to_scale] = scale.transform(
                                             X_test[columns_to_scale]
                                         )
 
@@ -610,9 +592,7 @@ class MultiClassifier:
                                         X_test = pca.transform(X_test)
                                         return X_train, X_test, y_train, y_test
                                     else:
-                                        raise ValueError(
-                                            f"{normalize} not in {norm}"
-                                        )
+                                        raise ValueError(f"{normalize} not in {norm}")
 
             else:
                 norm = [
@@ -644,12 +624,7 @@ class MultiClassifier:
                                 elif normalize == "Normalizer":
                                     scale = Normalizer()
 
-                                (
-                                    X_train,
-                                    X_test,
-                                    y_train,
-                                    y_test,
-                                ) = train_test_split(
+                                (X_train, X_test, y_train, y_test,) = train_test_split(
                                     X,
                                     y,
                                     test_size=sizeOfTest,
@@ -658,9 +633,7 @@ class MultiClassifier:
                                     shuffle=shuffle_data,
                                 )
 
-                                X_train[
-                                    columns_to_scale
-                                ] = scale.fit_transform(
+                                X_train[columns_to_scale] = scale.fit_transform(
                                     X_train[columns_to_scale]
                                 )
                                 X_test[columns_to_scale] = scale.transform(
@@ -726,17 +699,13 @@ class MultiClassifier:
         #    if self.timeout is False:
         #        logger.info('It is recommended to set a timeout to avoid longer training times')
 
-        lr = LogisticRegression(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        lr = LogisticRegression(n_jobs=self.cores, random_state=self.random_state)
         lrcv = LogisticRegressionCV(n_jobs=self.cores, refit=True)
         sgdc = SGDClassifier(n_jobs=self.cores, random_state=self.random_state)
         pagg = PassiveAggressiveClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
-        rfc = RandomForestClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        rfc = RandomForestClassifier(n_jobs=self.cores, random_state=self.random_state)
         gbc = GradientBoostingClassifier(random_state=self.random_state)
         hgbc = HistGradientBoostingClassifier(random_state=self.random_state)
         abc = AdaBoostClassifier(random_state=self.random_state)
@@ -760,18 +729,14 @@ class MultiClassifier:
         bnb = BernoulliNB()
         mnb = MultinomialNB()
         conb = ComplementNB()
-        etcs = ExtraTreesClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        etcs = ExtraTreesClassifier(n_jobs=self.cores, random_state=self.random_state)
         rcl = RidgeClassifier(random_state=self.random_state)
         rclv = RidgeClassifierCV()
         etc = ExtraTreeClassifier(random_state=self.random_state)
         # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         qda = QuadraticDiscriminantAnalysis()
         lsvc = LinearSVC(random_state=self.random_state)
-        bc = BaggingClassifier(
-            n_jobs=self.cores, random_state=self.random_state
-        )
+        bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
         bbc = BalancedBaggingClassifier(
             n_jobs=self.cores, random_state=self.random_state
         )
@@ -936,9 +901,7 @@ class MultiClassifier:
                     train_stdev = scores["train_accuracy"].std()
                     test_stdev = scores["test_accuracy"].std()
                     overfitting = (
-                        True
-                        if (mean_train_acc - mean_test_acc) > 0.1
-                        else False
+                        True if (mean_train_acc - mean_test_acc) > 0.1 else False
                     )
                 except Exception:
                     logger.error(f"{names[i]} unable to fit properly")
@@ -949,12 +912,7 @@ class MultiClassifier:
                     )
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
-                    (
-                        mean_train_f1,
-                        mean_test_f1,
-                        mean_train_r2,
-                        mean_test_r2,
-                    ) = (
+                    (mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,) = (
                         np.nan,
                         np.nan,
                         np.nan,
@@ -1071,9 +1029,7 @@ class MultiClassifier:
 
                 if train_score is True:
 
-                    mean_train_precision = scores[
-                        "train_precision_macro"
-                    ].mean()
+                    mean_train_precision = scores["train_precision_macro"].mean()
                     mean_test_precision = scores["test_precision_macro"].mean()
                     mean_train_f1 = scores["train_f1_macro"].mean()
                     mean_test_f1 = scores["test_f1_macro"].mean()
@@ -1111,8 +1067,8 @@ class MultiClassifier:
 
     def fit(
         self,
-        X: str = None,
-        y: str = None,
+        X,
+        y=None,
         split_self: bool = False,
         X_train: str = None,
         X_test: str = None,
@@ -1179,467 +1135,373 @@ class MultiClassifier:
         target_class = (
             _check_target(y) if y is not None else _check_target(split_data[3])
         )
-        if text:
-            if isinstance(text, bool) is False:
-                raise TypeError(
-                    "parameter text is of type bool only. set to true or false"
-                )
+        raise_self_splitting_error(split_self, X_train, X_test, y_train, y_test)
 
-            if text is False:
-                if vectorizer is not None:
-                    raise Exception(
-                        "parameter vectorizer can only be accepted when parameter text is True"
+        try:
+            if splitting is True or split_self is True:
+                if splitting and split_data:
+                    X_tr, X_te, y_tr, y_te = (
+                        split_data[0],
+                        split_data[1],
+                        split_data[2],
+                        split_data[3],
                     )
-
-                if ngrams is not None:
-                    raise Exception(
-                        "parameter ngrams can only be accepted when parameter text is True"
-                    )
-
-        if self.imbalanced is False:
-            if self.sampling:
-                raise Exception(
-                    'this parameter can only be used if "imbalanced" is set to True'
+                elif (
+                    X_train is not None
+                    and X_test is not None
+                    and y_train is not None
+                    and y_test is not None
+                ):
+                    X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
+                if self.select_models is None:
+                    model = self._initialize_()
+                    names = self.classifier_model_names()
+                else:
+                    model, names = self._custom()
+                dataframe = {}
+                bar = trange(
+                    len(model),
+                    desc="Training in progress: ",
+                    bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
                 )
+                for index in bar:
+                    bar.set_postfix({"Model ": names[index]})
+                    start = time.time()
 
-        if isinstance(splitting, bool) is False:
-            raise TypeError(
-                f"You can only declare object type 'bool' in splitting. Try splitting = False or splitting = True "
-                f"instead of splitting = {splitting}"
-            )
+                    if text is False:
+                        if self.imbalanced is False:
+                            try:
+                                model[index].fit(X_tr, y_tr)
+                            except ValueError:
+                                logger.error(f"{names[index]} unable to fit properly")
+                                pass
 
-        if isinstance(kf, bool) is False:
-            raise TypeError(
-                f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
-                f"instead of kf = {kf}"
-            )
+                        elif self.imbalanced is True:
+                            method = self._get_sample_index_method()
 
-        if isinstance(fold, int) is False:
-            raise TypeError(
-                "param fold is of type int, pass a integer to fold e.g fold = 5, where 5 is number of "
-                "splits you want to use for the cross validation procedure"
-            )
+                            if self.verbose is True:
+                                print(f"Before resampling: {Counter(y_tr)}")
+                            X_tr_, y_tr_ = method.fit_resample(X_tr, y_tr)
+                            if self.verbose is True:
+                                print(f"After resampling: {Counter(y_tr_)}")
+                                print("\n")
+                            try:
+                                model[index].fit(X_tr_, y_tr_)
+                            except ValueError:
+                                logger.error(f"{names[index]} unable to fit properly")
+                                pass
 
-        if kf:
-            if split_self is True:
-                raise Exception(
-                    "split_self should only be set to True when you split with train_test_split from "
-                    "sklearn.model_selection"
-                )
+                        end = time.time()
 
-            if splitting:
-                raise ValueError(
-                    "KFold cross validation cannot be true if splitting is true and splitting cannot be "
-                    "true if KFold is true"
-                )
-
-            if split_data:
-                raise ValueError(
-                    "split_data cannot be used with kf, set splitting to True to use param "
-                    "split_data"
-                )
-
-        if kf is True and (
-            X is None or y is None or (X is None and y is None)
-        ):
-            raise ValueError("Set the values of features X and target y")
-
-        if isinstance(splitting, bool):
-            if split_data is None:
-                raise ValueError(
-                    "You must pass in the return values of the split method to split_data if splitting "
-                    "is True"
-                )
-
-            if isinstance(split_data, tuple) is False:
-                raise TypeError(
-                    "You can only pass in the return values of the split method to split_data"
-                )
-
-        elif isinstance(splitting, bool) is False:
-            raise ValueError(
-                f"splitting can only be set to True or False, received {splitting}"
-            )
-
-        if split_data:
-            if isinstance(split_data, tuple) is False:
-                raise TypeError(
-                    "You can only pass in the return values of the split method to split_data"
-                )
-
-            if splitting is None:
-                raise ValueError(
-                    "You must set splitting to True or False if the split_data parameter is used"
-                )
-
-        if splitting is True or split_self is True:
-            if splitting and split_data:
-                X_tr, X_te, y_tr, y_te = (
-                    split_data[0],
-                    split_data[1],
-                    split_data[2],
-                    split_data[3],
-                )
-            elif (
-                X_train is not None
-                and X_test is not None
-                and y_train is not None
-                and y_test is not None
-            ):
-                X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-            if self.select_models is None:
-                model = self._initialize_()
-                names = self.classifier_model_names()
-            else:
-                model, names = self._custom()
-            dataframe = {}
-            bar = trange(
-                len(model),
-                desc="Training in progress: ",
-                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
-            )
-            for index in bar:
-                bar.set_postfix({"Model ": names[index]})
-                start = time.time()
-
-                if text is False:
-                    if self.imbalanced is False:
                         try:
-                            model[index].fit(X_tr, y_tr)
-                        except ValueError:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
+
+                            pred = model[index].predict(X_te)
+
+                            pred_train = model[index].predict(X_tr)
+                        except AttributeError:
                             pass
 
-                    elif self.imbalanced is True:
-                        method = self._get_sample_index_method()
+                    elif text is True:
 
-                        if self.verbose is True:
-                            print(f"Before resampling: {Counter(y_tr)}")
-                        X_tr_, y_tr_ = method.fit_resample(X_tr, y_tr)
-                        if self.verbose is True:
-                            print(f"After resampling: {Counter(y_tr_)}")
-                            print("\n")
-                        try:
-                            model[index].fit(X_tr_, y_tr_)
-                        except ValueError:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
-                            )
-                            pass
+                        if vectorizer == "count":
+                            try:
+                                try:
+                                    pipeline = make_pipeline(
+                                        CountVectorizer(ngram_range=ngrams),
+                                        model[index],
+                                    )
 
-                    end = time.time()
+                                    pipeline.fit(X_tr, y_tr)
+                                    pred = pipeline.predict(X_te)
+                                    pred_train = pipeline.predict(X_tr)
 
+                                except Exception:
+                                    # This is a fix for the error below when using gradient boosting classifier or
+                                    # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
+                                    # but dense data is required. Use X.toarray() to convert to a dense numpy array.
+                                    pipeline = make_pipeline(
+                                        CountVectorizer(ngram_range=ngrams),
+                                        FunctionTransformer(
+                                            lambda x: x.todense(),
+                                            accept_sparse=True,
+                                        ),
+                                        model[index],
+                                    )
+                                    pipeline.fit(X_tr, y_tr)
+                                    pred = pipeline.predict(X_te)
+
+                                    pred_train = pipeline.predict(X_tr)
+
+                            except Exception:
+                                logger.error(f"{names[index]} unable to fit properly")
+
+                        elif vectorizer == "tfidf":
+                            try:
+                                try:
+                                    pipeline = make_pipeline(
+                                        TfidfVectorizer(ngram_range=ngrams),
+                                        model[index],
+                                    )
+
+                                    pipeline.fit(X_tr, y_tr)
+                                    pred = pipeline.predict(X_te)
+
+                                    pred_train = pipeline.predict(X_tr)
+
+                                except Exception:
+                                    # This is a fix for the error below when using gradient boosting classifier or
+                                    # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
+                                    # but dense data is required. Use X.toarray() to convert to a dense numpy array.
+                                    pipeline = make_pipeline(
+                                        TfidfVectorizer(ngram_range=ngrams),
+                                        FunctionTransformer(
+                                            lambda x: x.todense(),
+                                            accept_sparse=True,
+                                        ),
+                                        model[index],
+                                    )
+                                    pipeline.fit(X_tr, y_tr)
+
+                            except Exception:
+                                logger.error(f"{names[index]} unable to fit properly")
+
+                        end = time.time()
+
+                    true = y_te
+                    true_train = y_tr
+
+                    acc = accuracy_score(true, pred)
+                    bacc = balanced_accuracy_score(true, pred)
+                    r2 = r2_score(true, pred)
                     try:
+                        roc = roc_auc_score(true, pred)
+                    except ValueError:
+                        roc = None
 
-                        pred = model[index].predict(X_te)
+                    if target_class == "binary":
+                        f1 = f1_score(true, pred)
+                        pre = precision_score(true, pred)
+                        rec = recall_score(true, pred)
 
-                        pred_train = model[index].predict(X_tr)
-                    except AttributeError:
-                        pass
+                    elif target_class == "multiclass":
+                        if self.imbalanced is True:
+                            f1 = f1_score(true, pred, average="micro")
+                            pre = precision_score(true, pred, average="micro")
+                            rec = recall_score(true, pred, average="micro")
+                        elif self.imbalanced is False:
+                            f1 = f1_score(true, pred, average="macro")
+                            pre = precision_score(true, pred, average="macro")
+                            rec = recall_score(true, pred, average="macro")
 
-                elif text is True:
+                    tacc = accuracy_score(true_train, pred_train)
+                    tbacc = balanced_accuracy_score(true_train, pred_train)
+                    tr2 = r2_score(true_train, pred_train)
+                    try:
+                        troc = roc_auc_score(true_train, pred_train)
+                    except ValueError:
 
-                    if vectorizer == "count":
-                        try:
-                            try:
-                                pipeline = make_pipeline(
-                                    CountVectorizer(ngram_range=ngrams),
-                                    model[index],
-                                )
+                        troc = None
 
-                                pipeline.fit(X_tr, y_tr)
-                                pred = pipeline.predict(X_te)
-                                pred_train = pipeline.predict(X_tr)
+                    if target_class == "binary":
+                        tf1 = f1_score(true_train, pred_train)
+                        tpre = precision_score(true_train, pred_train)
+                        trec = recall_score(true_train, pred_train)
 
-                            except Exception:
-                                # This is a fix for the error below when using gradient boosting classifier or
-                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
-                                # but dense data is required. Use X.toarray() to convert to a dense numpy array.
-                                pipeline = make_pipeline(
-                                    CountVectorizer(ngram_range=ngrams),
-                                    FunctionTransformer(
-                                        lambda x: x.todense(),
-                                        accept_sparse=True,
-                                    ),
-                                    model[index],
-                                )
-                                pipeline.fit(X_tr, y_tr)
-                                pred = pipeline.predict(X_te)
-
-                                pred_train = pipeline.predict(X_tr)
-
-                        except Exception:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
+                    elif target_class == "multiclass":
+                        if self.imbalanced is True:
+                            tf1 = f1_score(true_train, pred_train, average="micro")
+                            tpre = precision_score(
+                                true_train, pred_train, average="micro"
                             )
+                            trec = recall_score(true_train, pred_train, average="micro")
 
-                    elif vectorizer == "tfidf":
-                        try:
-                            try:
-                                pipeline = make_pipeline(
-                                    TfidfVectorizer(ngram_range=ngrams),
-                                    model[index],
-                                )
-
-                                pipeline.fit(X_tr, y_tr)
-                                pred = pipeline.predict(X_te)
-
-                                pred_train = pipeline.predict(X_tr)
-
-                            except Exception:
-                                # This is a fix for the error below when using gradient boosting classifier or
-                                # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
-                                # but dense data is required. Use X.toarray() to convert to a dense numpy array.
-                                pipeline = make_pipeline(
-                                    TfidfVectorizer(ngram_range=ngrams),
-                                    FunctionTransformer(
-                                        lambda x: x.todense(),
-                                        accept_sparse=True,
-                                    ),
-                                    model[index],
-                                )
-                                pipeline.fit(X_tr, y_tr)
-
-                        except Exception:
-                            logger.error(
-                                f"{names[index]} unable to fit properly"
+                        elif self.imbalanced is False:
+                            tf1 = f1_score(true_train, pred_train, average="macro")
+                            tpre = precision_score(
+                                true_train, pred_train, average="macro"
                             )
+                            trec = recall_score(true_train, pred_train, average="macro")
 
-                    end = time.time()
+                    overfit = True if (tacc - acc) > 0.1 else False
+                    time_taken = round(end - start, 2)
 
-                true = y_te
-                true_train = y_tr
+                    if show_train_score is False:
+                        eval_bin = [
+                            overfit,
+                            acc,
+                            bacc,
+                            r2,
+                            roc,
+                            f1,
+                            pre,
+                            rec,
+                            time_taken,
+                        ]
+                        eval_mul = [
+                            overfit,
+                            acc,
+                            bacc,
+                            r2,
+                            f1,
+                            pre,
+                            rec,
+                            time_taken,
+                        ]
 
-                acc = accuracy_score(true, pred)
-                bacc = balanced_accuracy_score(true, pred)
-                r2 = r2_score(true, pred)
-                try:
-                    roc = roc_auc_score(true, pred)
-                except ValueError:
-                    roc = None
+                    elif show_train_score is True:
+                        eval_bin = [
+                            overfit,
+                            tacc,
+                            acc,
+                            tbacc,
+                            bacc,
+                            tr2,
+                            r2,
+                            troc,
+                            roc,
+                            tf1,
+                            f1,
+                            tpre,
+                            pre,
+                            trec,
+                            rec,
+                            time_taken,
+                        ]
+                        eval_mul = [
+                            overfit,
+                            tacc,
+                            acc,
+                            tbacc,
+                            bacc,
+                            tr2,
+                            r2,
+                            tf1,
+                            f1,
+                            tpre,
+                            pre,
+                            trec,
+                            rec,
+                            time_taken,
+                        ]
 
-                if target_class == "binary":
-                    f1 = f1_score(true, pred)
-                    pre = precision_score(true, pred)
-                    rec = recall_score(true, pred)
-
-                elif target_class == "multiclass":
-                    if self.imbalanced is True:
-                        f1 = f1_score(true, pred, average="micro")
-                        pre = precision_score(true, pred, average="micro")
-                        rec = recall_score(true, pred, average="micro")
-                    elif self.imbalanced is False:
-                        f1 = f1_score(true, pred, average="macro")
-                        pre = precision_score(true, pred, average="macro")
-                        rec = recall_score(true, pred, average="macro")
-
-                tacc = accuracy_score(true_train, pred_train)
-                tbacc = balanced_accuracy_score(true_train, pred_train)
-                tr2 = r2_score(true_train, pred_train)
-                try:
-                    troc = roc_auc_score(true_train, pred_train)
-                except ValueError:
-
-                    troc = None
-
-                if target_class == "binary":
-                    tf1 = f1_score(true_train, pred_train)
-                    tpre = precision_score(true_train, pred_train)
-                    trec = recall_score(true_train, pred_train)
-
-                elif target_class == "multiclass":
-                    if self.imbalanced is True:
-                        tf1 = f1_score(true_train, pred_train, average="micro")
-                        tpre = precision_score(
-                            true_train, pred_train, average="micro"
-                        )
-                        trec = recall_score(
-                            true_train, pred_train, average="micro"
-                        )
-
-                    elif self.imbalanced is False:
-                        tf1 = f1_score(true_train, pred_train, average="macro")
-                        tpre = precision_score(
-                            true_train, pred_train, average="macro"
-                        )
-                        trec = recall_score(
-                            true_train, pred_train, average="macro"
-                        )
-
-                overfit = True if (tacc - acc) > 0.1 else False
-                time_taken = round(end - start, 2)
+                    if target_class == "binary":
+                        dataframe.update({names[index]: eval_bin})
+                    elif target_class == "multiclass":
+                        dataframe.update({names[index]: eval_mul})
 
                 if show_train_score is False:
-                    eval_bin = [
-                        overfit,
-                        acc,
-                        bacc,
-                        r2,
-                        roc,
-                        f1,
-                        pre,
-                        rec,
-                        time_taken,
-                    ]
-                    eval_mul = [
-                        overfit,
-                        acc,
-                        bacc,
-                        r2,
-                        f1,
-                        pre,
-                        rec,
-                        time_taken,
-                    ]
+                    if target_class == "binary":
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.t_split_binary_columns_test,
+                        )
+
+                    elif target_class == "multiclass":
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.t_split_multiclass_columns_test,
+                        )
 
                 elif show_train_score is True:
-                    eval_bin = [
-                        overfit,
-                        tacc,
-                        acc,
-                        tbacc,
-                        bacc,
-                        tr2,
-                        r2,
-                        troc,
-                        roc,
-                        tf1,
-                        f1,
-                        tpre,
-                        pre,
-                        trec,
-                        rec,
-                        time_taken,
-                    ]
-                    eval_mul = [
-                        overfit,
-                        tacc,
-                        acc,
-                        tbacc,
-                        bacc,
-                        tr2,
-                        r2,
-                        tf1,
-                        f1,
-                        tpre,
-                        pre,
-                        trec,
-                        rec,
-                        time_taken,
-                    ]
+                    if target_class == "binary":
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.t_split_binary_columns_train,
+                        )
+
+                    elif target_class == "multiclass":
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.t_split_multiclass_columns_train,
+                        )
+
+                if return_best_model is not None:
+                    logger.info(f"BEST MODEL BASED ON {return_best_model}")
+                    retrieve_df = df.reset_index()
+                    logger.info(
+                        f'The best model based on the {return_best_model} metric is {retrieve_df["index"][0]}'
+                    )
+                    display(df.sort_values(by=return_best_model, ascending=False))
+
+                elif return_best_model is None:
+                    display(df.style.highlight_max(color="yellow"))
+
+                write_to_excel(excel, df)
+                return df
+
+            elif kf is True:
+
+                # Fitting the models and predicting the values of the test set.
+                if self.select_models is None:
+                    KFoldModel = self._initialize_()
+                    names = self.classifier_model_names()
+                else:
+                    KFoldModel, names = self._custom()
 
                 if target_class == "binary":
-                    dataframe.update({names[index]: eval_bin})
+                    logger.info("Training started")
+                    dataframe = self._startKFold_(
+                        param=KFoldModel,
+                        param_X=X,
+                        param_y=y,
+                        param_cv=fold,
+                        train_score=show_train_score,
+                    )
+
+                    if show_train_score is True:
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.kf_binary_columns_train,
+                        )
+
+                    elif show_train_score is False:
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.kf_binary_columns_test,
+                        )
+
+                    kf_ = kf_best_model(df, return_best_model, excel)
+                    return kf_
+
                 elif target_class == "multiclass":
-                    dataframe.update({names[index]: eval_mul})
-
-            if show_train_score is False:
-                if target_class == "binary":
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.t_split_binary_columns_test,
+                    logger.info("Training started")
+                    dataframe = self._startKFold_(
+                        param=KFoldModel,
+                        param_X=X,
+                        param_y=y,
+                        param_cv=fold,
+                        train_score=show_train_score,
                     )
 
-                elif target_class == "multiclass":
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.t_split_multiclass_columns_test,
-                    )
+                    if show_train_score is True:
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.kf_multiclass_columns_train,
+                        )
+                    elif show_train_score is False:
+                        df = pd.DataFrame.from_dict(
+                            dataframe,
+                            orient="index",
+                            columns=self.kf_multiclass_columns_test,
+                        )
 
-            elif show_train_score is True:
-                if target_class == "binary":
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.t_split_binary_columns_train,
-                    )
+                    kf_ = kf_best_model(df, return_best_model, excel)
+                    return kf_
 
-                elif target_class == "multiclass":
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.t_split_multiclass_columns_train,
-                    )
-
-            if return_best_model is not None:
-                logger.info(f"BEST MODEL BASED ON {return_best_model}")
-                retrieve_df = df.reset_index()
-                logger.info(
-                    f'The best model based on the {return_best_model} metric is {retrieve_df["index"][0]}'
-                )
-                display(df.sort_values(by=return_best_model, ascending=False))
-
-            elif return_best_model is None:
-                display(df.style.highlight_max(color="yellow"))
-
-            write_to_excel(excel, df)
-            return df
-
-        elif kf is True:
-
-            # Fitting the models and predicting the values of the test set.
-            if self.select_models is None:
-                KFoldModel = self._initialize_()
-                names = self.classifier_model_names()
-            else:
-                KFoldModel, names = self._custom()
-
-            if target_class == "binary":
-                logger.info("Training started")
-                dataframe = self._startKFold_(
-                    param=KFoldModel,
-                    param_X=X,
-                    param_y=y,
-                    param_cv=fold,
-                    train_score=show_train_score,
-                )
-
-                if show_train_score is True:
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.kf_binary_columns_train,
-                    )
-
-                elif show_train_score is False:
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.kf_binary_columns_test,
-                    )
-
-                kf_ = kf_best_model(df, return_best_model, excel)
-                return kf_
-
-            elif target_class == "multiclass":
-                logger.info("Training started")
-                dataframe = self._startKFold_(
-                    param=KFoldModel,
-                    param_X=X,
-                    param_y=y,
-                    param_cv=fold,
-                    train_score=show_train_score,
-                )
-
-                if show_train_score is True:
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.kf_multiclass_columns_train,
-                    )
-                elif show_train_score is False:
-                    df = pd.DataFrame.from_dict(
-                        dataframe,
-                        orient="index",
-                        columns=self.kf_multiclass_columns_test,
-                    )
-
-                kf_ = kf_best_model(df, return_best_model, excel)
-                return kf_
+        except Exception:
+            raise_text_error(text, vectorizer, ngrams)
+            raise_imbalanced_error(self.imbalanced, self.sampling)
+            raise_kfold1_error(kf, split_self, splitting, split_data)
+            raise_split_data_error(split_data, splitting)
+            raise_fold_type_error(fold)
+            raise_kfold2_error(kf, X, y)
 
     def use_model(self, df, model: str = None, best: str = None):
         """
@@ -2069,9 +1931,7 @@ class MultiClassifier:
             if target_class == "binary":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_binary_columns_train)):
-                    IMAGE_COLUMNS.append(
-                        self.kf_binary_columns_train[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.kf_binary_columns_train[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2090,9 +1950,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         else:
                             img_plotly(
@@ -2106,9 +1964,7 @@ class MultiClassifier:
             elif target_class == "multiclass":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.kf_multiclass_columns_train)):
-                    IMAGE_COLUMNS.append(
-                        self.kf_multiclass_columns_train[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.kf_multiclass_columns_train[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2127,9 +1983,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         elif save_name:
                             img_plotly(
@@ -2150,9 +2004,7 @@ class MultiClassifier:
             if target_class == "binary":
                 IMAGE_COLUMNS = []
                 for i in range(len(self.t_split_binary_columns_test)):
-                    IMAGE_COLUMNS.append(
-                        self.t_split_binary_columns_test[i] + ".png"
-                    )
+                    IMAGE_COLUMNS.append(self.t_split_binary_columns_test[i] + ".png")
 
                 if save is True:
                     dire = directory(save_name)
@@ -2171,9 +2023,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         else:
                             img_plotly(
@@ -2208,9 +2058,7 @@ class MultiClassifier:
                     display(fig)
                     if save is True:
                         if save_name is None:
-                            raise Exception(
-                                "set save to True before using save_name"
-                            )
+                            raise Exception("set save to True before using save_name")
 
                         elif save_name:
                             img_plotly(

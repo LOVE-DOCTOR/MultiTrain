@@ -125,7 +125,7 @@ def img(FILENAME: any, FILE_PATH: any, type_="file") -> None:
         fig = [plt.figure(n) for n in figureCount]
 
         for i in fig:
-            tt = i.savefig(
+            i.savefig(
                 FILE,
                 format="pdf",
                 dpi=550,
@@ -216,9 +216,7 @@ def t_best_model(df, best, excel):
 
 
 def _check_target(target):
-    target_class = (
-        "binary" if target.value_counts().count() == 2 else "multiclass"
-    )
+    target_class = "binary" if target.value_counts().count() == 2 else "multiclass"
     return target_class
 
 
@@ -275,9 +273,7 @@ def _dummy(features, encoder):
 
                     elif keys == "onehotencoder":
                         if isinstance(values, list):
-                            features = pd.get_dummies(
-                                features, columns=[values]
-                            )
+                            features = pd.get_dummies(features, columns=[values])
                         else:
                             raise TypeError(
                                 f"received a {type(values)} in dictionary values, pass a list instead"
@@ -292,6 +288,7 @@ def _dummy(features, encoder):
 
             else:
                 raise ValueError(
-                    f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary'
+                    f'the encoder parameter only supports "labelencoder", "onehotencoder", or a dictionary, '
+                    f"received {encoder} "
                 )
         return features

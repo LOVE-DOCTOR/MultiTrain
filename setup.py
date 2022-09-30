@@ -10,7 +10,8 @@ setup(
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
     maintainer_email='tunex885@gmail.com',
-    description="MultiTrain allows you to train multiple machine learning algorthims on a dataset all at once to determine the best for that particular use case",
+    description="MultiTrain allows you to train multiple machine learning algorthims on a dataset all at once to "
+                "determine the best for that particular use case",
     long_description=desc,
     long_description_content_type='text/markdown',
     keywords=['multitrain', 'multi', 'train', 'MultiTrain', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
@@ -50,5 +51,8 @@ setup(
                       "lightgbm==3.3.2",
                       "kaleido==0.2.1",
                       "threadpoolctl==3.1.0",
-                      "tqdm==4.64.0"]
+                      "tqdm==4.64.0",
+                      "jinja2==3.0.3",
+                      "openpyxl==3.0.10",
+                      "ipywidgets==8.0.2"]
 )
