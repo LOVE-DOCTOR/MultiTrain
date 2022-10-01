@@ -5,6 +5,8 @@
 - Added progress bar when training models
 - Added more understandable error message with fixes indicated
 - Fixed key error bug in use_model when specifying metric
+- Added implementation to improve algorithm speed
+- Downgraded sklearn version to support implementation
 
 # 0.12.3
 - Fixed bug that stopped models from training due to inconsistent number of columns
