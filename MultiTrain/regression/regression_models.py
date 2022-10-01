@@ -9,6 +9,8 @@ from IPython.display import display
 from lightgbm import LGBMRegressor
 from matplotlib import pyplot as plt
 import seaborn as sns
+from sklearnex import patch_sklearn
+patch_sklearn(global_patch=True)
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.dummy import DummyRegressor
