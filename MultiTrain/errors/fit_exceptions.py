@@ -87,4 +87,3 @@ def raise_fold_type_error(fold_):
 def raise_kfold2_error(kf_, X_, y_):
     if kf_ is True and (X_ is None or y_ is None or (X_ is None and y_ is None)):
         raise ValueError("Set the values of features X and target y when kf is True")
-

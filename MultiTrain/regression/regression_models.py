@@ -87,12 +87,20 @@ from skopt.learning import (
 from tqdm.notebook import trange
 from xgboost import XGBRegressor
 
-from MultiTrain.errors.exceptions import (
+from MultiTrain.errors.fit_exceptions import (
     raise_kfold1_error,
     raise_fold_type_error,
     raise_kfold2_error,
     raise_splitting_error,
-    raise_split_data_error
+    raise_split_data_error,
+)
+
+from MultiTrain.errors.split_exceptions import (
+    feature_label_type_error,
+    strat_error,
+    dimensionality_reduction_type_error,
+    test_size_error,
+    missing_values_error
 )
 
 from MultiTrain.methods.multitrain_methods import (
@@ -262,7 +270,7 @@ class MultiRegressor:
                 elif i not in self.regression_model_names():
                     raise ValueError(
                         f'{i} unknown, use the "regression_model_names" method to view the regression algorithms '
-                        f'available '
+                        f"available "
                     )
         return custom_models, name
 
@@ -300,25 +308,8 @@ class MultiRegressor:
         y = df["nameOfLabelColumn")
         split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
-        if isinstance(X, int or bool) or isinstance(y, int or bool):
-            raise ValueError(
-                f"{X} and {y} are not valid arguments for 'split'."
-                f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})"
-            )
-        elif isinstance(strat, bool) is False:
-            raise TypeError(
-                "argument of type int or str is not valid. Parameters for strat is either False or True"
-            )
 
-        elif isinstance(dimensionality_reduction, bool) is False:
-            raise TypeError(
-                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
-            )
-
-        elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
-
-        else:
+        try:
             # values for normalize
 
             norm = [
@@ -328,31 +319,10 @@ class MultiRegressor:
                 "Normalizer",
             ]
             if missing_values:
-                if isinstance(missing_values, dict):
-                    if missing_values["cat"] != "most_frequent":
-                        raise ValueError(
-                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns"
-                        )
-                    elif missing_values["num"] not in [
-                        "mean",
-                        "median",
-                        "most_frequent",
-                        "constant",
-                    ]:
-                        raise ValueError(
-                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent', 'constant'] for numerical columns"
-                        )
+                categorical_values, numerical_values = _get_cat_num(missing_values)
+                cat, num = _fill(categorical_values, numerical_values)
+                X = _fill_columns(cat, num, X)
 
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
-                    cat, num = _fill(categorical_values, numerical_values)
-                    X = _fill_columns(cat, num, X)
-
-                else:
-                    raise TypeError(
-                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
-                    )
             if encode is not None:
                 X = _dummy(X, encode)
 
@@ -481,6 +451,12 @@ class MultiRegressor:
                     )
 
                     return X_train, X_test, y_train, y_test
+        except Exception:
+            missing_values_error(missing_values)
+            feature_label_type_error(X, y)
+            strat_error(strat)
+            dimensionality_reduction_type_error(dimensionality_reduction)
+            test_size_error(sizeOfTest)
 
     def initialize(self):
         """
@@ -788,8 +764,10 @@ class MultiRegressor:
         fit(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
         if self.cores is None:
-            logger.info('It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the '
-                        'cpu, this reduces training time significantly')
+            logger.info(
+                "It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the "
+                "cpu, this reduces training time significantly"
+            )
         try:
             if splitting is True:
                 if splitting and split_data:

@@ -108,7 +108,7 @@ from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from skopt import BayesSearchCV
 from xgboost import XGBClassifier
 
-from MultiTrain.errors.exceptions import (
+from MultiTrain.errors.fit_exceptions import (
     raise_text_error,
     raise_imbalanced_error,
     raise_kfold1_error,
@@ -117,6 +117,14 @@ from MultiTrain.errors.exceptions import (
     raise_kfold2_error,
     raise_splitting_error,
 )
+from MultiTrain.errors.split_exceptions import (
+    feature_label_type_error,
+    strat_error,
+    dimensionality_reduction_type_error,
+    test_size_error,
+    missing_values_error,
+)
+
 from MultiTrain.methods.multitrain_methods import (
     directory,
     img,
@@ -139,14 +147,14 @@ warnings.filterwarnings("ignore")
 
 class MultiClassifier:
     def __init__(
-            self,
-            cores: Optional[int] = None,
-            random_state: int = randint(1000),
-            verbose: bool = False,
-            imbalanced: bool = False,
-            sampling: str = None,
-            strategy: str or float = "auto",
-            select_models: Union[list, tuple] = None,
+        self,
+        cores: Optional[int] = None,
+        random_state: int = randint(1000),
+        verbose: bool = False,
+        imbalanced: bool = False,
+        sampling: str = None,
+        strategy: str or float = "auto",
+        select_models: Union[list, tuple] = None,
     ) -> None:
 
         self.cores = cores
@@ -437,19 +445,19 @@ class MultiClassifier:
             )
 
     def split(
-            self,
-            X: any,
-            y: any,
-            strat: bool = False,
-            sizeOfTest: float = 0.2,
-            randomState: int = None,
-            shuffle_data: bool = True,
-            dimensionality_reduction: bool = False,
-            normalize: any = None,
-            columns_to_scale: list = None,
-            n_components: int = None,
-            missing_values: dict = None,
-            encode: Union[str, dict] = None,
+        self,
+        X: any,
+        y: any,
+        strat: bool = False,
+        sizeOfTest: float = 0.2,
+        randomState: int = None,
+        shuffle_data: bool = True,
+        dimensionality_reduction: bool = False,
+        normalize: any = None,
+        columns_to_scale: list = None,
+        n_components: int = None,
+        missing_values: dict = None,
+        encode: Union[str, dict] = None,
     ):
 
         global the_y
@@ -473,25 +481,8 @@ class MultiClassifier:
         y = df["nameOfLabelColumn")
         split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
-        if isinstance(X, int or bool) or isinstance(y, int or bool):
-            raise ValueError(
-                f"{X} and {y} are not valid arguments for 'split'."
-                f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})"
-            )
-        elif isinstance(strat, bool) is False:
-            raise TypeError(
-                "argument of type int or str is not valid. Parameters for strat is either False or True"
-            )
 
-        elif isinstance(dimensionality_reduction, bool) is False:
-            raise TypeError(
-                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
-            )
-
-        elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
-
-        else:
+        try:
             # values for normalize
             norm = [
                 "StandardScaler",
@@ -501,29 +492,9 @@ class MultiClassifier:
             ]
 
             if missing_values:
-                if isinstance(missing_values, dict):
-                    if missing_values["cat"] != "most_frequent":
-                        raise ValueError(
-                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns"
-                        )
-                    elif missing_values["num"] not in [
-                        "mean",
-                        "median",
-                        "most_frequent",
-                    ]:
-                        raise ValueError(
-                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent'] for numerical columns"
-                        )
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
-                    cat, num = _fill(categorical_values, numerical_values)
-                    X = _fill_columns(cat, num, X)
-
-                else:
-                    raise TypeError(
-                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
-                    )
+                categorical_values, numerical_values = _get_cat_num(missing_values)
+                cat, num = _fill(categorical_values, numerical_values)
+                X = _fill_columns(cat, num, X)
 
             if encode is not None:
                 X = _dummy(X, encode)
@@ -655,6 +626,13 @@ class MultiClassifier:
                     )
 
                     return X_train, X_test, y_train, y_test
+
+        except Exception:
+            feature_label_type_error(X, y)
+            strat_error(strat)
+            dimensionality_reduction_type_error(dimensionality_reduction)
+            test_size_error(sizeOfTest)
+            missing_values_error(missing_values)
 
     def classifier_model_names(self) -> list:
         model_names = [
@@ -1077,19 +1055,19 @@ class MultiClassifier:
             return dataframe
 
     def fit(
-            self,
-            X=None,
-            y=None,
-            split_data=None,
-            splitting: bool = False,
-            kf: bool = False,
-            fold: int = 5,
-            excel: bool = False,
-            return_best_model: bool = None,
-            show_train_score: bool = False,
-            text: bool = False,
-            vectorizer: str = None,
-            ngrams: tuple = None,
+        self,
+        X=None,
+        y=None,
+        split_data=None,
+        splitting: bool = False,
+        kf: bool = False,
+        fold: int = 5,
+        excel: bool = False,
+        return_best_model: bool = None,
+        show_train_score: bool = False,
+        text: bool = False,
+        vectorizer: str = None,
+        ngrams: tuple = None,
     ) -> DataFrame:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
@@ -1138,8 +1116,10 @@ class MultiClassifier:
 
         global y_te, pred
         if self.cores is None:
-            logger.info('It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the '
-                        'cpu, this reduces training time significantly')
+            logger.info(
+                "It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the "
+                "cpu, this reduces training time significantly"
+            )
         try:
             if splitting is True:
                 target_class = (
@@ -1541,29 +1521,29 @@ class MultiClassifier:
             return instance
 
     def tune_parameters(
-            self,
-            model: str = None,
-            parameters: dict = None,
-            tune: str = None,
-            use_cpu: int = None,
-            cv: int = 5,
-            n_iter: any = 50,
-            return_train_score: bool = False,
-            refit: bool = True,
-            random_state: int = None,
-            factor: int = 3,
-            verbose: int = 5,
-            resource: any = "n_samples",
-            max_resources: any = "auto",
-            min_resources_grid: any = "exhaust",
-            min_resources_rand: any = "smallest",
-            aggressive_elimination: any = False,
-            error_score: any = np.nan,
-            pre_dispatch: any = "2*n_jobs",
-            optimizer_kwargs: any = None,
-            fit_params: any = None,
-            n_points: any = 1,
-            score="accuracy",
+        self,
+        model: str = None,
+        parameters: dict = None,
+        tune: str = None,
+        use_cpu: int = None,
+        cv: int = 5,
+        n_iter: any = 50,
+        return_train_score: bool = False,
+        refit: bool = True,
+        random_state: int = None,
+        factor: int = 3,
+        verbose: int = 5,
+        resource: any = "n_samples",
+        max_resources: any = "auto",
+        min_resources_grid: any = "exhaust",
+        min_resources_rand: any = "smallest",
+        aggressive_elimination: any = False,
+        error_score: any = np.nan,
+        pre_dispatch: any = "2*n_jobs",
+        optimizer_kwargs: any = None,
+        fit_params: any = None,
+        n_points: any = 1,
+        score="accuracy",
     ):
         """
         :param score:
@@ -1698,15 +1678,15 @@ class MultiClassifier:
                 return tuned_model
 
     def visualize(
-            self,
-            param: {__setitem__},
-            y: any = None,
-            file_path: any = None,
-            kf: bool = False,
-            t_split: bool = False,
-            size=(15, 8),
-            save: str = None,
-            save_name: str = None,
+        self,
+        param: {__setitem__},
+        y: any = None,
+        file_path: any = None,
+        kf: bool = False,
+        t_split: bool = False,
+        size=(15, 8),
+        save: str = None,
+        save_name: str = None,
     ):
 
         """
@@ -1894,14 +1874,14 @@ class MultiClassifier:
                     img(FILENAME=name, FILE_PATH=file_path, type_="picture")
 
     def show(
-            self,
-            param: {__setitem__},
-            y: any = None,
-            file_path: any = None,
-            kf: bool = False,
-            t_split: bool = False,
-            save: bool = False,
-            save_name: str = None,
+        self,
+        param: {__setitem__},
+        y: any = None,
+        file_path: any = None,
+        kf: bool = False,
+        t_split: bool = False,
+        save: bool = False,
+        save_name: str = None,
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
