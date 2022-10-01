@@ -3,7 +3,7 @@ import time
 import warnings
 from collections import Counter
 from operator import __setitem__
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -115,7 +115,7 @@ from MultiTrain.errors.exceptions import (
     raise_split_data_error,
     raise_fold_type_error,
     raise_kfold2_error,
-    raise_self_splitting_error,
+    raise_splitting_error,
 )
 from MultiTrain.methods.multitrain_methods import (
     directory,
@@ -139,14 +139,14 @@ warnings.filterwarnings("ignore")
 
 class MultiClassifier:
     def __init__(
-        self,
-        cores: int = -1,
-        random_state: int = randint(1000),
-        verbose: bool = False,
-        imbalanced: bool = False,
-        sampling: str = None,
-        strategy: str or float = "auto",
-        select_models: Union[list, tuple] = None,
+            self,
+            cores: Optional[int] = None,
+            random_state: int = randint(1000),
+            verbose: bool = False,
+            imbalanced: bool = False,
+            sampling: str = None,
+            strategy: str or float = "auto",
+            select_models: Union[list, tuple] = None,
     ) -> None:
 
         self.cores = cores
@@ -437,19 +437,19 @@ class MultiClassifier:
             )
 
     def split(
-        self,
-        X: any,
-        y: any,
-        strat: bool = False,
-        sizeOfTest: float = 0.2,
-        randomState: int = None,
-        shuffle_data: bool = True,
-        dimensionality_reduction: bool = False,
-        normalize: any = None,
-        columns_to_scale: list = None,
-        n_components: int = None,
-        missing_values: dict = None,
-        encode: Union[str, dict] = None,
+            self,
+            X: any,
+            y: any,
+            strat: bool = False,
+            sizeOfTest: float = 0.2,
+            randomState: int = None,
+            shuffle_data: bool = True,
+            dimensionality_reduction: bool = False,
+            normalize: any = None,
+            columns_to_scale: list = None,
+            n_components: int = None,
+            missing_values: dict = None,
+            encode: Union[str, dict] = None,
     ):
 
         global the_y
@@ -733,7 +733,6 @@ class MultiClassifier:
         rcl = RidgeClassifier(random_state=self.random_state)
         rclv = RidgeClassifierCV()
         etc = ExtraTreeClassifier(random_state=self.random_state)
-        # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         qda = QuadraticDiscriminantAnalysis()
         lsvc = LinearSVC(random_state=self.random_state)
         bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
@@ -858,7 +857,13 @@ class MultiClassifier:
             )
         if target_class == "binary":
             dataframe = {}
-            for i in range(len(param)):
+            bar = trange(
+                len(param),
+                desc="Training in progress: ",
+                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
+            )
+            for i in bar:
+                bar.set_postfix({"Model ": names[i]})
 
                 if self.verbose is True:
                     print(names[i])
@@ -1012,11 +1017,17 @@ class MultiClassifier:
 
         elif target_class == "multiclass":
             dataframe = {}
-            for j in range(len(param)):
+            bar = trange(
+                len(param),
+                desc="Training in progress: ",
+                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
+            )
+            for i in bar:
+                bar.set_postfix({"Model ": names[i]})
                 start = time.time()
                 score = ("precision_macro", "recall_macro", "f1_macro")
                 scores = cross_validate(
-                    estimator=param[j],
+                    estimator=param[i],
                     X=param_X,
                     y=param_y,
                     scoring=score,
@@ -1046,7 +1057,7 @@ class MultiClassifier:
                         seconds,
                     ]
 
-                    dataframe.update({names[j]: scores_df})
+                    dataframe.update({names[i]: scores_df})
 
                 elif train_score is False:
 
@@ -1061,29 +1072,24 @@ class MultiClassifier:
                         seconds,
                     ]
 
-                    dataframe.update({names[j]: scores_df})
+                    dataframe.update({names[i]: scores_df})
 
             return dataframe
 
     def fit(
-        self,
-        X,
-        y=None,
-        split_self: bool = False,
-        X_train: str = None,
-        X_test: str = None,
-        y_train: str = None,
-        y_test: str = None,
-        split_data=None,
-        splitting: bool = False,
-        kf: bool = False,
-        fold: int = 5,
-        excel: bool = False,
-        return_best_model: bool = None,
-        show_train_score: bool = False,
-        text: bool = False,
-        vectorizer: str = None,
-        ngrams: tuple = None,
+            self,
+            X=None,
+            y=None,
+            split_data=None,
+            splitting: bool = False,
+            kf: bool = False,
+            fold: int = 5,
+            excel: bool = False,
+            return_best_model: bool = None,
+            show_train_score: bool = False,
+            text: bool = False,
+            vectorizer: str = None,
+            ngrams: tuple = None,
     ) -> DataFrame:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
@@ -1131,14 +1137,14 @@ class MultiClassifier:
         # fit(X = features, y = labels, kf = True, fold = (10, 42, True))
 
         global y_te, pred
-
-        target_class = (
-            _check_target(y) if y is not None else _check_target(split_data[3])
-        )
-        raise_self_splitting_error(split_self, X_train, X_test, y_train, y_test)
-
+        if self.cores is None:
+            logger.info('It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the '
+                        'cpu, this reduces training time significantly')
         try:
-            if splitting is True or split_self is True:
+            if splitting is True:
+                target_class = (
+                    _check_target(y) if y is not None else _check_target(split_data[3])
+                )
                 if splitting and split_data:
                     X_tr, X_te, y_tr, y_te = (
                         split_data[0],
@@ -1146,13 +1152,7 @@ class MultiClassifier:
                         split_data[2],
                         split_data[3],
                     )
-                elif (
-                    X_train is not None
-                    and X_test is not None
-                    and y_train is not None
-                    and y_test is not None
-                ):
-                    X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
+
                 if self.select_models is None:
                     model = self._initialize_()
                     names = self.classifier_model_names()
@@ -1434,7 +1434,9 @@ class MultiClassifier:
                 return df
 
             elif kf is True:
-
+                target_class = (
+                    _check_target(y) if y is not None else _check_target(split_data[3])
+                )
                 # Fitting the models and predicting the values of the test set.
                 if self.select_models is None:
                     KFoldModel = self._initialize_()
@@ -1498,10 +1500,11 @@ class MultiClassifier:
         except Exception:
             raise_text_error(text, vectorizer, ngrams)
             raise_imbalanced_error(self.imbalanced, self.sampling)
-            raise_kfold1_error(kf, split_self, splitting, split_data)
+            raise_kfold1_error(kf, splitting, split_data)
             raise_split_data_error(split_data, splitting)
             raise_fold_type_error(fold)
             raise_kfold2_error(kf, X, y)
+            raise_splitting_error(splitting, split_data)
 
     def use_model(self, df, model: str = None, best: str = None):
         """
@@ -1538,29 +1541,29 @@ class MultiClassifier:
             return instance
 
     def tune_parameters(
-        self,
-        model: str = None,
-        parameters: dict = None,
-        tune: str = None,
-        use_cpu: int = None,
-        cv: int = 5,
-        n_iter: any = 50,
-        return_train_score: bool = False,
-        refit: bool = True,
-        random_state: int = None,
-        factor: int = 3,
-        verbose: int = 5,
-        resource: any = "n_samples",
-        max_resources: any = "auto",
-        min_resources_grid: any = "exhaust",
-        min_resources_rand: any = "smallest",
-        aggressive_elimination: any = False,
-        error_score: any = np.nan,
-        pre_dispatch: any = "2*n_jobs",
-        optimizer_kwargs: any = None,
-        fit_params: any = None,
-        n_points: any = 1,
-        score="accuracy",
+            self,
+            model: str = None,
+            parameters: dict = None,
+            tune: str = None,
+            use_cpu: int = None,
+            cv: int = 5,
+            n_iter: any = 50,
+            return_train_score: bool = False,
+            refit: bool = True,
+            random_state: int = None,
+            factor: int = 3,
+            verbose: int = 5,
+            resource: any = "n_samples",
+            max_resources: any = "auto",
+            min_resources_grid: any = "exhaust",
+            min_resources_rand: any = "smallest",
+            aggressive_elimination: any = False,
+            error_score: any = np.nan,
+            pre_dispatch: any = "2*n_jobs",
+            optimizer_kwargs: any = None,
+            fit_params: any = None,
+            n_points: any = 1,
+            score="accuracy",
     ):
         """
         :param score:
@@ -1695,15 +1698,15 @@ class MultiClassifier:
                 return tuned_model
 
     def visualize(
-        self,
-        param: {__setitem__},
-        y: any = None,
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        size=(15, 8),
-        save: str = None,
-        save_name: str = None,
+            self,
+            param: {__setitem__},
+            y: any = None,
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            size=(15, 8),
+            save: str = None,
+            save_name: str = None,
     ):
 
         """
@@ -1891,14 +1894,14 @@ class MultiClassifier:
                     img(FILENAME=name, FILE_PATH=file_path, type_="picture")
 
     def show(
-        self,
-        param: {__setitem__},
-        y: any = None,
-        file_path: any = None,
-        kf: bool = False,
-        t_split: bool = False,
-        save: bool = False,
-        save_name: str = None,
+            self,
+            param: {__setitem__},
+            y: any = None,
+            file_path: any = None,
+            kf: bool = False,
+            t_split: bool = False,
+            save: bool = False,
+            save_name: str = None,
     ):
         """
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
