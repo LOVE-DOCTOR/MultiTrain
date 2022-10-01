@@ -5,12 +5,10 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
+[![python version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
 
-Supported Python Versions
 
-![Python](https://img.shields.io/badge/python-3.8-blue.svg)
-![python](https://img.shields.io/badge/python-3.9-blue.svg)
-![python](https://img.shields.io/badge/python-3.10-blue.svg)
+
 # CONTRIBUTING
 If you wish to make small changes to the codebase, your pull requests are welcome. However, for major changes or ideas on how to improve the library, please create an issue.
 # LINKS
