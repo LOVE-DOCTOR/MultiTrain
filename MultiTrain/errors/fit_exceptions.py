@@ -58,22 +58,23 @@ def raise_split_data_error(split_data_, splitting_):
 
 
 def raise_splitting_error(splitting_, split_data_):
-    if isinstance(splitting_, bool):
-        if split_data_ is None:
+    if splitting_:
+        if isinstance(splitting_, bool):
+            if split_data_ is None:
+                raise ValueError(
+                    "You must pass in the return values of the split method to split_data if splitting "
+                    "is True"
+                )
+
+            if isinstance(split_data_, tuple) is False:
+                raise TypeError(
+                    "You can only pass in the return values of the split method to split_data"
+                )
+
+        elif isinstance(splitting_, bool) is False:
             raise ValueError(
-                "You must pass in the return values of the split method to split_data if splitting "
-                "is True"
+                f"splitting can only be set to True or False, received {splitting_}"
             )
-
-        if isinstance(split_data_, tuple) is False:
-            raise TypeError(
-                "You can only pass in the return values of the split method to split_data"
-            )
-
-    elif isinstance(splitting_, bool) is False:
-        raise ValueError(
-            f"splitting can only be set to True or False, received {splitting_}"
-        )
 
 
 def raise_fold_type_error(fold_):

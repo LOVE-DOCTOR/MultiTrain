@@ -828,7 +828,7 @@ class MultiClassifier:
         if self.select_models is None:
             names = self.classifier_model_names()
         else:
-            names = self.select_models()
+            names = self.select_models
         target_class = _check_target(param_y)
         if self.imbalanced is True:
             logger.info(
