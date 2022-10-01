@@ -4,7 +4,8 @@
 - Added new parameter 'select_models' that enables you to select only a few models to train with instead of using all models at once.
 - Added progress bar when training models
 - Added more understandable error message with fixes indicated
-- 
+- Fixed key error bug in use_model when specifying metric
+
 # 0.12.3
 - Fixed bug that stopped models from training due to inconsistent number of columns
 - Temporarily disabled using over, under or over_under sampling techniques when using kf=True
