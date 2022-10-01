@@ -1103,7 +1103,7 @@ class MultiRegressor:
 
     def visualize(
         self,
-        param: dict,
+        param: pd.DataFrame,
         file_path: any = None,
         kf: bool = False,
         t_split: bool = False,
@@ -1115,8 +1115,8 @@ class MultiRegressor:
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
         :param file_path:
-        :param param: dict
-        :type param: dict
+        :param param: pd.DataFrame
+        :type param: pd.DataFrame
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
@@ -1286,7 +1286,7 @@ class MultiRegressor:
 
     def show(
         self,
-        param: dict,
+        param: pd.DataFrame,
         file_path: any = None,
         kf: bool = False,
         t_split: bool = False,
@@ -1300,8 +1300,8 @@ class MultiRegressor:
         :param save:
         :param target:
         :param file_path:
-        :param param: dict
-        :type param: dict
+        :param param: pd.DataFrame
+        :type param: pd.DataFrame
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
