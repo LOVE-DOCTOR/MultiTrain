@@ -45,7 +45,7 @@ setup(
                       "ipython==8.4.0",
                       "xgboost==1.6.2",
                       "catboost",
-                      "imbalanced-learn==0.9.1",
+                      "imbalanced-learn==0.9.0",
                       "seaborn==0.12.0",
                       "scikit-optimize==0.9.0",
                       "lightgbm==3.3.2",
