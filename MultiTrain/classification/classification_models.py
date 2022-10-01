@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
+from sklearnex import patch_sklearn
+
+patch_sklearn(global_patch=True)
 from tqdm.notebook import trange
 from IPython.display import display
 from catboost import CatBoostClassifier
@@ -1679,7 +1682,7 @@ class MultiClassifier:
 
     def visualize(
         self,
-        param: {__setitem__},
+        param: pd.DataFrame,
         y: any = None,
         file_path: any = None,
         kf: bool = False,
@@ -1694,8 +1697,8 @@ class MultiClassifier:
 
         :param y:
         :param file_path:
-        :param param: {__setitem__}
-        :type param: {__setitem__}
+        :param param: pd.DataFrame
+        :type param: pd.DataFrame
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
@@ -1875,7 +1878,7 @@ class MultiClassifier:
 
     def show(
         self,
-        param: {__setitem__},
+        param: pd.DataFrame,
         y: any = None,
         file_path: any = None,
         kf: bool = False,
@@ -1890,8 +1893,8 @@ class MultiClassifier:
         :param save:
         :param target:
         :param file_path:
-        :param param: {__setitem__}
-        :type param: {__setitem__}
+        :param param: pd.DataFrame
+        :type param: pd.DataFrame
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
