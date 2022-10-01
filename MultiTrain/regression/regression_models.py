@@ -100,7 +100,7 @@ from MultiTrain.errors.split_exceptions import (
     strat_error,
     dimensionality_reduction_type_error,
     test_size_error,
-    missing_values_error
+    missing_values_error,
 )
 
 from MultiTrain.methods.multitrain_methods import (
