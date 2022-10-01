@@ -10,6 +10,7 @@ from lightgbm import LGBMRegressor
 from matplotlib import pyplot as plt
 import seaborn as sns
 from sklearnex import patch_sklearn
+
 patch_sklearn(global_patch=True)
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
@@ -102,7 +103,7 @@ from MultiTrain.errors.split_exceptions import (
     strat_error,
     dimensionality_reduction_type_error,
     test_size_error,
-    missing_values_error
+    missing_values_error,
 )
 
 from MultiTrain.methods.multitrain_methods import (
@@ -1102,7 +1103,7 @@ class MultiRegressor:
 
     def visualize(
         self,
-        param: {__setitem__},
+        param: dict,
         file_path: any = None,
         kf: bool = False,
         t_split: bool = False,
@@ -1114,8 +1115,8 @@ class MultiRegressor:
         The function takes in a dictionary of the model names and their scores, and plots them in a bar chart
 
         :param file_path:
-        :param param: {__setitem__}
-        :type param: {__setitem__}
+        :param param: dict
+        :type param: dict
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
@@ -1285,7 +1286,7 @@ class MultiRegressor:
 
     def show(
         self,
-        param: {__setitem__},
+        param: dict,
         file_path: any = None,
         kf: bool = False,
         t_split: bool = False,
@@ -1299,8 +1300,8 @@ class MultiRegressor:
         :param save:
         :param target:
         :param file_path:
-        :param param: {__setitem__}
-        :type param: {__setitem__}
+        :param param: dict
+        :type param: dict
         :param kf: set to True if you used KFold, defaults to False
         :type kf: bool (optional)
         :param t_split: True if you used the split method, defaults to False
