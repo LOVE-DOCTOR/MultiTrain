@@ -23,18 +23,12 @@ def raise_imbalanced_error(imbalanced_, sampling_):
             )
 
 
-def raise_kfold1_error(kf_, split_self_, splitting_, split_data_):
+def raise_kfold1_error(kf_, splitting_, split_data_):
     if kf_:
         if isinstance(kf_, bool) is False:
             raise TypeError(
                 f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
                 f"instead of kf = {kf_}"
-            )
-
-        if split_self_ is True:
-            raise Exception(
-                "split_self should only be set to True when you split with train_test_split from "
-                "sklearn.model_selection"
             )
 
         if splitting_:
@@ -78,7 +72,7 @@ def raise_splitting_error(splitting_, split_data_):
 
     elif isinstance(splitting_, bool) is False:
         raise ValueError(
-            f"splitting can only be set to True or False, received {splitting}"
+            f"splitting can only be set to True or False, received {splitting_}"
         )
 
 
@@ -92,12 +86,4 @@ def raise_fold_type_error(fold_):
 
 def raise_kfold2_error(kf_, X_, y_):
     if kf_ is True and (X_ is None or y_ is None or (X_ is None and y_ is None)):
-        raise ValueError("Set the values of features X and target y")
-
-
-def raise_self_splitting_error(split_self_, x_train_, x_test_, y_train_, y_test_):
-    data_list = [x_train_, x_test_, y_train_, y_test_]
-    if split_self_ is True:
-        for i in data_list:
-            if i is None:
-                raise ValueError(f"{i} returns a None value, pass a dataframe to {i}")
+        raise ValueError("Set the values of features X and target y when kf is True")

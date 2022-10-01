@@ -3,7 +3,7 @@ import time
 import warnings
 from collections import Counter
 from operator import __setitem__
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -108,15 +108,23 @@ from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from skopt import BayesSearchCV
 from xgboost import XGBClassifier
 
-from MultiTrain.errors.exceptions import (
+from MultiTrain.errors.fit_exceptions import (
     raise_text_error,
     raise_imbalanced_error,
     raise_kfold1_error,
     raise_split_data_error,
     raise_fold_type_error,
     raise_kfold2_error,
-    raise_self_splitting_error,
+    raise_splitting_error,
 )
+from MultiTrain.errors.split_exceptions import (
+    feature_label_type_error,
+    strat_error,
+    dimensionality_reduction_type_error,
+    test_size_error,
+    missing_values_error,
+)
+
 from MultiTrain.methods.multitrain_methods import (
     directory,
     img,
@@ -140,7 +148,7 @@ warnings.filterwarnings("ignore")
 class MultiClassifier:
     def __init__(
         self,
-        cores: int = -1,
+        cores: Optional[int] = None,
         random_state: int = randint(1000),
         verbose: bool = False,
         imbalanced: bool = False,
@@ -473,25 +481,8 @@ class MultiClassifier:
         y = df["nameOfLabelColumn")
         split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
-        if isinstance(X, int or bool) or isinstance(y, int or bool):
-            raise ValueError(
-                f"{X} and {y} are not valid arguments for 'split'."
-                f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})"
-            )
-        elif isinstance(strat, bool) is False:
-            raise TypeError(
-                "argument of type int or str is not valid. Parameters for strat is either False or True"
-            )
 
-        elif isinstance(dimensionality_reduction, bool) is False:
-            raise TypeError(
-                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
-            )
-
-        elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
-
-        else:
+        try:
             # values for normalize
             norm = [
                 "StandardScaler",
@@ -501,29 +492,9 @@ class MultiClassifier:
             ]
 
             if missing_values:
-                if isinstance(missing_values, dict):
-                    if missing_values["cat"] != "most_frequent":
-                        raise ValueError(
-                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns"
-                        )
-                    elif missing_values["num"] not in [
-                        "mean",
-                        "median",
-                        "most_frequent",
-                    ]:
-                        raise ValueError(
-                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent'] for numerical columns"
-                        )
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
-                    cat, num = _fill(categorical_values, numerical_values)
-                    X = _fill_columns(cat, num, X)
-
-                else:
-                    raise TypeError(
-                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
-                    )
+                categorical_values, numerical_values = _get_cat_num(missing_values)
+                cat, num = _fill(categorical_values, numerical_values)
+                X = _fill_columns(cat, num, X)
 
             if encode is not None:
                 X = _dummy(X, encode)
@@ -656,6 +627,13 @@ class MultiClassifier:
 
                     return X_train, X_test, y_train, y_test
 
+        except Exception:
+            feature_label_type_error(X, y)
+            strat_error(strat)
+            dimensionality_reduction_type_error(dimensionality_reduction)
+            test_size_error(sizeOfTest)
+            missing_values_error(missing_values)
+
     def classifier_model_names(self) -> list:
         model_names = [
             "LogisticRegression",
@@ -733,7 +711,6 @@ class MultiClassifier:
         rcl = RidgeClassifier(random_state=self.random_state)
         rclv = RidgeClassifierCV()
         etc = ExtraTreeClassifier(random_state=self.random_state)
-        # self.gpc = GaussianProcessClassifier(warm_start=True, random_state=42, n_jobs=-1)
         qda = QuadraticDiscriminantAnalysis()
         lsvc = LinearSVC(random_state=self.random_state)
         bc = BaggingClassifier(n_jobs=self.cores, random_state=self.random_state)
@@ -858,7 +835,13 @@ class MultiClassifier:
             )
         if target_class == "binary":
             dataframe = {}
-            for i in range(len(param)):
+            bar = trange(
+                len(param),
+                desc="Training in progress: ",
+                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
+            )
+            for i in bar:
+                bar.set_postfix({"Model ": names[i]})
 
                 if self.verbose is True:
                     print(names[i])
@@ -1012,11 +995,17 @@ class MultiClassifier:
 
         elif target_class == "multiclass":
             dataframe = {}
-            for j in range(len(param)):
+            bar = trange(
+                len(param),
+                desc="Training in progress: ",
+                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
+            )
+            for i in bar:
+                bar.set_postfix({"Model ": names[i]})
                 start = time.time()
                 score = ("precision_macro", "recall_macro", "f1_macro")
                 scores = cross_validate(
-                    estimator=param[j],
+                    estimator=param[i],
                     X=param_X,
                     y=param_y,
                     scoring=score,
@@ -1046,7 +1035,7 @@ class MultiClassifier:
                         seconds,
                     ]
 
-                    dataframe.update({names[j]: scores_df})
+                    dataframe.update({names[i]: scores_df})
 
                 elif train_score is False:
 
@@ -1061,19 +1050,14 @@ class MultiClassifier:
                         seconds,
                     ]
 
-                    dataframe.update({names[j]: scores_df})
+                    dataframe.update({names[i]: scores_df})
 
             return dataframe
 
     def fit(
         self,
-        X,
+        X=None,
         y=None,
-        split_self: bool = False,
-        X_train: str = None,
-        X_test: str = None,
-        y_train: str = None,
-        y_test: str = None,
         split_data=None,
         splitting: bool = False,
         kf: bool = False,
@@ -1131,14 +1115,16 @@ class MultiClassifier:
         # fit(X = features, y = labels, kf = True, fold = (10, 42, True))
 
         global y_te, pred
-
-        target_class = (
-            _check_target(y) if y is not None else _check_target(split_data[3])
-        )
-        raise_self_splitting_error(split_self, X_train, X_test, y_train, y_test)
-
+        if self.cores is None:
+            logger.info(
+                "It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the "
+                "cpu, this reduces training time significantly"
+            )
         try:
-            if splitting is True or split_self is True:
+            if splitting is True:
+                target_class = (
+                    _check_target(y) if y is not None else _check_target(split_data[3])
+                )
                 if splitting and split_data:
                     X_tr, X_te, y_tr, y_te = (
                         split_data[0],
@@ -1146,13 +1132,7 @@ class MultiClassifier:
                         split_data[2],
                         split_data[3],
                     )
-                elif (
-                    X_train is not None
-                    and X_test is not None
-                    and y_train is not None
-                    and y_test is not None
-                ):
-                    X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
+
                 if self.select_models is None:
                     model = self._initialize_()
                     names = self.classifier_model_names()
@@ -1434,7 +1414,9 @@ class MultiClassifier:
                 return df
 
             elif kf is True:
-
+                target_class = (
+                    _check_target(y) if y is not None else _check_target(split_data[3])
+                )
                 # Fitting the models and predicting the values of the test set.
                 if self.select_models is None:
                     KFoldModel = self._initialize_()
@@ -1498,10 +1480,11 @@ class MultiClassifier:
         except Exception:
             raise_text_error(text, vectorizer, ngrams)
             raise_imbalanced_error(self.imbalanced, self.sampling)
-            raise_kfold1_error(kf, split_self, splitting, split_data)
+            raise_kfold1_error(kf, splitting, split_data)
             raise_split_data_error(split_data, splitting)
             raise_fold_type_error(fold)
             raise_kfold2_error(kf, X, y)
+            raise_splitting_error(splitting, split_data)
 
     def use_model(self, df, model: str = None, best: str = None):
         """

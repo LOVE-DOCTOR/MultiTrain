@@ -1,6 +1,6 @@
 import time
 from operator import __setitem__
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 import pandas as pd
@@ -68,7 +68,7 @@ from sklearn.model_selection import (
     GridSearchCV,
 )
 from sklearn.neural_network import MLPRegressor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Normalizer
+
 from sklearn.preprocessing import (
     StandardScaler,
     MinMaxScaler,
@@ -86,6 +86,22 @@ from skopt.learning import (
 )
 from tqdm.notebook import trange
 from xgboost import XGBRegressor
+
+from MultiTrain.errors.fit_exceptions import (
+    raise_kfold1_error,
+    raise_fold_type_error,
+    raise_kfold2_error,
+    raise_splitting_error,
+    raise_split_data_error,
+)
+
+from MultiTrain.errors.split_exceptions import (
+    feature_label_type_error,
+    strat_error,
+    dimensionality_reduction_type_error,
+    test_size_error,
+    missing_values_error
+)
 
 from MultiTrain.methods.multitrain_methods import (
     write_to_excel,
@@ -109,7 +125,7 @@ logger = logging.getLogger(__name__)
 class MultiRegressor:
     def __init__(
         self,
-        cores: int = -1,
+        cores: Optional[int] = None,
         random_state: int = randint(1000),
         verbose: bool = False,
         select_models: Union[list, tuple, None] = None,
@@ -253,7 +269,8 @@ class MultiRegressor:
                     custom_models.append(value)
                 elif i not in self.regression_model_names():
                     raise ValueError(
-                        f'{i} unknown, use the "regression_model_names" method to view the regression algorithms available'
+                        f'{i} unknown, use the "regression_model_names" method to view the regression algorithms '
+                        f"available "
                     )
         return custom_models, name
 
@@ -291,28 +308,10 @@ class MultiRegressor:
         y = df["nameOfLabelColumn")
         split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
         """
-        if isinstance(X, int or bool) or isinstance(y, int or bool):
-            raise ValueError(
-                f"{X} and {y} are not valid arguments for 'split'."
-                f"Try using the standard variable names e.g split(X, y) instead of split({X}, {y})"
-            )
-        elif isinstance(strat, bool) is False:
-            raise TypeError(
-                "argument of type int or str is not valid. Parameters for strat is either False or True"
-            )
 
-        elif isinstance(dimensionality_reduction, bool) is False:
-            raise TypeError(
-                f'dimensionality_reduction should be set to True or False, received "{dimensionality_reduction}"'
-            )
-
-        elif sizeOfTest < 0 or sizeOfTest > 1:
-            raise ValueError("value of sizeOfTest should be between 0 and 1")
-
-        else:
+        try:
             # values for normalize
 
-            norm = ["StandardScaler", "MinMaxScaler", "RobustScaler", "Normalizer"]
             norm = [
                 "StandardScaler",
                 "MinMaxScaler",
@@ -320,31 +319,10 @@ class MultiRegressor:
                 "Normalizer",
             ]
             if missing_values:
-                if isinstance(missing_values, dict):
-                    if missing_values["cat"] != "most_frequent":
-                        raise ValueError(
-                            f"Received value '{missing_values['cat']}', you can only use 'most_frequent' for "
-                            f"categorical columns"
-                        )
-                    elif missing_values["num"] not in [
-                        "mean",
-                        "median",
-                        "most_frequent",
-                        "constant",
-                    ]:
-                        raise ValueError(
-                            f"Received value '{missing_values['num']}', you can only use one of ['mean', 'median', "
-                            f"'most_frequent', 'constant'] for numerical columns"
-                        )
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
-                    categorical_values, numerical_values = _get_cat_num(missing_values)
-                    cat, num = _fill(categorical_values, numerical_values)
-                    X = _fill_columns(cat, num, X)
+                categorical_values, numerical_values = _get_cat_num(missing_values)
+                cat, num = _fill(categorical_values, numerical_values)
+                X = _fill_columns(cat, num, X)
 
-                else:
-                    raise TypeError(
-                        f"missing_values parameter can only be of type dict, type {type(missing_values)} received"
-                    )
             if encode is not None:
                 X = _dummy(X, encode)
 
@@ -473,6 +451,12 @@ class MultiRegressor:
                     )
 
                     return X_train, X_test, y_train, y_test
+        except Exception:
+            missing_values_error(missing_values)
+            feature_label_type_error(X, y)
+            strat_error(strat)
+            dimensionality_reduction_type_error(dimensionality_reduction)
+            test_size_error(sizeOfTest)
 
     def initialize(self):
         """
@@ -522,7 +506,6 @@ class MultiRegressor:
         lassla = LassoLars(random_state=self.random_state)
         krid = KernelRidge()
         ard = ARDRegression()
-        # self.quant = QuantileRegressor()
         theil = TheilSenRegressor(n_jobs=self.cores, random_state=self.random_state)
 
         return (
@@ -631,7 +614,14 @@ class MultiRegressor:
             names = self.select_models
 
         dataframe = {}
-        for i in range(len(param)):
+        bar = trange(
+            len(param),
+            desc="Training in progress: ",
+            bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
+        )
+        for i in bar:
+            bar.set_postfix({"Model ": names[i]})
+
             if self.verbose is True:
                 print(names[i])
             start = time.time()
@@ -725,11 +715,6 @@ class MultiRegressor:
         self,
         X: str = None,
         y: str = None,
-        split_self: bool = False,
-        X_train: str = None,
-        X_test: str = None,
-        y_train: str = None,
-        y_test: str = None,
         split_data: str = None,
         splitting: bool = False,
         kf: bool = False,
@@ -778,214 +763,149 @@ class MultiRegressor:
 
         fit(X = features, y = labels, kf = True, fold = (10, 42, True))
         """
-
-        if isinstance(splitting, bool) is False:
-            raise TypeError(
-                f"You can only declare object type 'bool' in splitting. Try splitting = False or splitting = True "
-                f"instead of splitting = {splitting}"
+        if self.cores is None:
+            logger.info(
+                "It is advisable to set cores in the MultiClassifier object to -1 to use all cores in the "
+                "cpu, this reduces training time significantly"
             )
+        try:
+            if splitting is True:
+                if splitting and split_data:
+                    X_tr, X_te, y_tr, y_te = (
+                        split_data[0],
+                        split_data[1],
+                        split_data[2],
+                        split_data[3],
+                    )
+                self.__shape = X_tr.shape
 
-        if isinstance(kf, bool) is False:
-            raise TypeError(
-                f"You can only declare object type 'bool' in kf. Try kf = False or kf = True "
-                f"instead of kf = {kf}"
-            )
+                if self.select_models is None:
+                    model = self.initialize()
+                    names = self.regression_model_names()
+                else:
+                    model, names = self._custom()
 
-        if isinstance(fold, int) is False:
-            raise TypeError(
-                "param fold is of type int, pass a integer to fold e.g fold = 5, where 5 is number of "
-                "splits you want to use for the cross validation procedure"
-            )
-
-        if kf:
-            if split_self is True:
-                raise Exception(
-                    "split_self should only be set to True when you split with train_test_split from "
-                    "sklearn.model_selection"
+                dataframe = {}
+                bar = trange(
+                    len(model),
+                    desc="Training in progress: ",
+                    bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
                 )
+                for i in bar:
+                    bar.set_postfix({"Model ": names[i]})
+                    start = time.time()
+                    if self.verbose is True:
+                        print(names[i])
+                    try:
+                        model[i].fit(X_tr, y_tr)
+                    except ValueError:
+                        X_tr, X_te = X_tr.to_numpy(), X_te.to_numpy()
+                        X_tr, X_te = X_tr.reshape(-1, 1), X_te.reshape(-1, 1)
 
-            if splitting:
-                raise ValueError(
-                    "KFold cross validation cannot be true if splitting is true and splitting cannot be "
-                    "true if KFold is true"
-                )
+                        y_tr, y_te = y_tr.to_numpy(), y_te.to_numpy()
+                        y_tr, y_te = y_tr.reshape(-1, 1), y_te.reshape(-1, 1)
 
-            if split_data:
-                raise ValueError(
-                    "split_data cannot be used with kf, set splitting to True to use param "
-                    "split_data"
-                )
+                        model[i].fit(X_tr, y_tr)
 
-        if kf is True and (X is None or y is None or (X is None and y is None)):
-            raise ValueError("Set the values of features X and target y")
+                    end = time.time()
+                    pred = model[i].predict(X_te)
+                    # X_tr is X_train, X_te is X_test, y_tr is y_train, y_te is y_test
+                    true = y_te
+                    mae = mean_absolute_error(true, pred)
+                    rmse = np.sqrt(mean_squared_error(true, pred))
+                    r2 = r2_score(true, pred, force_finite=True)
+                    try:
+                        rmsle = np.sqrt(mean_squared_log_error(true, pred))
+                    except ValueError:
+                        rmsle = np.nan
+                    meae = median_absolute_error(true, pred)
+                    mape = mean_absolute_percentage_error(true, pred)
 
-        if isinstance(splitting, bool):
-            if split_data is None:
-                raise ValueError(
-                    "You must pass in the return values of the split method to split_data if splitting "
-                    "is True"
-                )
+                    time_taken = round(end - start, 2)
+                    eval_metrics = [mae, rmse, r2, rmsle, meae, mape, time_taken]
+                    dataframe.update({names[i]: eval_metrics})
 
-            if isinstance(split_data, tuple) is False:
-                raise TypeError(
-                    "You can only pass in the return values of the split method to split_data"
-                )
-
-        elif isinstance(splitting, bool) is False:
-            raise ValueError(
-                f"splitting can only be set to True or False, received {splitting}"
-            )
-
-        if split_data:
-            if isinstance(split_data, tuple) is False:
-                raise TypeError(
-                    "You can only pass in the return values of the split method to split_data"
-                )
-
-            if splitting is None:
-                raise ValueError(
-                    "You must set splitting to True or False if the split_data parameter is used"
-                )
-
-        if splitting is True or split_self is True:
-            if splitting and split_data:
-                X_tr, X_te, y_tr, y_te = (
-                    split_data[0],
-                    split_data[1],
-                    split_data[2],
-                    split_data[3],
-                )
-            elif (
-                X_train is not None
-                and X_test is not None
-                and y_train is not None
-                and y_test is not None
-            ):
-                X_tr, X_te, y_tr, y_te = X_train, X_test, y_train, y_test
-            self.__shape = X_tr.shape
-            model = self.initialize()
-            names = self.regression_model_names()
-
-            if self.select_models is None:
-                model = self.initialize()
-                names = self.regression_model_names()
-            else:
-                model, names = self._custom()
-
-            dataframe = {}
-            bar = trange(
-                len(model),
-                desc="Training in progress: ",
-                bar_format="{desc}{percentage:3.0f}% {bar}{remaining} [{n_fmt}/{total_fmt} {postfix}]",
-            )
-            for i in bar:
-                bar.set_postfix({"Model ": names[i]})
-                start = time.time()
-                if self.verbose is True:
-                    print(names[i])
-                try:
-                    model[i].fit(X_tr, y_tr)
-                except ValueError:
-                    X_tr, X_te = X_tr.to_numpy(), X_te.to_numpy()
-                    X_tr, X_te = X_tr.reshape(-1, 1), X_te.reshape(-1, 1)
-
-                    y_tr, y_te = y_tr.to_numpy(), y_te.to_numpy()
-                    y_tr, y_te = y_tr.reshape(-1, 1), y_te.reshape(-1, 1)
-
-                    model[i].fit(X_tr, y_tr)
-
-                end = time.time()
-                pred = model[i].predict(X_te)
-                # X_tr is X_train, X_te is X_test, y_tr is y_train, y_te is y_test
-                true = y_te
-                mae = mean_absolute_error(true, pred)
-                rmse = np.sqrt(mean_squared_error(true, pred))
-                r2 = r2_score(true, pred, force_finite=True)
-                try:
-                    rmsle = np.sqrt(mean_squared_log_error(true, pred))
-                except ValueError:
-                    rmsle = np.nan
-                meae = median_absolute_error(true, pred)
-                mape = mean_absolute_percentage_error(true, pred)
-
-                time_taken = round(end - start, 2)
-                eval_metrics = [mae, rmse, r2, rmsle, meae, mape, time_taken]
-                dataframe.update({names[i]: eval_metrics})
-
-            dataframe_columns = [
-                "Mean Absolute Error",
-                "Root Mean Squared Error",
-                "r2 score",
-                "Root Mean Squared Log Error",
-                "Median Absolute Error",
-                "Mean Absolute Percentage Error",
-                "Time Taken(s)",
-            ]
-            df = pd.DataFrame.from_dict(
-                dataframe, orient="index", columns=dataframe_columns
-            )
-
-            t_split = t_best_model(df, return_best_model, excel)
-            return t_split
-
-        elif kf is True:
-
-            # Fitting the models and predicting the values of the test set.
-            if self.select_models is None:
-                KFoldModel = self.initialize()
-                names = self.regression_model_names()
-            else:
-                KFoldModel, names = self._custom()
-
-            logger.info("Training started")
-            dataframe = self.startKFold(
-                param=KFoldModel,
-                param_X=X,
-                param_y=y,
-                param_cv=fold,
-                train_score=show_train_score,
-            )
-
-            if show_train_score is True:
+                dataframe_columns = [
+                    "Mean Absolute Error",
+                    "Root Mean Squared Error",
+                    "r2 score",
+                    "Root Mean Squared Log Error",
+                    "Median Absolute Error",
+                    "Mean Absolute Percentage Error",
+                    "Time Taken(s)",
+                ]
                 df = pd.DataFrame.from_dict(
-                    dataframe,
-                    orient="index",
-                    columns=[
-                        "Neg Mean Absolute Error(Train)",
-                        "Neg Mean Absolute Error",
-                        "Neg Root Mean Squared Error(Train)",
-                        "Neg Root Mean Squared Error",
-                        "r2(Train)",
-                        "r2",
-                        "Neg Root Mean Squared Log Error(Train)",
-                        "Neg Root Mean Squared Log Error",
-                        "Neg Median Absolute Error(Train)",
-                        "Neg Median Absolute Error",
-                        "Neg Mean Absolute Percentage Error" "(Train)",
-                        "Neg Mean Absolute Percentage Error",
-                        "Time Taken(s)",
-                    ],
+                    dataframe, orient="index", columns=dataframe_columns
                 )
 
-                kf_ = kf_best_model(df, return_best_model, excel)
-                return kf_
+                t_split = t_best_model(df, return_best_model, excel)
+                return t_split
 
-            if show_train_score is False:
-                df = pd.DataFrame.from_dict(
-                    dataframe,
-                    orient="index",
-                    columns=[
-                        "Neg Mean Absolute Error",
-                        "Neg Root Mean Squared Error",
-                        "r2",
-                        "Neg Root Mean Squared Log Error",
-                        "Neg Median Absolute Error",
-                        "Neg Mean Absolute Percentage Error",
-                        "Time Taken(s)",
-                    ],
+            elif kf is True:
+
+                # Fitting the models and predicting the values of the test set.
+                if self.select_models is None:
+                    KFoldModel = self.initialize()
+                    names = self.regression_model_names()
+                else:
+                    KFoldModel, names = self._custom()
+
+                logger.info("Training started")
+                dataframe = self.startKFold(
+                    param=KFoldModel,
+                    param_X=X,
+                    param_y=y,
+                    param_cv=fold,
+                    train_score=show_train_score,
                 )
-                kf_ = kf_best_model(df, return_best_model, excel)
-                return kf_
+
+                if show_train_score is True:
+                    df = pd.DataFrame.from_dict(
+                        dataframe,
+                        orient="index",
+                        columns=[
+                            "Neg Mean Absolute Error(Train)",
+                            "Neg Mean Absolute Error",
+                            "Neg Root Mean Squared Error(Train)",
+                            "Neg Root Mean Squared Error",
+                            "r2(Train)",
+                            "r2",
+                            "Neg Root Mean Squared Log Error(Train)",
+                            "Neg Root Mean Squared Log Error",
+                            "Neg Median Absolute Error(Train)",
+                            "Neg Median Absolute Error",
+                            "Neg Mean Absolute Percentage Error" "(Train)",
+                            "Neg Mean Absolute Percentage Error",
+                            "Time Taken(s)",
+                        ],
+                    )
+
+                    kf_ = kf_best_model(df, return_best_model, excel)
+                    return kf_
+
+                if show_train_score is False:
+                    df = pd.DataFrame.from_dict(
+                        dataframe,
+                        orient="index",
+                        columns=[
+                            "Neg Mean Absolute Error",
+                            "Neg Root Mean Squared Error",
+                            "r2",
+                            "Neg Root Mean Squared Log Error",
+                            "Neg Median Absolute Error",
+                            "Neg Mean Absolute Percentage Error",
+                            "Time Taken(s)",
+                        ],
+                    )
+                    kf_ = kf_best_model(df, return_best_model, excel)
+                    return kf_
+
+        except Exception:
+            raise_kfold1_error(kf, splitting, split_data)
+            raise_split_data_error(split_data, splitting)
+            raise_fold_type_error(fold)
+            raise_kfold2_error(kf, X, y)
+            raise_splitting_error(splitting, split_data)
 
     def use_model(self, df, model: str = None, best: str = None):
         """

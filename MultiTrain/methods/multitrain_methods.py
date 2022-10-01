@@ -226,8 +226,11 @@ def _get_cat_num(dictionary):
     for i, j in dictionary.items():
         if i == "cat":
             categorical_values = j
-        else:
+        elif i == "num":
             numerical_values = j
+        else:
+            raise Exception
+
     return categorical_values, numerical_values
 
 
