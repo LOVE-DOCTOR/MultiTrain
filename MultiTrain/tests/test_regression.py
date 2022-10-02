@@ -23,7 +23,7 @@ split = train_reg.split(
 )
 
 
-def test_fit(self):
+def test_fit():
     """
     Test Regression methods
     """
@@ -32,4 +32,4 @@ def test_fit(self):
     fitted_reg = train_reg.fit(
         splitting=True, split_data=split, show_train_score=True, excel=True
     )
-    self.assertEqual(pd.DataFrame, type(fitted_reg))
+    assert pd.DataFrame == type(fitted_reg)
