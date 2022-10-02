@@ -16,7 +16,7 @@ df = pd.DataFrame(
     }
 )
 features = df.drop("Y", axis=1)
-target = round(df.Y, 2)
+target = df.Y
 train_reg = MultiClassifier(
     cores=-1,
     # this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make training faster
