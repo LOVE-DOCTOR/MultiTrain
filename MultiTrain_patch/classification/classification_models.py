@@ -790,7 +790,7 @@ class MultiClassifier:
             "Recall Macro",
             "Test Recall",
             "Test Recall Macro",
-            "ROC AUC"
+            "ROC AUC",
         ]
         low = ["mean absolute error", "mean squared error", "Test std"]
 
@@ -835,13 +835,7 @@ class MultiClassifier:
                 if self.verbose is True:
                     print(names[i])
 
-                score = (
-                    "accuracy",
-                    "balanced_accuracy",
-                    "precision",
-                    "recall",
-                    "f1"
-                )
+                score = ("accuracy", "balanced_accuracy", "precision", "recall", "f1")
 
                 start = time.time()
                 try:
@@ -1475,7 +1469,9 @@ class MultiClassifier:
             raise Exception("You can only use one of the two arguments.")
 
         if model:
-            assert model in name, f'name {model} is not found, here is a list of the available models to work with: {name}'
+            assert (
+                model in name
+            ), f"name {model} is not found, here is a list of the available models to work with: {name}"
             index_ = name.index(model)
             return MODEL[index_]
 
