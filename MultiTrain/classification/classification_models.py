@@ -9,9 +9,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
-from sklearnex import patch_sklearn
-
-patch_sklearn(global_patch=True)
 from tqdm.notebook import trange
 from IPython.display import display
 from catboost import CatBoostClassifier
