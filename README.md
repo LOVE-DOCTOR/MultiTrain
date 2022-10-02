@@ -50,13 +50,13 @@ MultiTrain requires:
 # INSTALLATION
 Install MultiTrain using:
 ```commandline
-pip install MultiTrain
+pip install MultiTrain_patch
 ```
 
 # ISSUES
 If you experience issues or come across a bug while using MultiTrain, make sure to update to the latest version with
 ```commandline
-pip install --upgrade MultiTrain
+pip install --upgrade MultiTrain_patch
 ```
 If that doesn't fix your bug, create an issue in the issue tracker
 
@@ -70,7 +70,7 @@ f1 score, precision, recall, roc auc score for each of the models.
 
 #Note: the parameter target_class was removed in version 0.11.0, your dataset is automatically checked
 #      for binary labels or multiclass labels
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 train = MultiClassifier(cores=-1, #this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make training faster
                         random_state=42, #setting random state here automatically sets a unified random state across function imports
                         verbose=True, #set this to True to display the name of the estimators being fitted at a particular time
@@ -85,7 +85,7 @@ In continuation of the code snippet above, if you're unsure about the various sa
 a code snippet is provided below to generate a list of all available sampling techniques.
 
 ```python
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 train = MultiClassifier()
 print(train.strategies()) #this line of codes returns all the under sampling, over sampling and over_under sampling methods available for use
 ```
@@ -93,7 +93,7 @@ print(train.strategies()) #this line of codes returns all the under sampling, ov
 ### CLASSIFIER MODEL NAMES
 To return a list of all models available for training
 ```python
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 train = MultiClassifier()
 print(train.classifier_model_names())
 
@@ -104,7 +104,7 @@ However, it has some extra features.
 For example, the split method is demonstrated in the code below.
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 train = MultiClassifier()
 df = pd.read_csv("nameofFile.csv")
@@ -123,7 +123,7 @@ You can achieve this with the split function. See the code excerpt below.
 #### Dimensionality Reduction
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier #import the module
+from MultiTrain_patch import MultiClassifier #import the module
 
 train = MultiClassifier()
 df = pd.read_csv('NameOfFile.csv')
@@ -226,7 +226,7 @@ Instead of the standard training in scikit-learn, catboost, or xgboost, this fit
 It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 train = MultiClassifier()
 df = pd.read_csv('file.csv')
@@ -249,7 +249,7 @@ Now, we would be looking at the various ways the fit method can be implemented.
 ```python
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 train = MultiClassifier()
 
 df = pd.read_csv('filename.csv')
@@ -271,7 +271,7 @@ fit = train.fit(X_train=X_train,
 #### If you used the split method provided by the MultiClassifier
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 train = MultiClassifier()
 df = pd.read_csv('filename.csv')
@@ -293,7 +293,7 @@ fit = train.fit(splitting=True,
 #### If you want to train on your dataset with KFold
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 train = MultiClassifier()
 df = pd.read_csv('filename.csv')
@@ -311,7 +311,7 @@ fit = train.fit(X=features,
 #### If you're working on an NLP problem
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 train = MultiClassifier()
 df = pd.read_csv('filename.csv')
@@ -422,7 +422,7 @@ The different hyper parameter tuning methods available are listed below
 Let's train a new model and then perform hyperparameter tuning on it.
 ```python
 import pandas as pd
-from MultiTrain import MultiClassifier
+from MultiTrain_patch import MultiClassifier
 
 df = pd.read_csv('data.csv')
 features = df.drop('thelabels', axis=1)
@@ -462,7 +462,7 @@ The MultiRegressor is a combination of many classifier estimators, each of which
 ```python
 #This is a code snippet of how to import the MultiClassifier and the parameters contained in an instance
 
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 train = MultiRegressor(cores=-1, #this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make training faster
                        random_state=42, #setting random state here automatically sets a unified random state across function imports
                        verbose=True #set this to True to display the name of the estimators being fitted at a particular time
@@ -471,7 +471,7 @@ train = MultiRegressor(cores=-1, #this parameter works exactly the same as setti
 ### REGRESSION MODEL NAMES
 To return a list of all models available for training
 ```python
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 train = MultiRegressor()
 print(train.regression_model_names())
 
@@ -481,7 +481,7 @@ This function operates identically like the scikit-learn framework's train test 
 However, it has some extra features.
 For example, the split method is demonstrated in the code below.
 ```python
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 train = MultiRegressor()
 df = pd.read_csv("FileName.csv")
 X = df.drop("LabelColumn", axis = 1)
@@ -510,7 +510,7 @@ Now, we would be looking at the various ways the fit method can be implemented.
 ```python
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 train = MultiRegressor()
 
 df = pd.read_csv('filename.csv')
@@ -532,7 +532,7 @@ fit = train.fit(X_train=X_train,
 #### If you used the split method provided by the MultiRegressor
 ```python
 import pandas as pd
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 
 train = MultiRegressor()
 df = pd.read_csv('filename.csv')
@@ -554,7 +554,7 @@ fit = train.fit(splitting=True,
 #### If you want to train on your dataset with KFold
 ```python
 import pandas as pd
-from MultiTrain import MultiRegressor
+from MultiTrain_patch import MultiRegressor
 
 train = MultiRegressor()
 df = pd.read_csv('filename.csv')

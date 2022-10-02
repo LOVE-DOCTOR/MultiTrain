@@ -14,7 +14,7 @@ setup(
                 "determine the best for that particular use case",
     long_description=desc,
     long_description_content_type='text/markdown',
-    keywords=['multitrain', 'multi', 'train', 'MultiTrain', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
+    keywords=['multitrain_patch', 'multi', 'train', 'MultiTrain_patch', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
     url="https://github.com/LOVE-DOCTOR/train-with-models",
     packages=find_packages(include=['MultiTrain_patch', 'MultiTrain.tests', 'MultiTrain.methods',
                                     'MultiTrain.regression', 'MultiTrain.classification']),
