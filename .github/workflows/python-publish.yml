@@ -6,22 +6,32 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Upload Python Package
+name: Upload Python Package to PyPI.org
 
-on: push
+on:
+  release:
+    types: [created]
 
+  workflow_dispatch:
 
 jobs:
   build-n-publish:
     name: Build and publish Python distributions to PyPI and TestPyPI
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: [3.8", "3.9", "3.10"]
+
     if: github.ref == 'refs/heads/main'
+
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
         
     - name: Install dependencies
       run: |
@@ -31,6 +41,7 @@ jobs:
         pip install wheel 
         pip install twine
         python setup.py install
+
     - name: Build package
       run: | 
         python -m build

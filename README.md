@@ -1,16 +1,16 @@
 ![PyPI](https://img.shields.io/pypi/v/MultiTrain?label=pypi%20package)
-![GitHub branch checks state](https://img.shields.io/github/checks-status/LOVE-DOCTOR/train-with-models/main?style=plastic)
 ![Languages](https://img.shields.io/github/languages/top/LOVE-DOCTOR/train-with-models)
 ![GitHub repo size](https://img.shields.io/github/repo-size/LOVE-DOCTOR/train-with-models)
-![GitHub issues](https://img.shields.io/github/issues/LOVE-DOCTOR/train-with-models)
-![GitHub closed issues](https://img.shields.io/github/issues-closed/LOVE-DOCTOR/train-with-models)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/LOVE-DOCTOR/train-with-models)
-![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed-raw/LOVE-DOCTOR/train-with-models)
 ![GitHub](https://img.shields.io/github/license/LOVE-DOCTOR/train-with-models)
-![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models?style=social)
-![GitHub forks](https://img.shields.io/github/forks/love-doctor/train-with-models?style=social)
+![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
+[![python version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
+![Windows](https://img.shields.io/badge/Windows-0078D6?&logo=windows&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?&logo=ubuntu&logoColor=white)
+![macOS](https://img.shields.io/badge/mac%20os-0078D6?&logo=macos&logoColor=white)
+
+
 # CONTRIBUTING
 If you wish to make small changes to the codebase, your pull requests are welcome. However, for major changes or ideas on how to improve the library, please create an issue.
 # LINKS
@@ -21,13 +21,11 @@ If you wish to make small changes to the codebase, your pull requests are welcom
 - [Usage](#usage)
     1. [Visualize training results](#visualize-training-results)
     2. [Hyperparameter Tuning](#hyperparameter-tuning)
-    - [Classification](#classification)
-        > [MultiClassifier](#multiclassifier)
+    - [MultiClassifier(Classification)](#multiclassifier)
         1. [Classifier Model Names](#classifier-model-names)
         2. [Split](#split-classifier)
         3. [Fit](#fit-classifier)
-    - [Regression](#regression)
-        > [MultiRegressor](#multiregressor)
+    - [MultiRegressor](#multiregressor)
         1. [Regression Model Names](#regression-model-names)
         2. [Split](#split-regression)
         3. [Fit](#fit-regression)
@@ -65,7 +63,6 @@ pip install --upgrade MultiTrain
 If that doesn't fix your bug, create an issue in the issue tracker
 
 # USAGE
-## CLASSIFICATION
 
 ### MULTICLASSIFIER
 The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
@@ -81,8 +78,9 @@ train = MultiClassifier(cores=-1, #this parameter works exactly the same as sett
                         verbose=True, #set this to True to display the name of the estimators being fitted at a particular time
                         imbalanced=True, #set this parameter to true if you are working with an imbalanced dataset
                         sampling='SMOTE', #set this parameter to any over_sampling, under_sampling or over_under_sampling methods if imbalanced is True
-                        strategy='auto' #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
+                        strategy='auto', #not all samplers use this parameters, the parameter is named as sampling_strategy for the samplers that support,
                                         #read more in the imbalanced learn documentation before using this parameter
+                        select_models=['LogisticRegression', 'DecisionTreeClassifier'] #only use this parameter if you want to select your custom models for training
                         )
 ```
 In continuation of the code snippet above, if you're unsure about the various sampling techniques accessible after setting imbalanced to True when working on an imbalanced dataset, 
@@ -343,11 +341,11 @@ A method is also provided for you to do this easily.
 Continuing from any of the code snippets above(for the fit method) - after training, to use the best algorithm based on it's name
 
 ```python
-mod=train.use_best_model(df=fit, model='LogisticRegression')
+mod=train.use_model(df=fit, model='LogisticRegression')
 ```
 Or else if you want to automatically select the best algorithm based on a particular metric of your choice
 ```python
-mod=train.use_best_model(df=fit, best='Balanced Accuracy')
+mod=train.use_model(df=fit, best='Balanced Accuracy')
 ```
 ### VISUALIZE TRAINING RESULTS
 It gets interesting. After model training, it is obvious that you get a dataframe containing all algorithms and their performance.
@@ -360,7 +358,8 @@ Note: In order to visualize your model training results, you must have passed th
 #this code is a continuation of the implementations of the fit method above
 
 #if you only want to visualize the results in your notebook, use this code
-train.visualize(param=fit, #this parameter takes in the dataframe of the training results 
+train.visualize(param=fit, #this parameter takes in the dataframe of the training results
+                y=labels,                
                 t_split=True, #set t_split to true here if you split your data with the split method provided by MultiTrain
                 kf=False, #set kf to True here if you used KFold split to train, note t_split and kf can't be set to True at the same time
                 size=(15,8) #this sets the size of each plots to be displayed in your notebook
@@ -368,6 +367,7 @@ train.visualize(param=fit, #this parameter takes in the dataframe of the trainin
 
 #if you want to visualize the results in your notebook and save the plots to your system
 train.visualize(param=fit,
+                y=labels,
                 t_split=True,
                 size=(15,8),
                 file_path='C:/Users/lenovo/', #you can set your own filepath here)
@@ -457,8 +457,8 @@ tuned_model_random = train.tune_parameters(model=mod,
                                            cv=5)
 ```
 Notice how you only had to had to change the value of tune to use another hyperparameter tuning algorithm. That's the simplicity MultiTrain provides you.
-## REGRESSION
-### MULTIREGRESSOR
+
+## MULTIREGRESSOR
 
 The MultiRegressor is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics for each of the models.
 ```python
