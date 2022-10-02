@@ -46,7 +46,7 @@ jobs:
     #    # format directory
     #    black MultiTrain/ --check
 
-    - name: Test with unittest
+    - name: Test with pytest
       run: |
         pip install -e .
         pip install pytest
