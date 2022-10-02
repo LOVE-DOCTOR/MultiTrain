@@ -39,7 +39,7 @@ setup(
     python_requires='>=3.8',
     install_requires=["matplotlib==3.5.3",
                       "pandas==1.4.4",
-                      "scikit-learn==1.1.2",
+                      "scikit-learn==1.0.2",
                       "numpy==1.23.3",
                       "plotly==5.10.0",
                       "ipython==8.4.0",
@@ -55,5 +55,5 @@ setup(
                       "jinja2==3.0.3",
                       "openpyxl==3.0.10",
                       "ipywidgets==8.0.2",
-                      "scikit_learn_intelex==2021.7.0"]
+                      "scikit_learn_intelex==2021.6.0"]
 )
