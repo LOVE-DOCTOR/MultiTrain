@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.8", "3.9", "3.10"]
 
     if: github.ref == 'refs/heads/production_patch'
@@ -46,6 +46,8 @@ jobs:
     #    # format directory
     #    black MultiTrain_patch/ --check
 
-    - name: Test with unittest
+    - name: Test with pytest
       run: |
-        python -m unittest discover
+        pip install -e .
+        pip install pytest
+        python -m pytest --import-mode=append tests/
