@@ -1,4 +1,4 @@
-from MultiTrain.classification.classification_models import MultiClassifier
+from MultiTrain_patch.classification.classification_models import MultiClassifier
 
 import unittest
 

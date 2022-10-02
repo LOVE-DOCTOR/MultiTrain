@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 # import MultiTrain
-from MultiTrain.classification.classification_models import MultiClassifier
+from MultiTrain_patch.classification.classification_models import MultiClassifier
 
 df = pd.DataFrame(
     {

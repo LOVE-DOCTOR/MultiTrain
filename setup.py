@@ -4,7 +4,7 @@ with open('README.md', 'r') as f:
     desc = f.read()
 
 setup(
-    name='MultiTrain[patch]',  # name of package
+    name='MultiTrain_patch',  # name of package
     version="0.13.0",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
@@ -16,7 +16,7 @@ setup(
     long_description_content_type='text/markdown',
     keywords=['multitrain', 'multi', 'train', 'MultiTrain', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
     url="https://github.com/LOVE-DOCTOR/train-with-models",
-    packages=find_packages(include=['MultiTrain', 'MultiTrain.tests', 'MultiTrain.methods',
+    packages=find_packages(include=['MultiTrain_patch', 'MultiTrain.tests', 'MultiTrain.methods',
                                     'MultiTrain.regression', 'MultiTrain.classification']),
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -34,7 +34,7 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries :: Python Modules"
     ],
-    py_modules=['MultiTrain'],
+    py_modules=['MultiTrain_patch'],
     zip_safe=False,
     python_requires='>=3.8',
     install_requires=["matplotlib==3.5.3",

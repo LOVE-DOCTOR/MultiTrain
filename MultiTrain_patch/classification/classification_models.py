@@ -109,7 +109,7 @@ from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from skopt import BayesSearchCV
 from xgboost import XGBClassifier
 
-from MultiTrain.errors.fit_exceptions import (
+from MultiTrain_patch.errors.fit_exceptions import (
     raise_text_error,
     raise_imbalanced_error,
     raise_kfold1_error,
@@ -118,7 +118,7 @@ from MultiTrain.errors.fit_exceptions import (
     raise_kfold2_error,
     raise_splitting_error,
 )
-from MultiTrain.errors.split_exceptions import (
+from MultiTrain_patch.errors.split_exceptions import (
     feature_label_type_error,
     strat_error,
     dimensionality_reduction_type_error,
@@ -126,7 +126,7 @@ from MultiTrain.errors.split_exceptions import (
     missing_values_error,
 )
 
-from MultiTrain.methods.multitrain_methods import (
+from MultiTrain_patch.methods.multitrain_methods import (
     directory,
     img,
     img_plotly,

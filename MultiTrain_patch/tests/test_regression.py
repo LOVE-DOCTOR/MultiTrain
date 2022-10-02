@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 # import MultiTrain
-from MultiTrain.regression.regression_models import MultiRegressor
+from MultiTrain_patch.regression.regression_models import MultiRegressor
 
 df = pd.DataFrame(
     {"X": np.arange(0, 10), "X2": np.linspace(2, 3, 10), "Y": np.linspace(0.1, 1, 10)}

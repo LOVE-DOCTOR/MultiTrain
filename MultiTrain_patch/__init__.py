@@ -1,0 +1,3 @@
+from MultiTrain_patch.classification.classification_models import MultiClassifier
+from MultiTrain_patch.regression.regression_models import MultiRegressor
+from MultiTrain_patch.__version__ import __version__
