@@ -4,7 +4,9 @@ import warnings
 from collections import Counter
 from operator import __setitem__
 from typing import Union, Optional
+from sklearnex import patch_sklearn
 
+patch_sklearn(verbose=False, global_patch=True)
 import numpy as np
 import pandas as pd
 import plotly.express as px

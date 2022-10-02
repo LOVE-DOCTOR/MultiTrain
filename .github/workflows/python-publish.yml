@@ -23,7 +23,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: [3.8", "3.9", "3.10"]
 
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main_patch'
 
     steps:
     - uses: actions/checkout@v3

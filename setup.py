@@ -4,7 +4,7 @@ with open('README.md', 'r') as f:
     desc = f.read()
 
 setup(
-    name='MultiTrain',  # name of package
+    name='MultiTrain[patch]',  # name of package
     version="0.13.0",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
@@ -36,7 +36,7 @@ setup(
     ],
     py_modules=['MultiTrain'],
     zip_safe=False,
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     install_requires=["matplotlib==3.5.3",
                       "pandas==1.4.4",
                       "scikit-learn==1.0.2",
@@ -54,5 +54,6 @@ setup(
                       "tqdm==4.64.0",
                       "jinja2==3.0.3",
                       "openpyxl==3.0.10",
-                      "ipywidgets==8.0.2"]
+                      "ipywidgets==8.0.2",
+                      "scikit_learn_intelex==2021.6.3"]
 )
