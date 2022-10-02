@@ -8,9 +8,10 @@
 
 name: Upload Python Package to PyPI.org
 
-on:
-  release:
-    types: [created]
+on: 
+  push:
+    branches:
+      -main
 
   workflow_dispatch:
 
