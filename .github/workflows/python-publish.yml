@@ -8,12 +8,7 @@
 
 name: Upload Python Package to PyPI.org
 
-on: 
-  push:
-    branches:
-      -main
-
-  workflow_dispatch:
+on: push
 
 jobs:
   build-n-publish:
