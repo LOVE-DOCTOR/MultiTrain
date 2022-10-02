@@ -16,7 +16,7 @@ on:
 
 jobs:
   build-n-publish:
-    name: Build and publish Python distributions to PyPI and TestPyPI
+    name: Build and publish MultiTrain to PyPI and TestPyPI
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
