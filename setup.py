@@ -72,3 +72,4 @@ setup(
                       "jinja2==3.1.2",
                       "openpyxl==3.0.10",
                       "ipywidgets==8.0.2"]
+)
