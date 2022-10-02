@@ -465,7 +465,9 @@ class MultiClassifier:
         :param sizeOfTest: define size of test data
         :param randomState: define random state
         :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
-        :param missing_values: Dictionary to fill missing values for categorical and numerical columns, e.g {'cat': 'most_frequent', 'num': 'mean'} where the key 'cat' represents categorical column and the corresponding value represents the strategy used to fill the missing value.
+        :param missing_values: Dictionary to fill missing values for categorical and numerical columns, e.g 
+        {'cat': 'most_frequent', 'num': 'mean'} where the key 'cat' represents categorical column and the 
+        corresponding value represents the strategy used to fill the missing value.
 
         Example
         df = pd.read_csv("nameOfFile.csv")

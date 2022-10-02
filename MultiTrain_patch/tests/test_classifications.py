@@ -19,7 +19,7 @@ features = df.drop("Y", axis=1)
 target = round(df.Y, 2)
 train_reg = MultiClassifier(
     cores=-1,  # this parameter works exactly the same as setting n_jobs to -1, this uses all the cpu cores to make
-               # training faster
+    # training faster
     random_state=42,  # setting random state here automatically sets a unified random state across function imports
 )
 split = train_reg.split(
