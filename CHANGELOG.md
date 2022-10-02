@@ -5,6 +5,7 @@
 - Added progress bar when training models
 - Added more understandable error message with fixes indicated
 - Fixed key error bug in use_model when specifying metric
+- Removed r2 score metric from classification
 
 # 0.12.3
 - Fixed bug that stopped models from training due to inconsistent number of columns
