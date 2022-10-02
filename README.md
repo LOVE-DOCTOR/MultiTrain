@@ -1,11 +1,14 @@
 ![PyPI](https://img.shields.io/pypi/v/MultiTrain?label=pypi%20package)
-![GitHub branch checks state](https://img.shields.io/github/checks-status/LOVE-DOCTOR/train-with-models/production?style=plastic)
 ![Languages](https://img.shields.io/github/languages/top/LOVE-DOCTOR/train-with-models)
 ![GitHub repo size](https://img.shields.io/github/repo-size/LOVE-DOCTOR/train-with-models)
 ![GitHub](https://img.shields.io/github/license/LOVE-DOCTOR/train-with-models)
-![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models?style=social)
+![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
+[![python version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
+
+
+
 # CONTRIBUTING
 If you wish to make small changes to the codebase, your pull requests are welcome. However, for major changes or ideas on how to improve the library, please create an issue.
 # LINKS
@@ -16,13 +19,11 @@ If you wish to make small changes to the codebase, your pull requests are welcom
 - [Usage](#usage)
     1. [Visualize training results](#visualize-training-results)
     2. [Hyperparameter Tuning](#hyperparameter-tuning)
-    - [Classification](#classification)
-        > [MultiClassifier](#multiclassifier)
+    - [MultiClassifier(Classification)](#multiclassifier)
         1. [Classifier Model Names](#classifier-model-names)
         2. [Split](#split-classifier)
         3. [Fit](#fit-classifier)
-    - [Regression](#regression)
-        > [MultiRegressor](#multiregressor)
+    - [MultiRegressor](#multiregressor)
         1. [Regression Model Names](#regression-model-names)
         2. [Split](#split-regression)
         3. [Fit](#fit-regression)
@@ -60,7 +61,6 @@ pip install --upgrade MultiTrain
 If that doesn't fix your bug, create an issue in the issue tracker
 
 # USAGE
-## CLASSIFICATION
 
 ### MULTICLASSIFIER
 The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, r2 score, 
@@ -455,8 +455,8 @@ tuned_model_random = train.tune_parameters(model=mod,
                                            cv=5)
 ```
 Notice how you only had to had to change the value of tune to use another hyperparameter tuning algorithm. That's the simplicity MultiTrain provides you.
-## REGRESSION
-### MULTIREGRESSOR
+
+## MULTIREGRESSOR
 
 The MultiRegressor is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics for each of the models.
 ```python
