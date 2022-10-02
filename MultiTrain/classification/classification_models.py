@@ -9,9 +9,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
-from sklearnex import patch_sklearn
-
-patch_sklearn(global_patch=True)
 from tqdm.notebook import trange
 from IPython.display import display
 from catboost import CatBoostClassifier
@@ -74,7 +71,6 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     accuracy_score,
     make_scorer,
-    r2_score,
     f1_score,
     roc_auc_score,
 )
@@ -257,8 +253,6 @@ class MultiClassifier:
             "Recall",
             "f1(Train)",
             "f1",
-            "r2(Train)",
-            "r2",
             "Standard Deviation of Accuracy(Train)",
             "Standard Deviation of Accuracy",
             "Time Taken(s)",
@@ -271,7 +265,6 @@ class MultiClassifier:
             "Precision",
             "Recall",
             "f1",
-            "r2",
             "Standard Deviation of Accuracy",
             "Time Taken(s)",
         ]
@@ -298,8 +291,6 @@ class MultiClassifier:
             "Accuracy",
             "Balanced Accuracy(Train)",
             "Balanced Accuracy",
-            "r2 score(Train)",
-            "r2 score",
             "ROC AUC(Train)",
             "ROC AUC",
             "f1 score(Train)",
@@ -315,7 +306,6 @@ class MultiClassifier:
             "Overfitting",
             "Accuracy",
             "Balanced Accuracy",
-            "r2 score",
             "ROC AUC",
             "f1 score",
             "Precision",
@@ -329,8 +319,6 @@ class MultiClassifier:
             "Accuracy",
             "Balanced Accuracy(Train)",
             "Balanced Accuracy",
-            "r2 score(Train)",
-            "r2 score",
             "f1 score(Train)",
             "f1 score",
             "Precision(Train)",
@@ -344,7 +332,6 @@ class MultiClassifier:
             "Overfitting",
             "Accuracy",
             "Balanced Accuracy",
-            "r2 score",
             "f1 score",
             "Precision",
             "Recall",
@@ -801,10 +788,7 @@ class MultiClassifier:
             "Recall Macro",
             "Test Recall",
             "Test Recall Macro",
-            "r2",
-            "r2 score",
-            "ROC AUC",
-            "Test r2",
+            "ROC AUC"
         ]
         low = ["mean absolute error", "mean squared error", "Test std"]
 
@@ -854,8 +838,7 @@ class MultiClassifier:
                     "balanced_accuracy",
                     "precision",
                     "recall",
-                    "f1",
-                    "r2",
+                    "f1"
                 )
 
                 start = time.time()
@@ -880,8 +863,6 @@ class MultiClassifier:
                     mean_test_precision = scores["test_precision"].mean()
                     mean_train_f1 = scores["train_f1"].mean()
                     mean_test_f1 = scores["test_f1"].mean()
-                    mean_train_r2 = scores["train_r2"].mean()
-                    mean_test_r2 = scores["test_r2"].mean()
                     mean_train_recall = scores["train_recall"].mean()
                     mean_test_recall = scores["test_recall"].mean()
                     train_stdev = scores["train_accuracy"].std()
@@ -898,12 +879,7 @@ class MultiClassifier:
                     )
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
-                    (mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2,) = (
-                        np.nan,
-                        np.nan,
-                        np.nan,
-                        np.nan,
-                    )
+                    (mean_train_f1, mean_test_f1) = np.nan, np.nan
                     (
                         mean_train_recall,
                         mean_test_recall,
@@ -944,8 +920,6 @@ class MultiClassifier:
                 #        mean_test_precision = scores["test_precision"].mean()
                 #        mean_train_f1 = scores["train_f1"].mean()
                 #        mean_test_f1 = scores["test_f1"].mean()
-                #        mean_train_r2 = scores["train_r2"].mean()
-                #        mean_test_r2 = scores["test_r2"].mean()
                 #        mean_train_recall = scores["train_recall"].mean()
                 #        mean_test_recall = scores["test_recall"].mean()
                 #        train_stdev = scores["train_accuracy"].std()
@@ -956,7 +930,7 @@ class MultiClassifier:
                 #        seconds, mean_train_acc, mean_test_acc = np.nan, np.nan, np.nan
                 #        mean_train_bacc, mean_test_bacc = np.nan, np.nan
                 #        mean_train_precision, mean_test_precision = np.nan, np.nan
-                #        mean_train_f1, mean_test_f1, mean_train_r2, mean_test_r2 = np.nan, np.nan, np.nan, np.nan
+                #        mean_train_f1, mean_test_f1 = np.nan, np.nan
                 #        mean_train_recall, mean_test_recall, train_stdev, test_stdev, overfitting = np.nan, np.nan, np.nan, np.nan, False
 
                 # scores = scores.tolist()
@@ -971,8 +945,6 @@ class MultiClassifier:
                         mean_test_precision,
                         mean_train_f1,
                         mean_test_f1,
-                        mean_train_r2,
-                        mean_test_r2,
                         mean_train_recall,
                         mean_test_recall,
                         train_stdev,
@@ -988,7 +960,6 @@ class MultiClassifier:
                         mean_test_bacc,
                         mean_test_precision,
                         mean_test_f1,
-                        mean_test_r2,
                         mean_test_recall,
                         test_stdev,
                         seconds,
@@ -1255,7 +1226,6 @@ class MultiClassifier:
 
                     acc = accuracy_score(true, pred)
                     bacc = balanced_accuracy_score(true, pred)
-                    r2 = r2_score(true, pred)
                     try:
                         roc = roc_auc_score(true, pred)
                     except ValueError:
@@ -1278,7 +1248,6 @@ class MultiClassifier:
 
                     tacc = accuracy_score(true_train, pred_train)
                     tbacc = balanced_accuracy_score(true_train, pred_train)
-                    tr2 = r2_score(true_train, pred_train)
                     try:
                         troc = roc_auc_score(true_train, pred_train)
                     except ValueError:
@@ -1313,7 +1282,6 @@ class MultiClassifier:
                             overfit,
                             acc,
                             bacc,
-                            r2,
                             roc,
                             f1,
                             pre,
@@ -1324,7 +1292,6 @@ class MultiClassifier:
                             overfit,
                             acc,
                             bacc,
-                            r2,
                             f1,
                             pre,
                             rec,
@@ -1338,8 +1305,6 @@ class MultiClassifier:
                             acc,
                             tbacc,
                             bacc,
-                            tr2,
-                            r2,
                             troc,
                             roc,
                             tf1,
@@ -1356,8 +1321,6 @@ class MultiClassifier:
                             acc,
                             tbacc,
                             bacc,
-                            tr2,
-                            r2,
                             tf1,
                             f1,
                             tpre,
@@ -1510,14 +1473,9 @@ class MultiClassifier:
             raise Exception("You can only use one of the two arguments.")
 
         if model:
-            if model not in name:
-                raise Exception(
-                    f"name {model} is not found, "
-                    f"here is a list of the available models to work with: {name}"
-                )
-            elif model in name:
-                index_ = name.index(model)
-                return MODEL[index_]
+            assert model in name, f'name {model} is not found, here is a list of the available models to work with: {name}'
+            index_ = name.index(model)
+            return MODEL[index_]
 
         elif best:
             instance = self._get_index(df, best)
@@ -1769,15 +1727,10 @@ class MultiClassifier:
             plt.title("F1 SCORE")
 
             plt.figure(figsize=size)
-            plot1 = sns.barplot(x="model_names", y="r2", data=param)
-            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
-            plt.title("R2 SCORE")
-
-            plt.figure(figsize=size)
-            plot1 = sns.barplot(
+            plot4 = sns.barplot(
                 x="model_names", y="Standard Deviation of Accuracy", data=param
             )
-            plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
+            plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
             plt.title("STANDARD DEVIATION")
 
             if save == "pdf":
@@ -1790,6 +1743,9 @@ class MultiClassifier:
 
             display(plot)
             display(plot1)
+            display(plot2)
+            display(plot3)
+            display(plot4)
 
         elif t_split is True:
             if target_class == "binary":
@@ -1799,54 +1755,9 @@ class MultiClassifier:
                 plt.title("ACCURACY")
 
                 plt.figure(figsize=size)
-                plot1 = sns.barplot(x="model_names", y="r2 score", data=param)
+                plot1 = sns.barplot(x="model_names", y="ROC AUC", data=param)
                 plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
-                plt.title("R2 SCORE")
-
-                plt.figure(figsize=size)
-                plot2 = sns.barplot(x="model_names", y="ROC AUC", data=param)
-                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
                 plt.title("ROC AUC")
-
-                plt.figure(figsize=size)
-                plot3 = sns.barplot(x="model_names", y="f1 score", data=param)
-                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
-                plt.title("F1 SCORE")
-
-                plt.figure(figsize=size)
-                plot4 = sns.barplot(x="model_names", y="Precision", data=param)
-                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
-                plt.title("PRECISION")
-
-                plt.figure(figsize=size)
-                plot5 = sns.barplot(x="model_names", y="Recall", data=param)
-                plot5.set_xticklabels(plot5.get_xticklabels(), rotation=90)
-                plt.title("RECALL")
-
-                display(plot)
-                display(plot1)
-                display(plot2)
-                display(plot3)
-                display(plot4)
-                display(plot5)
-
-                if save == "pdf":
-                    name = save_name + ".pdf"
-                    img(name, FILE_PATH=file_path, type_="file")
-                elif save == "png":
-                    name = save_name
-                    img(FILENAME=name, FILE_PATH=file_path, type_="picture")
-
-            elif target_class == "multiclass":
-                plt.figure(figsize=size)
-                plot = sns.barplot(x="model_names", y="Accuracy", data=param)
-                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
-                plt.title("ACCURACY")
-
-                plt.figure(figsize=size)
-                plot1 = sns.barplot(x="model_names", y="r2 score", data=param)
-                plot1.set_xticklabels(plot1.get_xticklabels(), rotation=90)
-                plt.title("R2 SCORE")
 
                 plt.figure(figsize=size)
                 plot2 = sns.barplot(x="model_names", y="f1 score", data=param)
@@ -1865,6 +1776,39 @@ class MultiClassifier:
 
                 display(plot)
                 display(plot1)
+                display(plot2)
+                display(plot3)
+                display(plot4)
+
+                if save == "pdf":
+                    name = save_name + ".pdf"
+                    img(name, FILE_PATH=file_path, type_="file")
+                elif save == "png":
+                    name = save_name
+                    img(FILENAME=name, FILE_PATH=file_path, type_="picture")
+
+            elif target_class == "multiclass":
+                plt.figure(figsize=size)
+                plot = sns.barplot(x="model_names", y="Accuracy", data=param)
+                plot.set_xticklabels(plot.get_xticklabels(), rotation=90)
+                plt.title("ACCURACY")
+
+                plt.figure(figsize=size)
+                plot2 = sns.barplot(x="model_names", y="f1 score", data=param)
+                plot2.set_xticklabels(plot2.get_xticklabels(), rotation=90)
+                plt.title("F1 SCORE")
+
+                plt.figure(figsize=size)
+                plot3 = sns.barplot(x="model_names", y="Precision", data=param)
+                plot3.set_xticklabels(plot3.get_xticklabels(), rotation=90)
+                plt.title("PRECISION")
+
+                plt.figure(figsize=size)
+                plot4 = sns.barplot(x="model_names", y="Recall", data=param)
+                plot4.set_xticklabels(plot4.get_xticklabels(), rotation=90)
+                plt.title("RECALL")
+
+                display(plot)
                 display(plot2)
                 display(plot3)
                 display(plot4)
