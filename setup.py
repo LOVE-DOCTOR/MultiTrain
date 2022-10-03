@@ -17,7 +17,7 @@ setup(
     keywords=['multitrain', 'multi', 'train', 'MultiTrain', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
     url="https://github.com/LOVE-DOCTOR/train-with-models",
     packages=find_packages(include=['MultiTrain', 'MultiTrain.tests', 'MultiTrain.methods',
-                                    'MultiTrain.regression', 'MultiTrain.classification']),
+                                    'MultiTrain.regression', 'MultiTrain.errors', 'MultiTrain.classification']),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
