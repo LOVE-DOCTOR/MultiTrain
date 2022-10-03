@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-with open('README.md', 'r') as f:
+with open("README.md", "r") as f:
     desc = f.read()
 
 setup(
@@ -13,11 +13,29 @@ setup(
     description="MultiTrain allows you to train multiple machine learning algorithms on a dataset all at once to "
                 "determine the best for that particular use case",
     long_description=desc,
-    long_description_content_type='text/markdown',
-    keywords=['multitrain', 'multi', 'train', 'MultiTrain', 'multiclass', 'classifier', 'automl', 'AutoML', 'train multiple models'],
+    long_description_content_type="text/markdown",
+    keywords=[
+        "multitrain",
+        "multi",
+        "train",
+        "MultiTrain",
+        "multiclass",
+        "classifier",
+        "automl",
+        "AutoML",
+        "train multiple models",
+    ],
     url="https://github.com/LOVE-DOCTOR/train-with-models",
-    packages=find_packages(include=['MultiTrain', 'MultiTrain.tests', 'MultiTrain.methods',
-                                    'MultiTrain.regression', 'MultiTrain.errors', 'MultiTrain.classification']),
+    packages=find_packages(
+        include=[
+            "MultiTrain",
+            "MultiTrain.tests",
+            "MultiTrain.methods",
+            "MultiTrain.errors",
+            "MultiTrain.regression",
+            "MultiTrain.classification",
+        ]
+    ),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
@@ -32,9 +50,9 @@ setup(
         "Framework :: Jupyter",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Intended Audience :: Developers",
-        "Topic :: Software Development :: Libraries :: Python Modules"
+        "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    py_modules=['MultiTrain'],
+    py_modules=["MultiTrain"],
     zip_safe=False,
     python_requires='>=3.8',
     install_requires=["matplotlib==3.5.3",
