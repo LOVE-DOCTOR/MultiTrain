@@ -1,5 +1,8 @@
 # WHAT'S NEW
 
+# 0.13.10
+- Fixed bug causing upgrade to fail
+
 # 0.13.0
 - Added new parameter 'select_models' that enables you to select only a few models to train with instead of using all models at once.
 - Added progress bar when training models
