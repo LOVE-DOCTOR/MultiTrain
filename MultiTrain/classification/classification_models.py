@@ -244,8 +244,10 @@ class MultiClassifier:
             "Overfitting",
             "Accuracy(Train)",
             "Accuracy",
-            "Balanced Accuracy(train)",
+            "Balanced Accuracy(Train)",
             "Balanced Accuracy",
+            "ROC AUC(Train)",
+            "ROC AUC"
             "Precision(Train)",
             "Precision",
             "Recall(Train)",
@@ -832,7 +834,7 @@ class MultiClassifier:
                 if self.verbose is True:
                     print(names[i])
 
-                score = ("accuracy", "balanced_accuracy", "precision", "recall", "f1")
+                score = ("accuracy", "balanced_accuracy", "precision", "recall", "f1", 'roc_auc')
 
                 start = time.time()
                 try:
@@ -852,6 +854,8 @@ class MultiClassifier:
                     mean_test_acc = scores["test_accuracy"].mean()
                     mean_train_bacc = scores["train_balanced_accuracy"].mean()
                     mean_test_bacc = scores["test_balanced_accuracy"].mean()
+                    mean_train_roc = scores["train_roc_auc"].mean()
+                    mean_test_roc = scores["test_roc_auc"].mean()
                     mean_train_precision = scores["train_precision"].mean()
                     mean_test_precision = scores["test_precision"].mean()
                     mean_train_f1 = scores["train_f1"].mean()
@@ -871,6 +875,7 @@ class MultiClassifier:
                         np.nan,
                     )
                     mean_train_bacc, mean_test_bacc = np.nan, np.nan
+                    mean_train_roc, mean_test_roc = np.nan, np.nan
                     mean_train_precision, mean_test_precision = np.nan, np.nan
                     (mean_train_f1, mean_test_f1) = np.nan, np.nan
                     (
@@ -934,6 +939,8 @@ class MultiClassifier:
                         mean_test_acc,
                         mean_train_bacc,
                         mean_test_bacc,
+                        mean_train_roc,
+                        mean_test_roc,
                         mean_train_precision,
                         mean_test_precision,
                         mean_train_f1,
@@ -951,6 +958,7 @@ class MultiClassifier:
                         overfitting,
                         mean_test_acc,
                         mean_test_bacc,
+                        mean_test_roc,
                         mean_test_precision,
                         mean_test_f1,
                         mean_test_recall,
@@ -1537,7 +1545,9 @@ class MultiClassifier:
                 "model you want to train with."
             )
         if tune:
-            scorers = make_scorer(accuracy_score)
+            metrics = {'roc_auc': roc_auc_score,
+                       'accuracy': accuracy_score}
+            scorers = make_scorer(metrics[score])
 
             if tune == "grid":
                 tuned_model = GridSearchCV(
@@ -1567,7 +1577,7 @@ class MultiClassifier:
                     error_score=error_score,
                     scoring=scorers,
                     refit=refit,
-                    pre_dispatch=pre_dispatch,
+                    pre_dispatch=pre_dispatch
                 )
 
                 return tuned_model

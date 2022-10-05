@@ -813,7 +813,7 @@ class MultiRegressor:
                     true = y_te
                     mae = mean_absolute_error(true, pred)
                     rmse = np.sqrt(mean_squared_error(true, pred))
-                    r2 = r2_score(true, pred, force_finite=True)
+                    r2 = r2_score(true, pred)
                     try:
                         rmsle = np.sqrt(mean_squared_log_error(true, pred))
                     except ValueError:
