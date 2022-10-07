@@ -55,9 +55,6 @@ from sklearn.metrics import (
     median_absolute_error,
     mean_absolute_percentage_error,
     make_scorer,
-    precision_score,
-    recall_score,
-    accuracy_score,
 )
 from sklearn.model_selection import (
     train_test_split,
@@ -105,8 +102,7 @@ from MultiTrain.errors.split_exceptions import (
 
 from MultiTrain.methods.multitrain_methods import (
     write_to_excel,
-    kf_best_model,
-    t_best_model,
+    show_best,
     img,
     directory,
     img_plotly,
@@ -134,6 +130,22 @@ class MultiRegressor:
         self.cores = cores
         self.random_state = random_state
         self.verbose = verbose
+        self.high = [
+            "Neg Mean Absolute Error",
+            "Neg Root Mean Squared Error",
+            "r2 score",
+            "Neg Root Mean Squared Log Error",
+            "Neg Median Absolute Error",
+            "Neg Median Absolute Percentage Error",
+        ]
+
+        self.low = [
+            "Mean Absolute Error",
+            "Root Mean Squared Error",
+            "Root Mean Squared Log Error",
+            "Median Absolute Error",
+            "Mean Absolute Percentage Error",
+        ]
 
     def regression_model_names(self):
         """Gives the all the regression model names in sklearn
@@ -562,27 +574,10 @@ class MultiRegressor:
             MODEL, name = self._custom()
         df["model_names"] = name
 
-        high = [
-            "Neg Mean Absolute Error",
-            "Neg Root Mean Squared Error",
-            "r2 score",
-            "Neg Root Mean Squared Log Error",
-            "Neg Median Absolute Error",
-            "Neg Median Absolute Percentage Error",
-        ]
-
-        low = [
-            "Mean Absolute Error",
-            "Root Mean Squared Error",
-            "Root Mean Squared Log Error",
-            "Median Absolute Error",
-            "Mean Absolute Percentage Error",
-        ]
-
-        if the_best in high:
+        if the_best in self.high:
             best_model_details = df[df[the_best] == df[the_best].max()]
 
-        elif the_best in low:
+        elif the_best in self.low:
             best_model_details = df[df[the_best] == df[the_best].min()]
 
         else:
@@ -813,7 +808,7 @@ class MultiRegressor:
                     true = y_te
                     mae = mean_absolute_error(true, pred)
                     rmse = np.sqrt(mean_squared_error(true, pred))
-                    r2 = r2_score(true, pred, force_finite=True)
+                    r2 = r2_score(true, pred)
                     try:
                         rmsle = np.sqrt(mean_squared_log_error(true, pred))
                     except ValueError:
@@ -838,8 +833,14 @@ class MultiRegressor:
                     dataframe, orient="index", columns=dataframe_columns
                 )
 
-                t_split = t_best_model(df, return_best_model, excel)
-                return t_split
+                if return_best_model is not None:
+                    df = show_best(df, return_best_model, self.high, self.low)
+
+                elif return_best_model is None:
+                    display(df.style.highlight_max(color="yellow"))
+
+                write_to_excel(excel, df)
+                return df
 
             elif kf is True:
 
@@ -880,8 +881,14 @@ class MultiRegressor:
                         ],
                     )
 
-                    kf_ = kf_best_model(df, return_best_model, excel)
-                    return kf_
+                    if return_best_model is not None:
+                        df = show_best(df, return_best_model, self.high, self.low)
+
+                    elif return_best_model is None:
+                        display(df.style.highlight_max(color="yellow"))
+
+                    write_to_excel(excel, df)
+                    return df
 
                 if show_train_score is False:
                     df = pd.DataFrame.from_dict(
@@ -897,8 +904,12 @@ class MultiRegressor:
                             "Time Taken(s)",
                         ],
                     )
-                    kf_ = kf_best_model(df, return_best_model, excel)
-                    return kf_
+                    if return_best_model is not None:
+                        df = show_best(df, return_best_model, self.high, self.low)
+                    elif return_best_model is None:
+                        display(df.style.highlight_max(color="yellow"))
+
+                    write_to_excel(excel, df)
 
         except Exception:
             raise_kfold1_error(kf, splitting, split_data)
@@ -963,7 +974,7 @@ class MultiRegressor:
         optimizer_kwargs: any = None,
         fit_params: any = None,
         n_points: any = 1,
-        score="accuracy",
+        score: str = 'r2',
     ):
         """
         :param n_points:
@@ -1001,11 +1012,27 @@ class MultiRegressor:
                 "model you want to train with."
             )
         if tune:
-            scorers = {
-                "precision_score": make_scorer(precision_score),
-                "recall_score": make_scorer(recall_score),
-                "accuracy_score": make_scorer(accuracy_score),
+            metrics = {
+                "median_absolute_error": median_absolute_error,
+                "mean_absolute_error": mean_absolute_error,
+                "mean_absolute_percentage_error": mean_absolute_percentage_error,
+                "mean_squared_error": mean_squared_error,
+                "mean_squared_log_error": mean_squared_log_error,
+                "r2": r2_score,
             }
+
+            keys = [
+                "median_absolute_error",
+                "mean_absolute_error",
+                "mean_absolute_percentage_error",
+                "mean_squared_error",
+                "mean_squared_log_error",
+                "r2",
+            ]
+            if score not in keys:
+                raise ValueError(f"expected one of {keys}, received {score}")
+
+            scorers = make_scorer(metrics[score])
 
             if tune == "grid":
                 tuned_model = GridSearchCV(
@@ -1069,7 +1096,7 @@ class MultiRegressor:
                     random_state=42,
                     factor=factor,
                     refit=refit,
-                    scoring=score,
+                    scoring=scorers,
                     resource=resource,
                     min_resources=min_resources_grid,
                     max_resources=max_resources,
@@ -1089,7 +1116,7 @@ class MultiRegressor:
                     random_state=42,
                     factor=factor,
                     refit=refit,
-                    scoring=score,
+                    scoring=scorers,
                     resource=resource,
                     error_score=error_score,
                     min_resources=min_resources_rand,

@@ -16,11 +16,12 @@ def raise_text_error(text_, vectorizer_, ngrams_):
 
 
 def raise_imbalanced_error(imbalanced_, sampling_):
-    if imbalanced_ is False:
-        if sampling_:
-            raise Exception(
-                'this parameter can only be used if "imbalanced" is set to True'
-            )
+    if imbalanced_:
+        if imbalanced_ is False:
+            if sampling_:
+                raise Exception(
+                    'this parameter can only be used if "imbalanced" is set to True'
+                )
 
 
 def raise_kfold1_error(kf_, splitting_, split_data_):
@@ -78,13 +79,17 @@ def raise_splitting_error(splitting_, split_data_):
 
 
 def raise_fold_type_error(fold_):
-    if isinstance(fold_, int) is False:
-        raise TypeError(
-            "param fold is of type int, pass a integer to fold e.g fold = 5, where 5 is number of "
-            "splits you want to use for the cross validation procedure"
-        )
+    if fold_:
+        if isinstance(fold_, int) is False:
+            raise TypeError(
+                "param fold is of type int, pass a integer to fold e.g fold = 5, where 5 is number of "
+                "splits you want to use for the cross validation procedure"
+            )
 
 
 def raise_kfold2_error(kf_, X_, y_):
-    if kf_ is True and (X_ is None or y_ is None or (X_ is None and y_ is None)):
-        raise ValueError("Set the values of features X and target y when kf is True")
+    if kf_:
+        if kf_ is True and (X_ is None or y_ is None or (X_ is None and y_ is None)):
+            raise ValueError(
+                "Set the values of features X and target y when kf is True"
+            )

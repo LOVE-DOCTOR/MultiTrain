@@ -1,5 +1,9 @@
 # WHAT'S NEW
 
+# 0.13.11
+- Removed force_finite parameter in r2 score - regression
+- add roc_auc metric in kfold - classification
+
 # 0.13.10
 - Fixed bug causing upgrade to fail
 
