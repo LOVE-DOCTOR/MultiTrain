@@ -1,5 +1,12 @@
 # WHAT'S NEW
 
+# 0.13.11
+- Removed force_finite parameter in r2 score - regression
+- add roc_auc metric in kfold - classification
+
+# 0.13.10
+- Fixed bug causing upgrade to fail
+
 # 0.13.0
 - Added new parameter 'select_models' that enables you to select only a few models to train with instead of using all models at once.
 - Added progress bar when training models
