@@ -4,6 +4,7 @@ import os
 import shutil
 import logging
 
+from pandas import DataFrame
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import LabelEncoder
 from pandas.core.series import Series
@@ -151,70 +152,6 @@ def img(FILENAME: any, FILE_PATH: any, type_="file") -> None:
             value.savefig(FINAL_PATH, dpi=1080, bbox_inches="tight")
 
 
-def kf_best_model(df, best, excel):
-    if best is not None:
-        metrics_high = [
-            "Accuracy",
-            "Precision",
-            "Precision Macro",
-            "Recall",
-            "Recall Macro",
-            "Standard Deviation of Accuracy",
-            "Neg Mean Absolute Error",
-            "Neg Root Mean Squared Error",
-            "r2",
-            "Neg Root Mean Squared Log Error",
-            "Neg Median Absolute Error",
-            "Neg Median Absolute Percentage Error",
-        ]
-
-        metrics_low = [
-            "Mean Absolute Error",
-            "Root Mean Squared Error",
-            "Root Mean Squared Log Error",
-            "Median Absolute Error",
-            "Median Absolute Percentage Error",
-        ]
-
-        if best in metrics_high:
-            df1 = df[df[best] == df[best].max()]
-        if best in metrics_low:
-            df1 = df[df[best] == df[best].min()]
-
-        write_to_excel(excel, df)
-        display(df1)
-        return df1
-
-    elif best is None:
-        write_to_excel(excel, df)
-        display(df)
-        return df
-
-
-def t_best_model(df, best, excel):
-    if best is not None:
-        logger.info(f"BEST MODEL BASED ON {best}")
-        minimum = [
-            "Mean Absolute Error",
-            "Root Mean Squared Error",
-            "Root Mean Squared Log Error",
-            "Median Absolute Error",
-            "Mean Absolute Percentage Error",
-        ]
-        maximum = ["r2 score"]
-
-        if best in minimum:
-            display(df[df[best] == df[best].min()])
-        elif best in maximum:
-            display(df[df[best] == df[best].max()])
-
-    elif best is None:
-        display(df.style.highlight_min(color="yellow"))
-
-    write_to_excel(excel, df)
-    return df
-
-
 def _check_target(target):
     target_class = "binary" if target.value_counts().count() == 2 else "multiclass"
     return target_class
@@ -295,3 +232,24 @@ def _dummy(features, encoder):
                     f"received {encoder} "
                 )
         return features
+
+
+def show_best(data: DataFrame, best: str, high: list, low: list):
+
+    if best in high:
+        df = data.sort_values(by=best, ascending=False)
+        retrieve_df = df.reset_index()
+        logger.info(
+            f'The best model based on the {best} metric is {retrieve_df["index"][0]}'
+        )
+        display(df)
+        return df
+
+    elif best in low:
+        df = data.sort_values(by=best, ascending=True)
+        retrieve_df = df.reset_index()
+        logger.info(
+            f'The best model based on the {best} metric is {retrieve_df["index"][0]}'
+        )
+        display(df)
+        return df
