@@ -125,9 +125,9 @@ from MultiTrain.errors.split_exceptions import (
 
 from MultiTrain.methods.multitrain_methods import (
     directory,
+    show_best,
     img,
     img_plotly,
-    kf_best_model,
     write_to_excel,
     _check_target,
     _get_cat_num,
@@ -247,7 +247,7 @@ class MultiClassifier:
             "Balanced Accuracy(Train)",
             "Balanced Accuracy",
             "ROC AUC(Train)",
-            "ROC AUC"
+            "ROC AUC",
             "Precision(Train)",
             "Precision",
             "Recall(Train)",
@@ -263,6 +263,7 @@ class MultiClassifier:
             "Overfitting",
             "Accuracy",
             "Balanced Accuracy",
+            "ROC AUC",
             "Precision",
             "Recall",
             "f1",
@@ -284,6 +285,7 @@ class MultiClassifier:
             "Precision Macro",
             "Recall Macro",
             "f1 Macro",
+            "Time Taken(s)",
         ]
 
         self.t_split_binary_columns_train = [
@@ -339,6 +341,28 @@ class MultiClassifier:
             "execution time(seconds)",
         ]
 
+        self.high = [
+            "Accuracy",
+            "Balanced Accuracy",
+            "Test Acc",
+            "f1 score",
+            "f1",
+            "f1 Macro",
+            "Test f1",
+            "Test f1 Macro",
+            "Precision",
+            "Precision Macro",
+            "Test Precision",
+            "Test Precision Macro",
+            "Recall",
+            "Recall Macro",
+            "Test Recall",
+            "Test Recall Macro",
+            "ROC AUC",
+        ]
+
+        self.low = ["mean absolute error", "mean squared error", "Test std"]
+
     def strategies(self) -> None:
         print(f"Over-Sampling Methods = {self.oversampling_list}")
         print("\n")
@@ -381,6 +405,7 @@ class MultiClassifier:
                 n_jobs=self.cores,
                 refit=True,
                 random_state=self.random_state,
+                verbosity=0,
             ),
             "GuassianNB": GaussianNB(),
             "LinearDiscriminantAnalysis": LinearDiscriminantAnalysis(),
@@ -684,7 +709,7 @@ class MultiClassifier:
             random_state=self.random_state,
         )
         xgb = XGBClassifier(
-            eval_metric="mlogloss",
+            eval_metric="logloss",
             n_jobs=self.cores,
             refit=True,
             random_state=self.random_state,
@@ -772,31 +797,11 @@ class MultiClassifier:
         else:
             MODEL, name = self._custom()
         df["model_names"] = name
-        high = [
-            "Accuracy",
-            "Balanced Accuracy",
-            "Test Acc",
-            "f1 score",
-            "f1",
-            "f1 Macro",
-            "Test f1",
-            "Test f1 Macro",
-            "Precision",
-            "Precision Macro",
-            "Test Precision",
-            "Test Precision Macro",
-            "Recall",
-            "Recall Macro",
-            "Test Recall",
-            "Test Recall Macro",
-            "ROC AUC",
-        ]
-        low = ["mean absolute error", "mean squared error", "Test std"]
 
-        if the_best in high:
+        if the_best in self.high:
             best_model_details = df[df[the_best] == df[the_best].max()]
 
-        elif the_best in low:
+        elif the_best in self.low:
             best_model_details = df[df[the_best] == df[the_best].min()]
 
         else:
@@ -834,7 +839,14 @@ class MultiClassifier:
                 if self.verbose is True:
                     print(names[i])
 
-                score = ("accuracy", "balanced_accuracy", "precision", "recall", "f1", 'roc_auc')
+                score = (
+                    "accuracy",
+                    "balanced_accuracy",
+                    "precision",
+                    "recall",
+                    "f1",
+                    "roc_auc",
+                )
 
                 start = time.time()
                 try:
@@ -847,6 +859,7 @@ class MultiClassifier:
                         n_jobs=self.cores,
                         return_train_score=True,
                     )
+
                     end = time.time()
                     seconds = end - start
 
@@ -943,10 +956,10 @@ class MultiClassifier:
                         mean_test_roc,
                         mean_train_precision,
                         mean_test_precision,
-                        mean_train_f1,
-                        mean_test_f1,
                         mean_train_recall,
                         mean_test_recall,
+                        mean_train_f1,
+                        mean_test_f1,
                         train_stdev,
                         test_stdev,
                         seconds,
@@ -960,11 +973,12 @@ class MultiClassifier:
                         mean_test_bacc,
                         mean_test_roc,
                         mean_test_precision,
-                        mean_test_f1,
                         mean_test_recall,
+                        mean_test_f1,
                         test_stdev,
                         seconds,
                     ]
+
                     dataframe.update({names[i]: scores_df})
             return dataframe
 
@@ -1003,10 +1017,10 @@ class MultiClassifier:
                     scores_df = [
                         mean_train_precision,
                         mean_test_precision,
-                        mean_train_f1,
-                        mean_test_f1,
                         mean_train_recall,
                         mean_test_recall,
+                        mean_train_f1,
+                        mean_test_f1,
                         seconds,
                     ]
 
@@ -1020,8 +1034,8 @@ class MultiClassifier:
 
                     scores_df = [
                         mean_test_precision,
-                        mean_test_f1,
                         mean_test_recall,
+                        mean_test_f1,
                         seconds,
                     ]
 
@@ -1233,6 +1247,7 @@ class MultiClassifier:
                         roc = None
 
                     if target_class == "binary":
+                        roc = roc_auc_score(true, pred)
                         f1 = f1_score(true, pred)
                         pre = precision_score(true, pred)
                         rec = recall_score(true, pred)
@@ -1316,6 +1331,7 @@ class MultiClassifier:
                             rec,
                             time_taken,
                         ]
+
                         eval_mul = [
                             overfit,
                             tacc,
@@ -1367,12 +1383,7 @@ class MultiClassifier:
                         )
 
                 if return_best_model is not None:
-                    logger.info(f"BEST MODEL BASED ON {return_best_model}")
-                    retrieve_df = df.reset_index()
-                    logger.info(
-                        f'The best model based on the {return_best_model} metric is {retrieve_df["index"][0]}'
-                    )
-                    display(df.sort_values(by=return_best_model, ascending=False))
+                    df = show_best(df, return_best_model, self.high, self.low)
 
                 elif return_best_model is None:
                     display(df.style.highlight_max(color="yellow"))
@@ -1415,8 +1426,14 @@ class MultiClassifier:
                             columns=self.kf_binary_columns_test,
                         )
 
-                    kf_ = kf_best_model(df, return_best_model, excel)
-                    return kf_
+                    if return_best_model is not None:
+                        df = show_best(df, return_best_model, self.high, self.low)
+
+                    elif return_best_model is None:
+                        display(df.style.highlight_max(color="yellow"))
+
+                    write_to_excel(excel, df)
+                    return df
 
                 elif target_class == "multiclass":
                     logger.info("Training started")
@@ -1441,8 +1458,16 @@ class MultiClassifier:
                             columns=self.kf_multiclass_columns_test,
                         )
 
-                    kf_ = kf_best_model(df, return_best_model, excel)
-                    return kf_
+                    if return_best_model is not None:
+                        logger.info(f"BEST MODEL BASED ON {return_best_model}")
+
+                        df = show_best(df, return_best_model, self.high, self.low)
+
+                    elif return_best_model is None:
+                        display(df.style.highlight_max(color="yellow"))
+
+                    write_to_excel(excel, df)
+                    return df
 
         except Exception:
             raise_text_error(text, vectorizer, ngrams)
@@ -1545,8 +1570,25 @@ class MultiClassifier:
                 "model you want to train with."
             )
         if tune:
-            metrics = {'roc_auc': roc_auc_score,
-                       'accuracy': accuracy_score}
+            metrics = {
+                "roc_auc": roc_auc_score,
+                "accuracy": accuracy_score,
+                "precision": precision_score,
+                "recall": recall_score,
+                "f1": f1_score,
+                "balanced_accuracy_score": balanced_accuracy_score,
+            }
+
+            keys = [
+                "roc_auc",
+                "accuracy",
+                "precision",
+                "recall",
+                "f1",
+                "balanced_accuracy_score",
+            ]
+            if score not in keys:
+                raise ValueError(f"expected one of {keys}, received {score}")
             scorers = make_scorer(metrics[score])
 
             if tune == "grid":
@@ -1577,7 +1619,7 @@ class MultiClassifier:
                     error_score=error_score,
                     scoring=scorers,
                     refit=refit,
-                    pre_dispatch=pre_dispatch
+                    pre_dispatch=pre_dispatch,
                 )
 
                 return tuned_model
@@ -1613,7 +1655,7 @@ class MultiClassifier:
                     random_state=42,
                     factor=factor,
                     refit=refit,
-                    scoring=score,
+                    scoring=scorers,
                     resource=resource,
                     min_resources=min_resources_grid,
                     max_resources=max_resources,
@@ -1633,7 +1675,7 @@ class MultiClassifier:
                     random_state=42,
                     factor=factor,
                     refit=refit,
-                    scoring=score,
+                    scoring=scorers,
                     resource=resource,
                     error_score=error_score,
                     min_resources=min_resources_rand,
