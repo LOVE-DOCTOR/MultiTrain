@@ -16,7 +16,7 @@ from imblearn.ensemble import BalancedBaggingClassifier
 from lightgbm import LGBMClassifier
 from matplotlib import pyplot as plt
 from numpy.random import randint
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from sklearn.decomposition import PCA
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -1045,8 +1045,8 @@ class MultiClassifier:
 
     def fit(
         self,
-        X=None,
-        y=None,
+        X: Union[np.ndarray, DataFrame],
+        y: Series = None,
         split_data=None,
         splitting: bool = False,
         kf: bool = False,
@@ -1247,7 +1247,6 @@ class MultiClassifier:
                         roc = None
 
                     if target_class == "binary":
-                        roc = roc_auc_score(true, pred)
                         f1 = f1_score(true, pred)
                         pre = precision_score(true, pred)
                         rec = recall_score(true, pred)
