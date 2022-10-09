@@ -199,14 +199,14 @@ class BaseModel:
 
     def split(
         self,
-        X: any,
-        y: any,
+        X: pd.DataFrame,
+        y: pd.DataFrame,
         strat: bool = False,
         sizeOfTest: float = 0.2,
         randomState: int = None,
         shuffle_data: bool = True,
         dimensionality_reduction: bool = False,
-        normalize: any = None,
+        normalize=None,
         columns_to_scale: list = None,
         n_components: int = None,
         missing_values: dict = None,
