@@ -142,8 +142,10 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
+from MultiTrain.base_model import BaseModel
 
-class MultiClassifier:
+
+class MultiClassifier(BaseModel):
     def __init__(
         self,
         cores: Optional[int] = None,
@@ -460,197 +462,197 @@ class MultiClassifier:
                 f" of all valid samplers"
             )
 
-    def split(
-        self,
-        X: any,
-        y: any,
-        strat: bool = False,
-        sizeOfTest: float = 0.2,
-        randomState: int = None,
-        shuffle_data: bool = True,
-        dimensionality_reduction: bool = False,
-        normalize: any = None,
-        columns_to_scale: list = None,
-        n_components: int = None,
-        missing_values: dict = None,
-        encode: Union[str, dict] = None,
-    ):
+    # def split(
+    #     self,
+    #     X: any,
+    #     y: any,
+    #     strat: bool = False,
+    #     sizeOfTest: float = 0.2,
+    #     randomState: int = None,
+    #     shuffle_data: bool = True,
+    #     dimensionality_reduction: bool = False,
+    #     normalize: any = None,
+    #     columns_to_scale: list = None,
+    #     n_components: int = None,
+    #     missing_values: dict = None,
+    #     encode: Union[str, dict] = None,
+    # ):
 
-        global the_y
-        the_y = y
-        """
-        :param X: features
-        :param y: labels
-        :param n_components: This sets the number of components to keep
-        :param columns_to_scale:
-        :param normalize: Transforms input into the range [0,1] or any other range with one of MinMaxScaler, StandardScaler or RobustScaler.
-        :param dimensionality_reduction: Utilizes PCA to reduce the dimension of the training and test features
-        :param strat: used to initialize stratify = y in train_test_split if True
-        :param sizeOfTest: define size of test data
-        :param randomState: define random state
-        :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
-        :param missing_values: Dictionary to fill missing values for categorical and numerical columns, e.g {'cat': 'most_frequent', 'num': 'mean'} where the key 'cat' represents categorical column and the corresponding value represents the strategy used to fill the missing value.
+    #     global the_y
+    #     the_y = y
+    #     """
+    #     :param X: features
+    #     :param y: labels
+    #     :param n_components: This sets the number of components to keep
+    #     :param columns_to_scale:
+    #     :param normalize: Transforms input into the range [0,1] or any other range with one of MinMaxScaler, StandardScaler or RobustScaler.
+    #     :param dimensionality_reduction: Utilizes PCA to reduce the dimension of the training and test features
+    #     :param strat: used to initialize stratify = y in train_test_split if True
+    #     :param sizeOfTest: define size of test data
+    #     :param randomState: define random state
+    #     :param shuffle_data: If set to True, it sets shuffle to True in train_test_split
+    #     :param missing_values: Dictionary to fill missing values for categorical and numerical columns, e.g {'cat': 'most_frequent', 'num': 'mean'} where the key 'cat' represents categorical column and the corresponding value represents the strategy used to fill the missing value.
 
-        Example
-        df = pd.read_csv("nameOfFile.csv")
-        X = df.drop("nameOfLabelColumn", axis=1)
-        y = df["nameOfLabelColumn")
-        split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
-        """
+    #     Example
+    #     df = pd.read_csv("nameOfFile.csv")
+    #     X = df.drop("nameOfLabelColumn", axis=1)
+    #     y = df["nameOfLabelColumn")
+    #     split(X = features, y = labels, sizeOfTest=0.3, randomState=42, strat=True, shuffle_data=True)
+    #     """
 
-        try:
-            # values for normalize
-            norm = [
-                "StandardScaler",
-                "MinMaxScaler",
-                "RobustScaler",
-                "Normalizer",
-            ]
+    #     try:
+    #         # values for normalize
+    #         norm = [
+    #             "StandardScaler",
+    #             "MinMaxScaler",
+    #             "RobustScaler",
+    #             "Normalizer",
+    #         ]
 
-            if missing_values:
-                categorical_values, numerical_values = _get_cat_num(missing_values)
-                cat, num = _fill(categorical_values, numerical_values)
-                X = _fill_columns(cat, num, X)
+    #         if missing_values:
+    #             categorical_values, numerical_values = _get_cat_num(missing_values)
+    #             cat, num = _fill(categorical_values, numerical_values)
+    #             X = _fill_columns(cat, num, X)
 
-            if encode is not None:
-                X = _dummy(X, encode)
+    #         if encode is not None:
+    #             X = _dummy(X, encode)
 
-            if strat is True:
+    #         if strat is True:
 
-                if shuffle_data is False:
-                    raise TypeError("shuffle_data can only be False if strat is False")
+    #             if shuffle_data is False:
+    #                 raise TypeError("shuffle_data can only be False if strat is False")
 
-                elif shuffle_data is True:
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        X,
-                        y,
-                        test_size=sizeOfTest,
-                        train_size=1 - sizeOfTest,
-                        stratify=y,
-                        random_state=randomState,
-                        shuffle=shuffle_data,
-                    )
-                    if dimensionality_reduction is False:
-                        return X_train, X_test, y_train, y_test
+    #             elif shuffle_data is True:
+    #                 X_train, X_test, y_train, y_test = train_test_split(
+    #                     X,
+    #                     y,
+    #                     test_size=sizeOfTest,
+    #                     train_size=1 - sizeOfTest,
+    #                     stratify=y,
+    #                     random_state=randomState,
+    #                     shuffle=shuffle_data,
+    #                 )
+    #                 if dimensionality_reduction is False:
+    #                     return X_train, X_test, y_train, y_test
 
-                    if dimensionality_reduction is True:
-                        if normalize is None:
-                            raise ValueError(
-                                'Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler" to '
-                                "normalize if dimensionality_reduction is True"
-                            )
+    #                 if dimensionality_reduction is True:
+    #                     if normalize is None:
+    #                         raise ValueError(
+    #                             'Pass one of ["StandardScaler", "MinMaxScaler", "RobustScaler" to '
+    #                             "normalize if dimensionality_reduction is True"
+    #                         )
 
-                        if normalize is not None:
-                            if columns_to_scale is None:
-                                if isinstance(columns_to_scale, list) is False:
-                                    raise ValueError(
-                                        "Pass a list containing the columns to be scaled to the "
-                                        "column_to_scale parameter when using normalize"
-                                    )
+    #                     if normalize is not None:
+    #                         if columns_to_scale is None:
+    #                             if isinstance(columns_to_scale, list) is False:
+    #                                 raise ValueError(
+    #                                     "Pass a list containing the columns to be scaled to the "
+    #                                     "column_to_scale parameter when using normalize"
+    #                                 )
 
-                            if columns_to_scale is not None:
-                                if isinstance(columns_to_scale, tuple):
-                                    raise ValueError(
-                                        "You can only pass a list to columns_to_scale"
-                                    )
-                                elif isinstance(columns_to_scale, list):
-                                    if normalize in norm:
-                                        if normalize == "StandardScaler":
-                                            scale = StandardScaler()
-                                        elif normalize == "MinMaxScaler":
-                                            scale = MinMaxScaler()
-                                        elif normalize == "RobustScaler":
-                                            scale = RobustScaler()
-                                        elif normalize == "Normalizer":
-                                            scale = Normalizer()
+    #                         if columns_to_scale is not None:
+    #                             if isinstance(columns_to_scale, tuple):
+    #                                 raise ValueError(
+    #                                     "You can only pass a list to columns_to_scale"
+    #                                 )
+    #                             elif isinstance(columns_to_scale, list):
+    #                                 if normalize in norm:
+    #                                     if normalize == "StandardScaler":
+    #                                         scale = StandardScaler()
+    #                                     elif normalize == "MinMaxScaler":
+    #                                         scale = MinMaxScaler()
+    #                                     elif normalize == "RobustScaler":
+    #                                         scale = RobustScaler()
+    #                                     elif normalize == "Normalizer":
+    #                                         scale = Normalizer()
 
-                                        X_train[columns_to_scale] = scale.fit_transform(
-                                            X_train[columns_to_scale]
-                                        )
-                                        X_test[columns_to_scale] = scale.transform(
-                                            X_test[columns_to_scale]
-                                        )
+    #                                     X_train[columns_to_scale] = scale.fit_transform(
+    #                                         X_train[columns_to_scale]
+    #                                     )
+    #                                     X_test[columns_to_scale] = scale.transform(
+    #                                         X_test[columns_to_scale]
+    #                                     )
 
-                                        pca = PCA(
-                                            n_components=n_components,
-                                            random_state=self.random_state,
-                                        )
-                                        X_train = pca.fit_transform(X_train)
-                                        X_test = pca.transform(X_test)
-                                        return X_train, X_test, y_train, y_test
-                                    else:
-                                        raise ValueError(f"{normalize} not in {norm}")
+    #                                     pca = PCA(
+    #                                         n_components=n_components,
+    #                                         random_state=self.random_state,
+    #                                     )
+    #                                     X_train = pca.fit_transform(X_train)
+    #                                     X_test = pca.transform(X_test)
+    #                                     return X_train, X_test, y_train, y_test
+    #                                 else:
+    #                                     raise ValueError(f"{normalize} not in {norm}")
 
-            else:
-                norm = [
-                    "StandardScaler",
-                    "MinMaxScaler",
-                    "RobustScaler",
-                    "Normalizer",
-                ]
-                if normalize:
-                    if columns_to_scale is None:
-                        raise ValueError(
-                            "Pass a list containing the columns to be scaled to the "
-                            "column_to_scale parameter when using normalize"
-                        )
-                    if columns_to_scale:
-                        if isinstance(columns_to_scale, tuple):
-                            raise ValueError(
-                                "You can only pass a list to columns_to_scale"
-                            )
+    #         else:
+    #             norm = [
+    #                 "StandardScaler",
+    #                 "MinMaxScaler",
+    #                 "RobustScaler",
+    #                 "Normalizer",
+    #             ]
+    #             if normalize:
+    #                 if columns_to_scale is None:
+    #                     raise ValueError(
+    #                         "Pass a list containing the columns to be scaled to the "
+    #                         "column_to_scale parameter when using normalize"
+    #                     )
+    #                 if columns_to_scale:
+    #                     if isinstance(columns_to_scale, tuple):
+    #                         raise ValueError(
+    #                             "You can only pass a list to columns_to_scale"
+    #                         )
 
-                        if isinstance(columns_to_scale, list):
-                            if normalize in norm:
-                                if normalize == "StandardScaler":
-                                    scale = StandardScaler()
-                                elif normalize == "MinMaxScaler":
-                                    scale = MinMaxScaler()
-                                elif normalize == "RobustScaler":
-                                    scale = RobustScaler()
-                                elif normalize == "Normalizer":
-                                    scale = Normalizer()
+    #                     if isinstance(columns_to_scale, list):
+    #                         if normalize in norm:
+    #                             if normalize == "StandardScaler":
+    #                                 scale = StandardScaler()
+    #                             elif normalize == "MinMaxScaler":
+    #                                 scale = MinMaxScaler()
+    #                             elif normalize == "RobustScaler":
+    #                                 scale = RobustScaler()
+    #                             elif normalize == "Normalizer":
+    #                                 scale = Normalizer()
 
-                                (X_train, X_test, y_train, y_test,) = train_test_split(
-                                    X,
-                                    y,
-                                    test_size=sizeOfTest,
-                                    train_size=1 - sizeOfTest,
-                                    random_state=randomState,
-                                    shuffle=shuffle_data,
-                                )
+    #                             (X_train, X_test, y_train, y_test,) = train_test_split(
+    #                                 X,
+    #                                 y,
+    #                                 test_size=sizeOfTest,
+    #                                 train_size=1 - sizeOfTest,
+    #                                 random_state=randomState,
+    #                                 shuffle=shuffle_data,
+    #                             )
 
-                                X_train[columns_to_scale] = scale.fit_transform(
-                                    X_train[columns_to_scale]
-                                )
-                                X_test[columns_to_scale] = scale.transform(
-                                    X_test[columns_to_scale]
-                                )
-                                return X_train, X_test, y_train, y_test
+    #                             X_train[columns_to_scale] = scale.fit_transform(
+    #                                 X_train[columns_to_scale]
+    #                             )
+    #                             X_test[columns_to_scale] = scale.transform(
+    #                                 X_test[columns_to_scale]
+    #                             )
+    #                             return X_train, X_test, y_train, y_test
 
-                            else:
-                                raise ValueError(f"{normalize} not in {norm}")
+    #                         else:
+    #                             raise ValueError(f"{normalize} not in {norm}")
 
-                else:
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        X,
-                        y,
-                        test_size=sizeOfTest,
-                        train_size=1 - sizeOfTest,
-                        random_state=randomState,
-                        shuffle=shuffle_data,
-                    )
+    #             else:
+    #                 X_train, X_test, y_train, y_test = train_test_split(
+    #                     X,
+    #                     y,
+    #                     test_size=sizeOfTest,
+    #                     train_size=1 - sizeOfTest,
+    #                     random_state=randomState,
+    #                     shuffle=shuffle_data,
+    #                 )
 
-                    return X_train, X_test, y_train, y_test
+    #                 return X_train, X_test, y_train, y_test
 
-        except Exception:
-            feature_label_type_error(X, y)
-            strat_error(strat)
-            dimensionality_reduction_type_error(dimensionality_reduction)
-            test_size_error(sizeOfTest)
-            missing_values_error(missing_values)
+    #     except Exception:
+    #         feature_label_type_error(X, y)
+    #         strat_error(strat)
+    #         dimensionality_reduction_type_error(dimensionality_reduction)
+    #         test_size_error(sizeOfTest)
+    #         missing_values_error(missing_values)
 
-    def classifier_model_names(self) -> list:
+    def _model_names(self) -> list:
         model_names = [
             "LogisticRegression",
             "LogisticRegressionCV",
@@ -685,7 +687,7 @@ class MultiClassifier:
         ]
         return model_names
 
-    def _initialize_(self):
+    def _initialize(self):
         """
         It initializes all the models that we will be using in our ensemble
         """
@@ -783,17 +785,17 @@ class MultiClassifier:
             for key, value in self._select_few_models().items():
                 if i == key:
                     custom_models.append(value)
-                elif i not in self.classifier_model_names():
+                elif i not in self._model_names():
                     raise ValueError(
-                        f'{i} unknown, use the "classifier_model_names" method to view the classifier '
+                        f'{i} unknown, use the "_model_names" method to view the classifier '
                         f"algorithms available"
                     )
         return custom_models, name
 
     def _get_index(self, df, the_best):
         if self.select_models is None:
-            name = list(self.classifier_model_names())
-            MODEL = self._initialize_()
+            name = list(self._model_names())
+            MODEL = self._initialize()
         else:
             MODEL, name = self._custom()
         df["model_names"] = name
@@ -816,7 +818,7 @@ class MultiClassifier:
 
     def _startKFold_(self, param, param_X, param_y, param_cv, train_score):
         if self.select_models is None:
-            names = self.classifier_model_names()
+            names = self._model_names()
         else:
             names = self.select_models
         target_class = _check_target(param_y)
@@ -1123,8 +1125,8 @@ class MultiClassifier:
                     )
 
                 if self.select_models is None:
-                    model = self._initialize_()
-                    names = self.classifier_model_names()
+                    model = self._initialize()
+                    names = self._model_names()
                 else:
                     model, names = self._custom()
                 dataframe = {}
@@ -1397,8 +1399,8 @@ class MultiClassifier:
                 )
                 # Fitting the models and predicting the values of the test set.
                 if self.select_models is None:
-                    KFoldModel = self._initialize_()
-                    names = self.classifier_model_names()
+                    KFoldModel = self._initialize()
+                    names = self._model_names()
                 else:
                     KFoldModel, names = self._custom()
 
@@ -1478,212 +1480,211 @@ class MultiClassifier:
             raise_kfold2_error(kf, X, y)
             raise_splitting_error(splitting, split_data)
 
-    def use_model(self, df, model: str = None, best: str = None):
-        """
+    # def use_model(self, df, model: str = None, best: str = None):
+    #     """
 
+    #     :param df: the dataframe object
+    #     :param model: name of the classifier algorithm
+    #     :param best: the evaluation metric used to find the best model
 
-        :param df: the dataframe object
-        :param model: name of the classifier algorithm
-        :param best: the evaluation metric used to find the best model
+    #     :return:
+    #     """
 
-        :return:
-        """
+    #     if self.select_models is None:
+    #         name = self._model_names()
+    #         MODEL = self._initialize()
+    #     else:
+    #         MODEL, name = self._custom()
 
-        if self.select_models is None:
-            name = self.classifier_model_names()
-            MODEL = self._initialize_()
-        else:
-            MODEL, name = self._custom()
+    #     if model is not None and best is not None:
+    #         raise Exception("You can only use one of the two arguments.")
 
-        if model is not None and best is not None:
-            raise Exception("You can only use one of the two arguments.")
+    #     if model:
+    #         assert (
+    #             model in name
+    #         ), f"name {model} is not found, here is a list of the available models to work with: {name}"
+    #         index_ = name.index(model)
+    #         return MODEL[index_]
 
-        if model:
-            assert (
-                model in name
-            ), f"name {model} is not found, here is a list of the available models to work with: {name}"
-            index_ = name.index(model)
-            return MODEL[index_]
+    #     elif best:
+    #         instance = self._get_index(df, best)
+    #         return instance
 
-        elif best:
-            instance = self._get_index(df, best)
-            return instance
+    # def tune_parameters(
+    #     self,
+    #     model: str = None,
+    #     parameters: dict = None,
+    #     tune: str = None,
+    #     use_cpu: int = None,
+    #     cv: int = 5,
+    #     n_iter: any = 50,
+    #     return_train_score: bool = False,
+    #     refit: bool = True,
+    #     random_state: int = None,
+    #     factor: int = 3,
+    #     verbose: int = 5,
+    #     resource: any = "n_samples",
+    #     max_resources: any = "auto",
+    #     min_resources_grid: any = "exhaust",
+    #     min_resources_rand: any = "smallest",
+    #     aggressive_elimination: any = False,
+    #     error_score: any = np.nan,
+    #     pre_dispatch: any = "2*n_jobs",
+    #     optimizer_kwargs: any = None,
+    #     fit_params: any = None,
+    #     n_points: any = 1,
+    #     score="accuracy",
+    # ):
+    #     """
+    #     :param score:
+    #     :param n_points:
+    #     :param fit_params:
+    #     :param optimizer_kwargs:
+    #     :param pre_dispatch:
+    #     :param error_score:
+    #     :param min_resources_grid:
+    #     :param min_resources_rand:
+    #     :param aggressive_elimination:
+    #     :param max_resources:
+    #     :param resource: Defines the resource that increases with each iteration.
+    #     :param verbose:
+    #     :param return_train_score:
+    #     :param refit:
+    #     :param random_state:
+    #     :param n_iter:
+    #     :param model: This is the instance of the model to be used
+    #     :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
+    #     candidates that are selected for each subsequent iteration. For example, factor=3 means that only one third of the
+    #     candidates are selected.
+    #     :param parameters: the dictionary of the model parameters
+    #     :param tune: the type of searching method to use, either grid for GridSearchCV
+    #     or random for RandomSearchCV
+    #     :param use_cpu : the value set determines the number of cores used for training,
+    #     if set to -1 it uses all the available cores
+    #     :param cv:This determines the cross validation splitting strategy, defaults to 5
+    #     :return:
+    #     """
 
-    def tune_parameters(
-        self,
-        model: str = None,
-        parameters: dict = None,
-        tune: str = None,
-        use_cpu: int = None,
-        cv: int = 5,
-        n_iter: any = 50,
-        return_train_score: bool = False,
-        refit: bool = True,
-        random_state: int = None,
-        factor: int = 3,
-        verbose: int = 5,
-        resource: any = "n_samples",
-        max_resources: any = "auto",
-        min_resources_grid: any = "exhaust",
-        min_resources_rand: any = "smallest",
-        aggressive_elimination: any = False,
-        error_score: any = np.nan,
-        pre_dispatch: any = "2*n_jobs",
-        optimizer_kwargs: any = None,
-        fit_params: any = None,
-        n_points: any = 1,
-        score="accuracy",
-    ):
-        """
-        :param score:
-        :param n_points:
-        :param fit_params:
-        :param optimizer_kwargs:
-        :param pre_dispatch:
-        :param error_score:
-        :param min_resources_grid:
-        :param min_resources_rand:
-        :param aggressive_elimination:
-        :param max_resources:
-        :param resource: Defines the resource that increases with each iteration.
-        :param verbose:
-        :param return_train_score:
-        :param refit:
-        :param random_state:
-        :param n_iter:
-        :param model: This is the instance of the model to be used
-        :param factor: To be used with HalvingGridSearchCV, It is the ‘halving’ parameter, which determines the proportion of
-        candidates that are selected for each subsequent iteration. For example, factor=3 means that only one third of the
-        candidates are selected.
-        :param parameters: the dictionary of the model parameters
-        :param tune: the type of searching method to use, either grid for GridSearchCV
-        or random for RandomSearchCV
-        :param use_cpu : the value set determines the number of cores used for training,
-        if set to -1 it uses all the available cores
-        :param cv:This determines the cross validation splitting strategy, defaults to 5
-        :return:
-        """
+    #     if isinstance(parameters, dict) is False:
+    #         raise TypeError(
+    #             "The 'parameters' argument only accepts a dictionary of the parameters for the "
+    #             "model you want to train with."
+    #         )
+    #     if tune:
+    #         metrics = {
+    #             "roc_auc": roc_auc_score,
+    #             "accuracy": accuracy_score,
+    #             "precision": precision_score,
+    #             "recall": recall_score,
+    #             "f1": f1_score,
+    #             "balanced_accuracy_score": balanced_accuracy_score,
+    #         }
 
-        if isinstance(parameters, dict) is False:
-            raise TypeError(
-                "The 'parameters' argument only accepts a dictionary of the parameters for the "
-                "model you want to train with."
-            )
-        if tune:
-            metrics = {
-                "roc_auc": roc_auc_score,
-                "accuracy": accuracy_score,
-                "precision": precision_score,
-                "recall": recall_score,
-                "f1": f1_score,
-                "balanced_accuracy_score": balanced_accuracy_score,
-            }
+    #         keys = [
+    #             "roc_auc",
+    #             "accuracy",
+    #             "precision",
+    #             "recall",
+    #             "f1",
+    #             "balanced_accuracy_score",
+    #         ]
+    #         if score not in keys:
+    #             raise ValueError(f"expected one of {keys}, received {score}")
+    #         scorers = make_scorer(metrics[score])
 
-            keys = [
-                "roc_auc",
-                "accuracy",
-                "precision",
-                "recall",
-                "f1",
-                "balanced_accuracy_score",
-            ]
-            if score not in keys:
-                raise ValueError(f"expected one of {keys}, received {score}")
-            scorers = make_scorer(metrics[score])
+    #         if tune == "grid":
+    #             tuned_model = GridSearchCV(
+    #                 estimator=model,
+    #                 param_grid=parameters,
+    #                 n_jobs=use_cpu,
+    #                 cv=cv,
+    #                 verbose=verbose,
+    #                 error_score=error_score,
+    #                 pre_dispatch=pre_dispatch,
+    #                 return_train_score=return_train_score,
+    #                 scoring=scorers,
+    #                 refit=refit,
+    #             )
+    #             return tuned_model
 
-            if tune == "grid":
-                tuned_model = GridSearchCV(
-                    estimator=model,
-                    param_grid=parameters,
-                    n_jobs=use_cpu,
-                    cv=cv,
-                    verbose=verbose,
-                    error_score=error_score,
-                    pre_dispatch=pre_dispatch,
-                    return_train_score=return_train_score,
-                    scoring=scorers,
-                    refit=refit,
-                )
-                return tuned_model
+    #         elif tune == "random":
+    #             tuned_model = RandomizedSearchCV(
+    #                 estimator=model,
+    #                 param_distributions=parameters,
+    #                 n_jobs=use_cpu,
+    #                 cv=cv,
+    #                 verbose=verbose,
+    #                 random_state=random_state,
+    #                 n_iter=n_iter,
+    #                 return_train_score=return_train_score,
+    #                 error_score=error_score,
+    #                 scoring=scorers,
+    #                 refit=refit,
+    #                 pre_dispatch=pre_dispatch,
+    #             )
 
-            elif tune == "random":
-                tuned_model = RandomizedSearchCV(
-                    estimator=model,
-                    param_distributions=parameters,
-                    n_jobs=use_cpu,
-                    cv=cv,
-                    verbose=verbose,
-                    random_state=random_state,
-                    n_iter=n_iter,
-                    return_train_score=return_train_score,
-                    error_score=error_score,
-                    scoring=scorers,
-                    refit=refit,
-                    pre_dispatch=pre_dispatch,
-                )
+    #             return tuned_model
 
-                return tuned_model
+    #         elif tune == "bayes":
+    #             tuned_model = BayesSearchCV(
+    #                 estimator=model,
+    #                 search_spaces=parameters,
+    #                 n_jobs=use_cpu,
+    #                 return_train_score=return_train_score,
+    #                 cv=cv,
+    #                 verbose=verbose,
+    #                 refit=refit,
+    #                 random_state=random_state,
+    #                 scoring=scorers,
+    #                 error_score=error_score,
+    #                 optimizer_kwargs=optimizer_kwargs,
+    #                 n_points=n_points,
+    #                 n_iter=n_iter,
+    #                 fit_params=fit_params,
+    #                 pre_dispatch=pre_dispatch,
+    #             )
 
-            elif tune == "bayes":
-                tuned_model = BayesSearchCV(
-                    estimator=model,
-                    search_spaces=parameters,
-                    n_jobs=use_cpu,
-                    return_train_score=return_train_score,
-                    cv=cv,
-                    verbose=verbose,
-                    refit=refit,
-                    random_state=random_state,
-                    scoring=scorers,
-                    error_score=error_score,
-                    optimizer_kwargs=optimizer_kwargs,
-                    n_points=n_points,
-                    n_iter=n_iter,
-                    fit_params=fit_params,
-                    pre_dispatch=pre_dispatch,
-                )
+    #             return tuned_model
 
-                return tuned_model
+    #         elif tune == "half-grid":
+    #             tuned_model = HalvingGridSearchCV(
+    #                 estimator=model,
+    #                 param_grid=parameters,
+    #                 n_jobs=use_cpu,
+    #                 cv=cv,
+    #                 verbose=verbose,
+    #                 random_state=42,
+    #                 factor=factor,
+    #                 refit=refit,
+    #                 scoring=scorers,
+    #                 resource=resource,
+    #                 min_resources=min_resources_grid,
+    #                 max_resources=max_resources,
+    #                 error_score=error_score,
+    #                 aggressive_elimination=aggressive_elimination,
+    #             )
 
-            elif tune == "half-grid":
-                tuned_model = HalvingGridSearchCV(
-                    estimator=model,
-                    param_grid=parameters,
-                    n_jobs=use_cpu,
-                    cv=cv,
-                    verbose=verbose,
-                    random_state=42,
-                    factor=factor,
-                    refit=refit,
-                    scoring=scorers,
-                    resource=resource,
-                    min_resources=min_resources_grid,
-                    max_resources=max_resources,
-                    error_score=error_score,
-                    aggressive_elimination=aggressive_elimination,
-                )
+    #             return tuned_model
 
-                return tuned_model
+    #         elif tune == "half-random":
+    #             tuned_model = HalvingRandomSearchCV(
+    #                 estimator=model,
+    #                 param_distributions=parameters,
+    #                 n_jobs=use_cpu,
+    #                 cv=cv,
+    #                 verbose=verbose,
+    #                 random_state=42,
+    #                 factor=factor,
+    #                 refit=refit,
+    #                 scoring=scorers,
+    #                 resource=resource,
+    #                 error_score=error_score,
+    #                 min_resources=min_resources_rand,
+    #                 max_resources=max_resources,
+    #                 aggressive_elimination=aggressive_elimination,
+    #             )
 
-            elif tune == "half-random":
-                tuned_model = HalvingRandomSearchCV(
-                    estimator=model,
-                    param_distributions=parameters,
-                    n_jobs=use_cpu,
-                    cv=cv,
-                    verbose=verbose,
-                    random_state=42,
-                    factor=factor,
-                    refit=refit,
-                    scoring=scorers,
-                    resource=resource,
-                    error_score=error_score,
-                    min_resources=min_resources_rand,
-                    max_resources=max_resources,
-                    aggressive_elimination=aggressive_elimination,
-                )
-
-                return tuned_model
+    #             return tuned_model
 
     def visualize(
         self,
@@ -1715,7 +1716,7 @@ class MultiClassifier:
         """
 
         if self.select_models is None:
-            names = self.classifier_model_names()
+            names = self._model_names()
         else:
             names = self.select_models
         sns.set()
@@ -1894,7 +1895,7 @@ class MultiClassifier:
         :param save_name: The name of the file you want to save the visualization as.
         """
         if self.select_models is None:
-            names = self.classifier_model_names()
+            names = self._model_names()
         else:
             names = self.select_models
         param["model_names"] = names
