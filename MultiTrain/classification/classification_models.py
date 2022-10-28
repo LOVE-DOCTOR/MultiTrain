@@ -134,6 +134,9 @@ from MultiTrain.methods.multitrain_methods import (
     _fill,
     _fill_columns,
     _dummy,
+    return_dataframe_,
+    f1_pre_rec_,
+    compute_metrics_,
 )
 
 # os.environ['OMP_NUM_THREADS'] = "1"
@@ -1045,7 +1048,7 @@ class MultiClassifier:
 
     def fit(
         self,
-        X: Union[np.ndarray, DataFrame],
+        X: Union[np.ndarray, DataFrame] = None,
         y: Series = None,
         split_data=None,
         splitting: bool = False,
@@ -1238,59 +1241,18 @@ class MultiClassifier:
 
                     true = y_te
                     true_train = y_tr
-
-                    acc = accuracy_score(true, pred)
-                    bacc = balanced_accuracy_score(true, pred)
-                    try:
-                        roc = roc_auc_score(true, pred)
-                    except ValueError:
-                        roc = None
-
-                    if target_class == "binary":
-                        f1 = f1_score(true, pred)
-                        pre = precision_score(true, pred)
-                        rec = recall_score(true, pred)
-
-                    elif target_class == "multiclass":
-                        if self.imbalanced is True:
-                            f1 = f1_score(true, pred, average="micro")
-                            pre = precision_score(true, pred, average="micro")
-                            rec = recall_score(true, pred, average="micro")
-                        elif self.imbalanced is False:
-                            f1 = f1_score(true, pred, average="macro")
-                            pre = precision_score(true, pred, average="macro")
-                            rec = recall_score(true, pred, average="macro")
-
-                    tacc = accuracy_score(true_train, pred_train)
-                    tbacc = balanced_accuracy_score(true_train, pred_train)
-                    try:
-                        troc = roc_auc_score(true_train, pred_train)
-                    except ValueError:
-
-                        troc = None
-
-                    if target_class == "binary":
-                        tf1 = f1_score(true_train, pred_train)
-                        tpre = precision_score(true_train, pred_train)
-                        trec = recall_score(true_train, pred_train)
-
-                    elif target_class == "multiclass":
-                        if self.imbalanced is True:
-                            tf1 = f1_score(true_train, pred_train, average="micro")
-                            tpre = precision_score(
-                                true_train, pred_train, average="micro"
-                            )
-                            trec = recall_score(true_train, pred_train, average="micro")
-
-                        elif self.imbalanced is False:
-                            tf1 = f1_score(true_train, pred_train, average="macro")
-                            tpre = precision_score(
-                                true_train, pred_train, average="macro"
-                            )
-                            trec = recall_score(true_train, pred_train, average="macro")
+                    time_taken = round(end - start, 2)
+                    acc, bacc, roc, f1, pre, rec = compute_metrics_(
+                        t_class=target_class, true=true, pred=pred, imb=self.imbalanced
+                    )
+                    tacc, tbacc, troc, tf1, tpre, trec = compute_metrics_(
+                        t_class=target_class,
+                        true=true_train,
+                        pred=pred_train,
+                        imb=self.imbalanced,
+                    )
 
                     overfit = True if (tacc - acc) > 0.1 else False
-                    time_taken = round(end - start, 2)
 
                     if show_train_score is False:
                         eval_bin = [
@@ -1351,35 +1313,15 @@ class MultiClassifier:
                     elif target_class == "multiclass":
                         dataframe.update({names[index]: eval_mul})
 
-                if show_train_score is False:
-                    if target_class == "binary":
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.t_split_binary_columns_test,
-                        )
-
-                    elif target_class == "multiclass":
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.t_split_multiclass_columns_test,
-                        )
-
-                elif show_train_score is True:
-                    if target_class == "binary":
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.t_split_binary_columns_train,
-                        )
-
-                    elif target_class == "multiclass":
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.t_split_multiclass_columns_train,
-                        )
+                df = return_dataframe_(
+                    train_score=show_train_score,
+                    t_class=target_class,
+                    tb_test=self.t_split_binary_columns_test,
+                    tm_test=self.t_split_multiclass_columns_test,
+                    tb_train=self.t_split_binary_columns_train,
+                    tm_train=self.t_split_multiclass_columns_train,
+                    data=dataframe,
+                )
 
                 if return_best_model is not None:
                     df = show_best(df, return_best_model, self.high, self.low)
@@ -1397,76 +1339,36 @@ class MultiClassifier:
                 # Fitting the models and predicting the values of the test set.
                 if self.select_models is None:
                     KFoldModel = self._initialize_()
-                    names = self.classifier_model_names()
                 else:
                     KFoldModel, names = self._custom()
 
-                if target_class == "binary":
-                    logger.info("Training started")
-                    dataframe = self._startKFold_(
-                        param=KFoldModel,
-                        param_X=X,
-                        param_y=y,
-                        param_cv=fold,
-                        train_score=show_train_score,
-                    )
+                logger.info("Training started")
+                dataframe = self._startKFold_(
+                    param=KFoldModel,
+                    param_X=X,
+                    param_y=y,
+                    param_cv=fold,
+                    train_score=show_train_score,
+                )
 
-                    if show_train_score is True:
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.kf_binary_columns_train,
-                        )
+                df = return_dataframe_(
+                    train_score=show_train_score,
+                    t_class=target_class,
+                    tb_test=self.kf_binary_columns_test,
+                    tm_test=self.kf_multiclass_columns_test,
+                    tb_train=self.kf_binary_columns_train,
+                    tm_train=self.kf_multiclass_columns_train,
+                    data=dataframe,
+                )
 
-                    elif show_train_score is False:
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.kf_binary_columns_test,
-                        )
+                if return_best_model is not None:
+                    df = show_best(df, return_best_model, self.high, self.low)
 
-                    if return_best_model is not None:
-                        df = show_best(df, return_best_model, self.high, self.low)
+                elif return_best_model is None:
+                    display(df.style.highlight_max(color="yellow"))
 
-                    elif return_best_model is None:
-                        display(df.style.highlight_max(color="yellow"))
-
-                    write_to_excel(excel, df)
-                    return df
-
-                elif target_class == "multiclass":
-                    logger.info("Training started")
-                    dataframe = self._startKFold_(
-                        param=KFoldModel,
-                        param_X=X,
-                        param_y=y,
-                        param_cv=fold,
-                        train_score=show_train_score,
-                    )
-
-                    if show_train_score is True:
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.kf_multiclass_columns_train,
-                        )
-                    elif show_train_score is False:
-                        df = pd.DataFrame.from_dict(
-                            dataframe,
-                            orient="index",
-                            columns=self.kf_multiclass_columns_test,
-                        )
-
-                    if return_best_model is not None:
-                        logger.info(f"BEST MODEL BASED ON {return_best_model}")
-
-                        df = show_best(df, return_best_model, self.high, self.low)
-
-                    elif return_best_model is None:
-                        display(df.style.highlight_max(color="yellow"))
-
-                    write_to_excel(excel, df)
-                    return df
+                write_to_excel(excel, df)
+                return df
 
         except Exception:
             raise_text_error(text, vectorizer, ngrams)

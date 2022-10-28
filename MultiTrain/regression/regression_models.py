@@ -974,7 +974,7 @@ class MultiRegressor:
         optimizer_kwargs: any = None,
         fit_params: any = None,
         n_points: any = 1,
-        score: str = 'r2',
+        score: str = "r2",
     ):
         """
         :param n_points:

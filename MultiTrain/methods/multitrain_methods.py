@@ -6,6 +6,14 @@ import logging
 
 from pandas import DataFrame
 from sklearn.impute import SimpleImputer
+from sklearn.metrics import (
+    f1_score,
+    precision_score,
+    recall_score,
+    accuracy_score,
+    balanced_accuracy_score,
+    roc_auc_score,
+)
 from sklearn.preprocessing import LabelEncoder
 from pandas.core.series import Series
 from IPython.display import display
@@ -235,7 +243,6 @@ def _dummy(features, encoder):
 
 
 def show_best(data: DataFrame, best: str, high: list, low: list):
-
     if best in high:
         df = data.sort_values(by=best, ascending=False)
         retrieve_df = df.reset_index()
@@ -253,3 +260,65 @@ def show_best(data: DataFrame, best: str, high: list, low: list):
         )
         display(df)
         return df
+
+
+def convert_to_dataframe_(data, columns):
+    df = pd.DataFrame.from_dict(
+        data,
+        orient="index",
+        columns=columns,
+    )
+    return df
+
+
+def return_dataframe_(train_score, t_class, tb_test, tm_test, tb_train, tm_train, data):
+    if train_score is False:
+        if t_class == "binary":
+            dataset = convert_to_dataframe_(data, tb_test)
+            return dataset
+
+        elif t_class == "multiclass":
+            dataset = convert_to_dataframe_(data, tm_test)
+            return dataset
+
+    elif train_score is True:
+        if t_class == "binary":
+            dataset = convert_to_dataframe_(data, tb_train)
+            return dataset
+
+        elif t_class == "multiclass":
+            dataset = convert_to_dataframe_(data, tm_train)
+            return dataset
+
+
+def f1_pre_rec_(t_class, true, pred, imb):
+    if t_class == "binary":
+        tf1 = f1_score(true, pred)
+        tpre = precision_score(true, pred)
+        trec = recall_score(true, pred)
+
+    elif t_class == "multiclass":
+        if imb is True:
+            tf1 = f1_score(true, pred, average="micro")
+            tpre = precision_score(true, pred, average="micro")
+            trec = recall_score(true, pred, average="micro")
+
+        elif imb is False:
+            tf1 = f1_score(true, pred, average="macro")
+            tpre = precision_score(true, pred, average="macro")
+            trec = recall_score(true, pred, average="macro")
+
+    return tf1, tpre, trec
+
+
+def compute_metrics_(t_class, true, pred, imb):
+    acc = accuracy_score(true, pred)
+    bacc = balanced_accuracy_score(true, pred)
+    try:
+        roc = roc_auc_score(true, pred)
+    except ValueError:
+        roc = None
+
+    f1, pre, rec = f1_pre_rec_(t_class=t_class, true=true, pred=pred, imb=imb)
+
+    return acc, bacc, roc, f1, pre, rec
