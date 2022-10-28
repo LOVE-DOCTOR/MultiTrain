@@ -1060,6 +1060,9 @@ class MultiClassifier:
         text: bool = False,
         vectorizer: str = None,
         ngrams: tuple = None,
+        encoding: str = "utf-8",
+        max_features: int = None,
+        analyzer="word",
     ) -> DataFrame:
         # If splitting is False, then do nothing. If splitting is True, then assign the values of split_data to the
         # variables X_train, X_test, y_train, and y_test
@@ -1179,7 +1182,12 @@ class MultiClassifier:
                             try:
                                 try:
                                     pipeline = make_pipeline(
-                                        CountVectorizer(ngram_range=ngrams),
+                                        CountVectorizer(
+                                            ngram_range=ngrams,
+                                            encoding=encoding,
+                                            max_features=max_features,
+                                            analyzer=analyzer,
+                                        ),
                                         model[index],
                                     )
 
@@ -1192,7 +1200,12 @@ class MultiClassifier:
                                     # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                     # but dense data is required. Use X.toarray() to convert to a dense numpy array.
                                     pipeline = make_pipeline(
-                                        CountVectorizer(ngram_range=ngrams),
+                                        CountVectorizer(
+                                            ngram_range=ngrams,
+                                            encoding=encoding,
+                                            max_features=max_features,
+                                            analyzer=analyzer,
+                                        ),
                                         FunctionTransformer(
                                             lambda x: x.todense(),
                                             accept_sparse=True,
@@ -1211,7 +1224,12 @@ class MultiClassifier:
                             try:
                                 try:
                                     pipeline = make_pipeline(
-                                        TfidfVectorizer(ngram_range=ngrams),
+                                        TfidfVectorizer(
+                                            ngram_range=ngrams,
+                                            encoding=encoding,
+                                            max_features=max_features,
+                                            analyzer=analyzer,
+                                        ),
                                         model[index],
                                     )
 
@@ -1225,7 +1243,12 @@ class MultiClassifier:
                                     # HistGradientBoostingClassifier TypeError: A sparse matrix was passed,
                                     # but dense data is required. Use X.toarray() to convert to a dense numpy array.
                                     pipeline = make_pipeline(
-                                        TfidfVectorizer(ngram_range=ngrams),
+                                        TfidfVectorizer(
+                                            ngram_range=ngrams,
+                                            encoding=encoding,
+                                            max_features=max_features,
+                                            analyzer=analyzer,
+                                        ),
                                         FunctionTransformer(
                                             lambda x: x.todense(),
                                             accept_sparse=True,
