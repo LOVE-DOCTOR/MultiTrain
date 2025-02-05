@@ -65,7 +65,7 @@ setup(
         "plotly==6.0.0",
         "pytest==8.3.4",
         "scikit-learn==1.6.1",
-        "scipy==1.13.1",
+        "scipy==1.14.0",
         "seaborn==0.13.2",
         "xgboost==2.1.3",
         
