@@ -19,7 +19,7 @@ def sample_data():
         'target': [0, 1, 0, 1, 0]
     })
     target = 'target'
-    classifier = MultiClassifier()
+    classifier = MultiClassifier(custom_models=['LogisticRegression'])
     return data, target, classifier
 
 def test_split_normal(sample_data):
@@ -34,7 +34,8 @@ def test_split_normal(sample_data):
 
 def test_split_with_drop(sample_data):
     data, target, classifier = sample_data
-    X_train, X_test, y_train, y_test = classifier.split(data, target, drop=['feature1'])
+    X_train, X_test, y_train, y_test = classifier.split(data, target, auto_cat_encode=True,
+                                                        drop=['feature1'])
     assert 'feature1' not in X_train.columns
     assert 'feature1' not in X_test.columns
 
@@ -55,7 +56,7 @@ def test_split_auto_cat_encode(sample_data):
 
 def test_fit_normal(sample_data):
     data, target, classifier = sample_data
-    datasplits = classifier.split(data, target)
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(datasplits)
     assert isinstance(results, pd.DataFrame)
 
@@ -66,29 +67,27 @@ def test_fit_invalid_datasplits(sample_data):
 
 def test_fit_custom_metric(sample_data):
     data, target, classifier = sample_data
-    datasplits = classifier.split(data, target)
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
     with pytest.raises(MultiTrainMetricError):
         classifier.fit(datasplits, custom_metric='invalid_metric')
 
 def test_fit_imbalanced(sample_data):
     data, target, classifier = sample_data
-    datasplits = classifier.split(data, target)
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(datasplits, imbalanced=True)
     assert isinstance(results, pd.DataFrame)
-
-# Additional test cases for edge scenarios
 
 def test_split_with_nan_handling(sample_data):
     data, target, classifier = sample_data
     data.loc[0, 'feature1'] = None  # Introduce NaN
-    X_train, X_test, y_train, y_test = classifier.split(data, target, fix_nan_custom={'feature1': 'ffill'})
-    assert not X_train.isnull().any().any()  # Ensure no NaNs in training data
+    data_split = classifier.split(data, target, auto_cat_encode=True, fix_nan_custom={'feature1': 'ffill'})
+    assert not data_split[0].isnull().any().any()  # Ensure no NaNs in training data
 
 def test_split_manual_encoding(sample_data):
     data, target, classifier = sample_data
     manual_encode = {'label': ['feature2']}
-    X_train, X_test, y_train, y_test = classifier.split(data, target, manual_encode=manual_encode)
-    assert X_train['feature2'].dtype in [int, float]  # Check if manual encoding worked
+    data_split = classifier.split(data, target, manual_encode=manual_encode)
+    assert data_split[0]['feature2'].dtype in [int, float]  # Check if manual encoding worked
 
 def test_split_complex_dataset():
     data = pd.DataFrame({
@@ -106,7 +105,7 @@ def test_split_complex_dataset():
 def test_fit_with_custom_models(sample_data):
     data, target, classifier = sample_data
     classifier.custom_models = ['RandomForestClassifier', 'LogisticRegression']
-    datasplits = classifier.split(data, target)
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(datasplits)
     assert isinstance(results, pd.DataFrame)
     assert 'RandomForestClassifier' in results.index

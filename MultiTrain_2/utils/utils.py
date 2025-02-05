@@ -1,6 +1,8 @@
 import inspect
 import time
+import logging
 from typing import Dict, List, Optional
+import numpy as np
 import pandas as pd
 import sklearn
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, RidgeClassifierCV, Perceptron
@@ -17,6 +19,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from MultiTrain_2.errors.errors import *
 from sklearn.metrics import *
 
+logger = logging.getLogger(__name__)
 def _models(random_state, n_jobs):
     """
     Returns a dictionary of classifier models from various libraries.
@@ -144,11 +147,11 @@ def _manual_encoder(manual_encode, dataset):
         if encode_type not in encoder_types:
             raise MultiTrainEncodingError(f'Encoding type {encode_type} not found. Use one of the following: {encoder_types}')
 
-    if manual_encode['label']:
+    if 'label' in manual_encode.keys():
         le = LabelEncoder()
         dataset[manual_encode['label']] = dataset[manual_encode['label']].apply(le.fit_transform)
                 
-    if manual_encode['onehot']:
+    if 'onehot' in manual_encode.keys():
         encode_columns = manual_encode['onehot']
         for column in encode_columns:
             # Apply one-hot encoding
@@ -324,10 +327,10 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
     start = time.time()
     try:
         current_model.fit(X_train, y_train)
+        current_prediction = current_model.predict(X_test)
     except ValueError:
-        sklearn.logger.error(f"{model_names[idx]} unable to fit properly")
-        pass
-    current_prediction = current_model.predict(X_test)
+        logger.error(f"{model_names[idx]} unable to fit properly")
+        current_prediction = [np.nan for i in len(X_test)]
     end = time.time() - start
     
     return current_model, current_prediction, end
