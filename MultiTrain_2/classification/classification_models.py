@@ -94,7 +94,6 @@ class MultiClassifier:
               auto_cat_encode: bool = False, # if True, will encode all categorical columns
               manual_encode: dict = None, # example {'label': ['column1', 'column2'], 'onehot': ['column3', 'column4']}
               encode_column_subset: Optional[List] = None,
-              fix_nan: Optional[List] = False, # example [bool, strategy] i.e [True, 'ffill'], [True, 'bfill'], [True, 'interpolate']
               fix_nan_custom: Optional[Dict] = False): # example {'column1': 'ffill', 'column2': 'bfill', 'column3': ['value']} 
     
 
