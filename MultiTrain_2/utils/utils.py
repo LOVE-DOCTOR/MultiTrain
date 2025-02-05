@@ -143,12 +143,12 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
 
 def _fill_missing_values(dataset, column):
     if dataset[column].dtype in ['object', 'category']:
-        dataset[column] = dataset[column].fillna(0)
-        return dataset
-    else:
         mode_val = dataset[column].mode()[0]
-        dataset[column] = dataset[column].fillna(mode_val)
-        return dataset
+        dataset[column] = dataset[column].fillna(mode_val)  
+        return dataset[column]
+    else:
+        dataset[column] = dataset[column].fillna(0)
+        return dataset[column]
 
 def _handle_missing_values(dataset: pd.DataFrame, 
                            fix_nan_custom: Optional[Dict] = False) -> pd.DataFrame: 
@@ -176,6 +176,7 @@ def _handle_missing_values(dataset: pd.DataFrame,
             if strategy in fill_list[:2]:
                 dataset[column] = getattr(dataset[column], strategy)()
                 if dataset[column].isnull().any():
+                    print(len(dataset[column]))
                     dataset[column] = _fill_missing_values(dataset, column)
             
             elif strategy == 'interpolate':
