@@ -17,3 +17,11 @@ class MultiTrainTypeError(BaseException):
 class MultiTrainNaNError(BaseException):
     def __init__(self, *args):
         super().__init__(*args)
+
+class MultiTrainMetricError(BaseException):
+    def __init__(self, *args):
+        super().__init__(*args)
+        
+class MultiTrainSplitError(BaseException):
+    def __init__(self, *args):
+        super().__init__(*args)

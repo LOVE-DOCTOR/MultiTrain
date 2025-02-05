@@ -1,5 +1,8 @@
+import inspect
+import time
 from typing import Dict, List, Optional
 import pandas as pd
+import sklearn
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV, SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier, RidgeClassifierCV, Perceptron
 from sklearn.svm import LinearSVC, NuSVC, SVC
 from sklearn.neighbors import KNeighborsClassifier
@@ -12,7 +15,7 @@ from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from MultiTrain_2.errors.errors import *
-from sklearn.metrics import precision_score, recall_score, balanced_accuracy_score, accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import *
 
 def _models(random_state, n_jobs):
 
@@ -51,11 +54,13 @@ def _models(random_state, n_jobs):
         "RandomForestClassifier": RandomForestClassifier(random_state=random_state, n_jobs=n_jobs),
         "AdaBoostClassifier": AdaBoostClassifier(random_state=random_state),
         "HistGradientBoostingClassifier": HistGradientBoostingClassifier(random_state=random_state),
-        "LGBMClassifier": LGBMClassifier(random_state=random_state, n_jobs=n_jobs),
+        "LGBMClassifier": LGBMClassifier(random_state=random_state, n_jobs=n_jobs, verbose=-1),
         "XGBClassifier": XGBClassifier(random_state=random_state, n_jobs=n_jobs, verbosity=0, verbose=False),
     }
 
-def _metrics():
+def _init_metrics():
+    return ['accuracy_score', 'precision_score', 'recall_score', 'f1_score', 'roc_auc_score', 'balanced_accuracy_score']
+def _metrics(custom_metric):
     """
     Returns a dictionary of metric functions from sklearn.
 
@@ -64,14 +69,27 @@ def _metrics():
     Returns:
         dict: A dictionary of metric functions.
     """
-    return {
-        "precision_score": precision_score,
-        "recall_score": recall_score,
-        "balanced_accuracy_score": balanced_accuracy_score,
-        "accuracy_score": accuracy_score,
-        "f1_score": f1_score,
-        "roc_auc_score": roc_auc_score,
-    }
+    if custom_metric:
+        if custom_metric not in [name for name, obj in inspect.getmembers(sklearn.metrics, inspect.isfunction)]:
+            raise MultiTrainMetricError(f'Custom metric ({custom_metric}) is not a valid metric. Please check the sklearn documentation for a valid list of metrics.')
+        return {
+            custom_metric: globals().get(custom_metric),
+            "precision": precision_score,
+            "recall": recall_score,
+            "balanced_accuracy": balanced_accuracy_score,
+            "accuracy": accuracy_score,
+            "f1": f1_score,
+            "roc_auc": roc_auc_score,
+        }
+    else:
+        return {
+            "precision": precision_score,
+            "recall": recall_score,
+            "balanced_accuracy": balanced_accuracy_score,
+            "accuracy": accuracy_score,
+            "f1": f1_score,
+            "roc_auc": roc_auc_score,
+        }
 
 def _cat_encoder(cat_data, auto_cat_encode, encode_subset):
     """
@@ -92,44 +110,34 @@ def _cat_encoder(cat_data, auto_cat_encode, encode_subset):
         le = LabelEncoder()
         dataset[cat_columns] = dataset[cat_columns].astype(str).apply(le.fit_transform)
         return dataset
-    
-    elif encode_subset:
-        for column in encode_subset:
-            le = LabelEncoder()
-            dataset[column] = dataset[column].astype(str).apply(le.fit_transform)
-        return dataset
                 
     else:
         # Raise an error if columns are not encoded
         raise MultiTrainEncodingError(f"Ensure that all columns are encoded before splitting the dataset. Set " 
                                 "encode to True or pass in a list of columns to encode with the encode_subset parameter.")
         
-def _manual_encoder(manual_encode, dataset, encode_column_subset):
-    encoder_types = {'label': LabelEncoder(), 
-                    'onehot': OneHotEncoder()}
-    
-    if not encode_column_subset:
-        raise MultiTrainEncodingError(f'You must pass in a list of columns to encode with the encode_column_subset parameter.')  
-    
+def _manual_encoder(manual_encode, dataset):
+    encoder_types = ['label', 'onehot']
+     
     for encode_type, encode_columns in manual_encode.items():
         if encode_type not in encoder_types:
             raise MultiTrainEncodingError(f'Encoding type {encode_type} not found. Use one of the following: {list(encoder_types.keys())}')
-        
-        if encode_type == 'label':
-            for column in encode_columns:
-                le = LabelEncoder()
-                dataset[column] = le.fit_transform(dataset[column])
+
+    if manual_encode['label']:
+        le = LabelEncoder()
+        dataset[manual_encode['label']] = dataset[manual_encode['label']].apply(le.fit_transform)
                 
                 
-        elif encode_type == 'onehot':
-            for column in encode_columns:
-                # Apply one-hot encoding
-                dummies = pd.get_dummies(dataset[column], prefix=column)
-                # Concatenate the new dummy columns with the original dataset
-                dataset = pd.concat([dataset, dummies], axis=1)
-                # Drop the original categorical column
-                dataset.drop(column, axis=1, inplace=True)
-    
+    if manual_encode['onehot']:
+        encode_columns = manual_encode['onehot']
+        for column in encode_columns:
+            # Apply one-hot encoding
+            dummies = pd.get_dummies(dataset[column], prefix=column)
+            # Concatenate the new dummy columns with the original dataset
+            dataset = pd.concat([dataset, dummies], axis=1)
+            # Drop the original categorical column
+            dataset.drop(column, axis=1, inplace=True)
+
     return dataset
 
         
@@ -154,11 +162,12 @@ def _handle_missing_values(dataset: pd.DataFrame,
                            fix_nan_custom: Optional[Dict] = False) -> pd.DataFrame: 
      
     # Check for missing values in the dataset and raise an error if found
-    if dataset.isna().values.any() and fix_nan_custom is False:
-        raise MultiTrainNaNError(f'Missing values found in the dataset. Please handle missing values before proceeding.'
-                                 'Pass a value to the fix_nan_custom parameter to handle missing values. i.e. '
-                                 'fix_nan_custom={"column1": "ffill", "column2": "bfill"}')
-        
+    if dataset.isna().values.any():
+        if not fix_nan_custom:
+            raise MultiTrainNaNError(f'Missing values found in the dataset. Please handle missing values before proceeding.'
+                                    'Pass a value to the fix_nan_custom parameter to handle missing values. i.e. '
+                                    'fix_nan_custom={"column1": "ffill", "column2": "bfill"}')
+            
     if fix_nan_custom:
         
         if type(fix_nan_custom) != dict:
@@ -185,3 +194,54 @@ def _handle_missing_values(dataset: pd.DataFrame,
                     dataset[column] = _fill_missing_values(dataset, column)
 
         return dataset
+    
+def _display_table(results, sort, custom_metric=None):
+
+    results_df = pd.DataFrame(results).T
+    sorted_ = {'accuracy': 'accuracy', 
+                   'precision': 'precision', 
+                   'recall': 'recall', 
+                   'f1': 'f1', 
+                   'roc_auc': 'roc_auc', 
+                   'balanced_accuracy': 'balanced_accuracy'}
+    
+    if custom_metric:
+            sorted_[custom_metric] = custom_metric
+         
+    if sort:
+        results_df = results_df.sort_values(by=sorted_[sort], ascending=False)
+        # results_df = results_df.set_index('model')
+        column_to_move = sorted_[sort]
+        first_column = results_df.pop(column_to_move)
+        results_df.insert(0, column_to_move, first_column)
+        return results_df
+    
+    else:
+        return results_df
+    
+def _check_custom_models(custom_models, models):
+    if custom_models is None:
+        model_names = list(models.keys())
+        model_list = list(models.values())
+    elif custom_models:
+        if type(custom_models) != list:
+            raise MultiTrainTypeError(f"You must pass a list of models to the custom models paramter. Got type {type(self.custom_models)}")
+        
+        model_names = custom_models
+        model_list = [models[values] for values in models if values in custom_models]
+    
+    return model_names, model_list
+
+def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
+    start = time.time()
+    try:
+        current_model.fit(X_train, y_train)
+    except ValueError:
+        sklearn.logger.error(f"{model_names[idx]} unable to fit properly")
+        pass
+    current_prediction = current_model.predict(X_test)
+
+    
+    end = time.time() - start
+    
+    return current_model, current_prediction, end

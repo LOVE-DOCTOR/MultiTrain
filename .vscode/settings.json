@@ -1,5 +1,5 @@
 {
-    "CodeGPT.apiKey": "Ollama",
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
     "python.analysis.extraPaths": [
         "./MultiTrain"
     ]
