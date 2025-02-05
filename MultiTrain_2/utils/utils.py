@@ -104,7 +104,7 @@ def _metrics(custom_metric):
             "roc_auc": roc_auc_score,
         }
 
-def _cat_encoder(cat_data, auto_cat_encode, encode_subset):
+def _cat_encoder(cat_data, auto_cat_encode):
     """
     Encodes categorical columns in the dataset using Label Encoding.
 
@@ -116,13 +116,12 @@ def _cat_encoder(cat_data, auto_cat_encode, encode_subset):
     Returns:
         pd.DataFrame: The dataset with encoded categorical columns.
     """
-    dataset = cat_data.copy()
-    cat_columns = list(dataset.select_dtypes(include=['object', 'category']).columns)
+    cat_columns = list(cat_data.select_dtypes(include=['object', 'category']).columns)
 
     if auto_cat_encode is True:
         le = LabelEncoder()
-        dataset[cat_columns] = dataset[cat_columns].astype(str).apply(le.fit_transform)
-        return dataset
+        cat_data[cat_columns] = cat_data[cat_columns].astype(str).apply(le.fit_transform)
+        return cat_data
     else:
         # Raise an error if columns are not encoded
         raise MultiTrainEncodingError(f"Ensure that all columns are encoded before splitting the dataset. Set " 
@@ -246,7 +245,7 @@ def _handle_missing_values(dataset: pd.DataFrame,
                 if dataset[column].isnull().any():
                     dataset[column] = _fill_missing_values(dataset, column)
 
-        return dataset
+    return dataset
     
 def _display_table(results, sort, custom_metric=None):
     """
