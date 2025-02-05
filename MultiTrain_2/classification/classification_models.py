@@ -167,7 +167,11 @@ class MultiClassifier:
             metric_results = {}
             for metric_name, metric_attr in _metrics().items():
                 current_metric = metric_attr
-                metric_results[metric_name] = current_metric(y_test, current_prediction)
+                try:
+                    metric_results[metric_name] = current_metric(y_test, current_prediction)
+                except ValueError as e:
+                    if "Target is multiclass but average='binary'" in str(e):
+                        metric_results[metric_name] = current_metric(y_test, current_prediction, average='weighted')
                 
             results[model_name] = metric_results
 
