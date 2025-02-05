@@ -5,13 +5,12 @@ with open("README.md", "r") as f:
 
 setup(
     name='MultiTrain',  # name of package
-    version="0.13.11",
+    version="1.0.0",
     author='Shittu Samson',
     author_email='tunexo885@gmail.com',
     maintainer='Shittu Samson',
     maintainer_email='tunex885@gmail.com',
-    description="MultiTrain allows you to train multiple machine learning algorithms on a dataset all at once to "
-                "determine the best for that particular use case",
+    description="MultiTrain is a user-friendly tool that lets you train several machine learning models at once on your dataset, helping you easily find the best model for your needs.",
     long_description=desc,
     long_description_content_type="text/markdown",
     keywords=[
@@ -25,12 +24,12 @@ setup(
         "AutoML",
         "train multiple models",
     ],
-    url="https://github.com/LOVE-DOCTOR/train-with-models",
+    url="https://github.com/LOVE-DOCTOR/MultiTrain",
     packages=find_packages(
         include=[
             "MultiTrain",
-            "MultiTrain.tests",
-            "MultiTrain.methods",
+            "MultiTrain.test",
+            "MultiTrain.utils",
             "MultiTrain.errors",
             "MultiTrain.regression",
             "MultiTrain.classification",
@@ -55,22 +54,19 @@ setup(
     py_modules=["MultiTrain"],
     zip_safe=False,
     python_requires='>=3.8',
-    install_requires=["matplotlib==3.5.3",
-                      "pandas==1.4.4",
-                      "scikit-learn==1.1.1",
-                      "numpy==1.23.3",
-                      "plotly==5.10.0",
-                      "ipython==8.4.0",
-                      "xgboost==1.6.2",
-                      "catboost",
-                      "imbalanced-learn==0.9.1",
-                      "seaborn==0.12.0",
-                      "scikit-optimize==0.9.0",
-                      "lightgbm==3.3.2",
-                      "kaleido==0.2.1",
-                      "threadpoolctl==3.1.0",
-                      "tqdm==4.64.0",
-                      "jinja2==3.1.2",
-                      "openpyxl==3.0.10",
-                      "ipywidgets==8.0.2"]
+    install_requires=[
+        "catboost==1.2.7",
+        "imbalanced-learn==0.13.0",
+        "lightgbm==4.5.0",
+        "matplotlib==3.10.0",
+        "numpy==1.26.4",
+        "pandas==2.2.3",
+        "plotly==6.0.0",
+        "pytest==8.3.4",
+        "scikit-learn==1.6.1",
+        "scipy==1.13.1",
+        "seaborn==0.13.2",
+        "xgboost==2.1.3",
+        "setuptools==75.8.0"
+    ]
 )
