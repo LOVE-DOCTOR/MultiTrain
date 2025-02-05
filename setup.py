@@ -58,6 +58,7 @@ setup(
         "catboost==1.2.7",
         "imbalanced-learn==0.13.0",
         "lightgbm==4.5.0",
+        "setuptools==75.8.0",
         "matplotlib==3.10.0",
         "numpy==1.26.4",
         "pandas==2.2.3",
@@ -67,6 +68,6 @@ setup(
         "scipy==1.13.1",
         "seaborn==0.13.2",
         "xgboost==2.1.3",
-        "setuptools==75.8.0"
+        
     ]
 )
