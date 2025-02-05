@@ -172,11 +172,6 @@ class MultiClassifier:
         
         if type(datasplits) != tuple or len(datasplits) != 4:
             raise MultiTrainSplitError('The "datasplits" parameter can only be of type tuple and must have 4 values. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.')
-        # if isinstance(datasplits[0]) != pd.DataFrame or isinstance(datasplits[1]) != pd.DataFrame:
-        #     raise MultiTrainSplitError('The "datasplits" parameter can only contain pandas DataFrames and pandas Series. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.')
-        # if isinstance(datasplits[2]) != pd.DataFrame or isinstance(datasplits[3]) != pd.DataFrame:
-        #     raise MultiTrainSplitError('The "datasplits" parameter can only contain pandas DataFrames and pandas Series. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.')
-        
 
         X_train, X_test, y_train, y_test = datasplits[0], datasplits[1], datasplits[2], datasplits[3]
         if custom_metric in _init_metrics():
