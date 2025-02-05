@@ -1,0 +1,6 @@
+{
+    "CodeGPT.apiKey": "Ollama",
+    "python.analysis.extraPaths": [
+        "./MultiTrain"
+    ]
+}
