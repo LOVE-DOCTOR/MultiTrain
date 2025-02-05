@@ -85,6 +85,7 @@ class MultiClassifier:
     n_jobs: int = -1
     random_state: int = 42
     custom_models: list = None
+    overfit_tolerance: float = 0.2
 
     
     
