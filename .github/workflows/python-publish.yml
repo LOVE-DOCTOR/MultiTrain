@@ -15,7 +15,7 @@ jobs:
     name: Build and publish Python distributions to PyPI and TestPyPI
     runs-on: 'ubuntu-latest'
 
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/v2'
 
     steps:
     - uses: actions/checkout@v3
