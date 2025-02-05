@@ -67,7 +67,7 @@ setup(
         "scikit-learn==1.6.1",
         "scipy==1.13.1",
         "seaborn==0.13.2",
-        "xgboost==2.0.0",
+        "xgboost==1.7.1",
         
     ]
 )
