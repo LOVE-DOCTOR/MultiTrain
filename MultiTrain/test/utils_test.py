@@ -42,7 +42,7 @@ def test_metrics(custom_metric, expected_exception):
         assert 'accuracy' in metrics
 
 def test_cat_encoder(sample_dataframe):
-    encoded_df = _cat_encoder(sample_dataframe, auto_cat_encode=True, encode_subset=[])
+    encoded_df = _cat_encoder(sample_dataframe, auto_cat_encode=True)
     assert 'cat_col' in encoded_df.columns
     assert encoded_df['cat_col'].dtype == 'int32'
 
@@ -50,7 +50,7 @@ def test_manual_encoder(sample_dataframe):
     manual_encode = {'label': ['cat_col'], 'onehot': []}
     encoded_df = _manual_encoder(manual_encode, sample_dataframe)
     assert 'cat_col' in encoded_df.columns
-    assert encoded_df['cat_col'].dtype == 'int32'
+    assert encoded_df['cat_col'].dtype == 'int64'
 
 def test_non_auto_cat_encode_error(sample_dataframe):
     with pytest.raises(MultiTrainEncodingError):

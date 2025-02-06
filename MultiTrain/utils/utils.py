@@ -114,7 +114,6 @@ def _cat_encoder(cat_data, auto_cat_encode):
     Args:
         cat_data (pd.DataFrame): The dataset containing categorical data.
         auto_cat_encode (bool): If True, automatically encodes all categorical columns.
-        encode_subset (list): List of specific columns to encode if auto_cat_encode is False.
 
     Returns:
         pd.DataFrame: The dataset with encoded categorical columns.
@@ -128,7 +127,7 @@ def _cat_encoder(cat_data, auto_cat_encode):
     else:
         # Raise an error if columns are not encoded
         raise MultiTrainEncodingError(f"Ensure that all columns are encoded before splitting the dataset. Set " 
-                                "encode to True or pass in a list of columns to encode with the encode_subset parameter.")
+                                "auto_cat_encode to True or specify manual_encode")
         
 def _manual_encoder(manual_encode, dataset):
     """
