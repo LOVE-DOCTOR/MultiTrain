@@ -28,7 +28,12 @@ from sklearn.svm import LinearSVC, NuSVC, SVC
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier
 from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB, ComplementNB
-from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier, DecisionTreeRegressor, ExtraTreeRegressor
+from sklearn.tree import (
+    DecisionTreeClassifier,
+    ExtraTreeClassifier,
+    DecisionTreeRegressor,
+    ExtraTreeRegressor,
+)
 from sklearn.ensemble import (
     GradientBoostingClassifier,
     ExtraTreesClassifier,
@@ -70,6 +75,7 @@ from sklearn.exceptions import ConvergenceWarning
 # Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
+
 def _models_classifier(random_state, n_jobs, max_iter):
     """
     Returns a dictionary of classifier models from various libraries.
@@ -87,9 +93,13 @@ def _models_classifier(random_state, n_jobs, max_iter):
         LogisticRegression.__name__: LogisticRegression(
             random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
         ),
-        LogisticRegressionCV.__name__: LogisticRegressionCV(n_jobs=n_jobs, max_iter=max_iter),
+        LogisticRegressionCV.__name__: LogisticRegressionCV(
+            n_jobs=n_jobs, max_iter=max_iter
+        ),
         SGDClassifier.__name__: SGDClassifier(n_jobs=n_jobs, max_iter=max_iter),
-        PassiveAggressiveClassifier.__name__: PassiveAggressiveClassifier(n_jobs=n_jobs, max_iter=max_iter),
+        PassiveAggressiveClassifier.__name__: PassiveAggressiveClassifier(
+            n_jobs=n_jobs, max_iter=max_iter
+        ),
         RidgeClassifier.__name__: RidgeClassifier(max_iter=max_iter),
         RidgeClassifierCV.__name__: RidgeClassifierCV(max_iter=max_iter),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs, max_iter=max_iter),
@@ -97,12 +107,16 @@ def _models_classifier(random_state, n_jobs, max_iter):
         NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter),
         SVC.__name__: SVC(random_state=random_state, max_iter=max_iter),
         KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs),
-        MLPClassifier.__name__: MLPClassifier(random_state=random_state, max_iter=max_iter),
+        MLPClassifier.__name__: MLPClassifier(
+            random_state=random_state, max_iter=max_iter
+        ),
         GaussianNB.__name__: GaussianNB(),
         BernoulliNB.__name__: BernoulliNB(),
         MultinomialNB.__name__: MultinomialNB(),
         ComplementNB.__name__: ComplementNB(),
-        DecisionTreeClassifier.__name__: DecisionTreeClassifier(random_state=random_state),
+        DecisionTreeClassifier.__name__: DecisionTreeClassifier(
+            random_state=random_state
+        ),
         ExtraTreeClassifier.__name__: ExtraTreeClassifier(random_state=random_state),
         GradientBoostingClassifier.__name__: GradientBoostingClassifier(
             random_state=random_state
@@ -114,7 +128,10 @@ def _models_classifier(random_state, n_jobs, max_iter):
             random_state=random_state, n_jobs=n_jobs
         ),
         CatBoostClassifier.__name__: CatBoostClassifier(
-            random_state=random_state, thread_count=n_jobs, silent=True, iterations=max_iter
+            random_state=random_state,
+            thread_count=n_jobs,
+            silent=True,
+            iterations=max_iter,
         ),
         RandomForestClassifier.__name__: RandomForestClassifier(
             random_state=random_state, n_jobs=n_jobs
@@ -129,9 +146,14 @@ def _models_classifier(random_state, n_jobs, max_iter):
             random_state=random_state, n_jobs=n_jobs, verbose=-1, n_estimators=max_iter
         ),
         XGBClassifier.__name__: XGBClassifier(
-            random_state=random_state, n_jobs=n_jobs, verbosity=0, verbose=False, n_estimators=max_iter
+            random_state=random_state,
+            n_jobs=n_jobs,
+            verbosity=0,
+            verbose=False,
+            n_estimators=max_iter,
         ),
     }
+
 
 def _models_regressor(random_state, n_jobs, max_iter):
     """
@@ -154,9 +176,13 @@ def _models_regressor(random_state, n_jobs, max_iter):
         LassoCV.__name__: LassoCV(),
         ElasticNet.__name__: ElasticNet(random_state=random_state),
         ElasticNetCV.__name__: ElasticNetCV(),
-        SGDRegressor.__name__: SGDRegressor(random_state=random_state, max_iter=max_iter),
+        SGDRegressor.__name__: SGDRegressor(
+            random_state=random_state, max_iter=max_iter
+        ),
         KNeighborsRegressor.__name__: KNeighborsRegressor(n_jobs=n_jobs),
-        DecisionTreeRegressor.__name__: DecisionTreeRegressor(random_state=random_state),
+        DecisionTreeRegressor.__name__: DecisionTreeRegressor(
+            random_state=random_state
+        ),
         ExtraTreeRegressor.__name__: ExtraTreeRegressor(random_state=random_state),
         RandomForestRegressor.__name__: RandomForestRegressor(
             random_state=random_state, n_jobs=n_jobs
@@ -167,18 +193,27 @@ def _models_regressor(random_state, n_jobs, max_iter):
         GradientBoostingRegressor.__name__: GradientBoostingRegressor(
             random_state=random_state
         ),
-        AdaBoostRegressor.__name__: AdaBoostRegressor(random_state=random_state, n_estimators=max_iter),
+        AdaBoostRegressor.__name__: AdaBoostRegressor(
+            random_state=random_state, n_estimators=max_iter
+        ),
         BaggingRegressor.__name__: BaggingRegressor(
             random_state=random_state, n_jobs=n_jobs
         ),
         CatBoostRegressor.__name__: CatBoostRegressor(
-            random_state=random_state, thread_count=n_jobs, silent=True, iterations=max_iter
+            random_state=random_state,
+            thread_count=n_jobs,
+            silent=True,
+            iterations=max_iter,
         ),
         LGBMRegressor.__name__: LGBMRegressor(
             random_state=random_state, n_jobs=n_jobs, verbose=-1, n_estimators=max_iter
         ),
         XGBRegressor.__name__: XGBRegressor(
-            random_state=random_state, n_jobs=n_jobs, verbosity=0, verbose=False, n_estimators=max_iter
+            random_state=random_state,
+            n_jobs=n_jobs,
+            verbosity=0,
+            verbose=False,
+            n_estimators=max_iter,
         ),
         HistGradientBoostingRegressor.__name__: HistGradientBoostingRegressor(
             random_state=random_state, max_iter=max_iter
@@ -216,7 +251,7 @@ def _metrics(custom_metric: str, metric_type: str):
         dict: A dictionary of metric functions.
     """
     valid_metrics = {
-        'classification': {
+        "classification": {
             "precision": precision_score,
             "recall": recall_score,
             "balanced_accuracy": balanced_accuracy_score,
@@ -224,21 +259,21 @@ def _metrics(custom_metric: str, metric_type: str):
             "f1": f1_score,
             "roc_auc": roc_auc_score,
         },
-        
-        'regression': {
+        "regression": {
             "mean_squared_error": mean_squared_error,
             "r2_score": r2_score,
             "mean_absolute_error": mean_absolute_error,
             "median_absolute_error": median_absolute_error,
             "mean_squared_log_error": mean_squared_log_error,
             "explained_variance_score": explained_variance_score,
-        }
+        },
     }
 
     if custom_metric:
         # Check if the custom metric is a valid sklearn metric
         valid_sklearn_metrics = [
-            name for name, obj in inspect.getmembers(sklearn.metrics, inspect.isfunction)
+            name
+            for name, obj in inspect.getmembers(sklearn.metrics, inspect.isfunction)
         ]
         if custom_metric not in valid_sklearn_metrics:
             raise MultiTrainMetricError(
@@ -250,6 +285,7 @@ def _metrics(custom_metric: str, metric_type: str):
         return metrics
 
     return valid_metrics.get(metric_type, {})
+
 
 def _cat_encoder(cat_data, auto_cat_encode):
     """
@@ -400,7 +436,9 @@ def _handle_missing_values(
                 )
 
             if strategy in fill_list[:2]:
-                dataset[column] = getattr(dataset[column], strategy)() # dataset[column].ffill()
+                dataset[column] = getattr(
+                    dataset[column], strategy
+                )()  # dataset[column].ffill()
                 if dataset[column].isnull().any():
                     print(len(dataset[column]))
                     dataset[column] = _fill_missing_values(dataset, column)
@@ -411,6 +449,7 @@ def _handle_missing_values(
                     dataset[column] = _fill_missing_values(dataset, column)
 
     return dataset
+
 
 def _check_custom_models(custom_models, models):
     """
@@ -466,10 +505,14 @@ def _prep_model_names_list(
         )
 
     # Initialize models
-    if class_type == 'classification':
-        models = _models_classifier(random_state=random_state, n_jobs=n_jobs, max_iter=max_iter)
-    elif class_type == 'regression':
-        models = _models_regressor(random_state=random_state, n_jobs=n_jobs, max_iter=max_iter)
+    if class_type == "classification":
+        models = _models_classifier(
+            random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
+        )
+    elif class_type == "regression":
+        models = _models_regressor(
+            random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
+        )
 
     # Check for custom models and get model names and list
     model_names, model_list = _check_custom_models(custom_models, models)
@@ -567,7 +610,10 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
     end = time.time() - start
     return pipeline, predictions, end
 
-def _display_table(results, sort=None, custom_metric=None, return_best_model:Optional[str]=None):
+
+def _display_table(
+    results, sort=None, custom_metric=None, return_best_model: Optional[str] = None
+):
     """
     Displays a sorted table of results.
 
@@ -594,8 +640,8 @@ def _display_table(results, sort=None, custom_metric=None, return_best_model:Opt
 
     if sort:
         if return_best_model:
-            raise MultiTrainError('You can only either sort or return a best model')
-        
+            raise MultiTrainError("You can only either sort or return a best model")
+
         results_df = results_df.sort_values(by=sorted_[sort], ascending=False)
         # Move the sorted column to the front
         column_to_move = sorted_[sort]
@@ -604,7 +650,9 @@ def _display_table(results, sort=None, custom_metric=None, return_best_model:Opt
         return results_df
     else:
         if return_best_model:
-            results_df = results_df.sort_values(by=return_best_model, ascending=False).head(1)
+            results_df = results_df.sort_values(
+                by=return_best_model, ascending=False
+            ).head(1)
             return results_df
         else:
             return results_df

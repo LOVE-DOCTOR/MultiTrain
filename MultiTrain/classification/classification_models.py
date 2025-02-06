@@ -147,7 +147,7 @@ class MultiClassifier:
         text: bool = False,
         vectorizer: str = None,  # example: count or tfidf
         pipeline_dict: dict = None,  # example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
-        return_best_model: Optional[str] = None
+        return_best_model: Optional[str] = None,
     ):  # example 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'balanced_accuracy'
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
@@ -171,8 +171,8 @@ class MultiClassifier:
                 self.random_state,
                 self.n_jobs,
                 self.custom_models,
-                'classification',
-                self.max_iter
+                "classification",
+                self.max_iter,
             )
         )
 
@@ -218,7 +218,7 @@ class MultiClassifier:
             avg_metrics = ["precision", "recall", "f1"]
             # Wrap metrics in tqdm for additional progress tracking
             for metric_name, metric_func in tqdm(
-                _metrics(custom_metric, 'classification').items(),
+                _metrics(custom_metric, "classification").items(),
                 desc=f"Evaluating {model_names[idx]}",
                 leave=False,
             ):
@@ -260,7 +260,14 @@ class MultiClassifier:
 
         # Display the results in a sorted DataFrame
         if custom_metric:
-            final_dataframe = _display_table(results=results, sort=sort, custom_metric=custom_metric, return_best_model=return_best_model)
+            final_dataframe = _display_table(
+                results=results,
+                sort=sort,
+                custom_metric=custom_metric,
+                return_best_model=return_best_model,
+            )
         else:
-            final_dataframe = _display_table(results=results, sort=sort, return_best_model=return_best_model)
+            final_dataframe = _display_table(
+                results=results, sort=sort, return_best_model=return_best_model
+            )
         return final_dataframe

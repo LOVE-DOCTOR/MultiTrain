@@ -68,6 +68,7 @@ from sklearn.preprocessing import (
 
 from MultiTrain.errors.errors import *
 
+
 @dataclass
 class MultiRegressor:
     n_jobs: int = -1
@@ -184,7 +185,7 @@ class MultiRegressor:
         custom_metric: str = None,  # must be a valid sklearn metric i.e mean_squared_error.
         show_train_score: bool = False,
         sort: str = None,
-        return_best_model: Optional[str] = None
+        return_best_model: Optional[str] = None,
     ):  # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
@@ -207,8 +208,8 @@ class MultiRegressor:
                 self.random_state,
                 self.n_jobs,
                 self.custom_models,
-                'regression',
-                self.max_iter
+                "regression",
+                self.max_iter,
             )
         )
 
@@ -230,7 +231,7 @@ class MultiRegressor:
             current_model, current_prediction, end = _fit_pred(
                 current_model, model_names, idx, X_train, y_train, X_test
             )
-            
+
             metric_results = {}
             # Wrap metrics in tqdm for additional progress tracking
             for metric_name, metric_func in tqdm(
@@ -255,7 +256,9 @@ class MultiRegressor:
                     )
 
                 except ValueError as e:
-                    logger.error(f"Error calculating {metric_name} for {model_names[idx]}: {e}")
+                    logger.error(
+                        f"Error calculating {metric_name} for {model_names[idx]}: {e}"
+                    )
 
             # Store results for the current model
             results[model_names[idx]] = metric_results
@@ -263,7 +266,14 @@ class MultiRegressor:
 
         # Display the results in a sorted DataFrame
         if custom_metric:
-            final_dataframe = _display_table(results=results, sort=sort, custom_metric=custom_metric, return_best_model=return_best_model)
+            final_dataframe = _display_table(
+                results=results,
+                sort=sort,
+                custom_metric=custom_metric,
+                return_best_model=return_best_model,
+            )
         else:
-            final_dataframe = _display_table(results=results, sort=sort, return_best_model=return_best_model)
+            final_dataframe = _display_table(
+                results=results, sort=sort, return_best_model=return_best_model
+            )
         return final_dataframe
