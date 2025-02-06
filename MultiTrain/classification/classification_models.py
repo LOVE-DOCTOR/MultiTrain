@@ -190,6 +190,7 @@ class MultiClassifier:
         text: bool = False,
         vectorizer: str = None,  # example: count or tfidf
         pipeline_dict: dict = None,  # example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
+        return_best_model: Optional[str] = None
     ):  # example 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'balanced_accuracy'
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
@@ -200,6 +201,7 @@ class MultiClassifier:
         - show_train_score (bool, optional): If True, also calculates and displays training scores.
         - imbalanced (bool, optional): If True, uses 'micro' average for precision, recall, and f1 metrics.
         - sort (str, optional): Metric name to sort the final results. Examples include 'accuracy', 'precision', etc.
+        - return_best_model (str, optional): The metric to return the best model by, e.g., 'accuracy'.
 
         Returns:
         - final_dataframe: A DataFrame containing the evaluation results of the models.
@@ -299,7 +301,7 @@ class MultiClassifier:
 
         # Display the results in a sorted DataFrame
         if custom_metric:
-            final_dataframe = _display_table(results, sort, custom_metric)
+            final_dataframe = _display_table(results=results, sort=sort, custom_metric=custom_metric, return_best_model=return_best_model)
         else:
-            final_dataframe = _display_table(results, sort)
+            final_dataframe = _display_table(results=results, sort=sort, return_best_model=return_best_model)
         return final_dataframe

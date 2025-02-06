@@ -472,16 +472,15 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
     end = time.time() - start
     return pipeline, predictions, end
 
-def _display_table(results, sort, custom_metric=None, return_best_model:Optional[bool]=False):
+def _display_table(results, sort=None, custom_metric=None, return_best_model:Optional[str]=None):
     """
     Displays a sorted table of results.
 
     Args:
         results (dict): The results to display.
-        sort (str): The metric to sort by.
+        sort (str, optional): The metric to sort by.
         custom_metric (str, optional): A custom metric to include in sorting.
-        return_best_model (bool, dict): The metric to return best model by e.g 'accuracy'
-
+        return_best_model (str, optional): The metric to return the best model by, e.g., 'accuracy'.
     Returns:
         pd.DataFrame: A DataFrame of sorted results.
     """
@@ -512,5 +511,6 @@ def _display_table(results, sort, custom_metric=None, return_best_model:Optional
     else:
         if return_best_model:
             results_df = results_df.sort_values(by='accuracy', ascending=False).head(1)
+            return results_df
         else:
             return results_df
