@@ -3,7 +3,7 @@ import pandas as pd
 import sklearn
 
 from MultiTrain.utils.utils import (
-    _models,
+    _models_classifier,
     _init_metrics,
     _metrics,
     _cat_encoder,
@@ -33,7 +33,7 @@ def sample_dataframe():
 
 @pytest.fixture
 def models():
-    return _models(random_state=42, n_jobs=1)
+    return _models_classifier(random_state=42, n_jobs=1)
 
 
 def test_models(models):
