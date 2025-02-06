@@ -33,7 +33,6 @@ class MultiClassifier:
     random_state: int = 42
     custom_models: list = None
     max_iter: int = 1000
-    overfit_tolerance: float = 0.2
 
     @staticmethod
     def split(
@@ -265,9 +264,13 @@ class MultiClassifier:
                 sort=sort,
                 custom_metric=custom_metric,
                 return_best_model=return_best_model,
+                task="classification",
             )
         else:
             final_dataframe = _display_table(
-                results=results, sort=sort, return_best_model=return_best_model
+                results=results,
+                sort=sort,
+                return_best_model=return_best_model,
+                task="classification",
             )
         return final_dataframe

@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Optional
 import warnings
 import numpy as np
+import sklearn
 import pandas as pd
 from sklearn.linear_model import (
     LogisticRegression,
@@ -94,14 +95,16 @@ def _models_classifier(random_state, n_jobs, max_iter):
             random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
         ),
         LogisticRegressionCV.__name__: LogisticRegressionCV(
-            n_jobs=n_jobs, max_iter=max_iter
+            n_jobs=n_jobs,
+            max_iter=max_iter,
+            cv=5,
         ),
         SGDClassifier.__name__: SGDClassifier(n_jobs=n_jobs, max_iter=max_iter),
         PassiveAggressiveClassifier.__name__: PassiveAggressiveClassifier(
             n_jobs=n_jobs, max_iter=max_iter
         ),
         RidgeClassifier.__name__: RidgeClassifier(max_iter=max_iter),
-        RidgeClassifierCV.__name__: RidgeClassifierCV(max_iter=max_iter),
+        RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs, max_iter=max_iter),
         LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter),
         NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter),
@@ -612,7 +615,11 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
 
 
 def _display_table(
-    results, sort=None, custom_metric=None, return_best_model: Optional[str] = None
+    results,
+    sort=None,
+    custom_metric=None,
+    return_best_model: Optional[str] = None,
+    task: str = None,
 ):
     """
     Displays a sorted table of results.
@@ -627,32 +634,63 @@ def _display_table(
     """
     results_df = pd.DataFrame(results).T
     sorted_ = {
-        "accuracy": "accuracy",
-        "precision": "precision",
-        "recall": "recall",
-        "f1": "f1",
-        "roc_auc": "roc_auc",
-        "balanced_accuracy": "balanced_accuracy",
+        "classification": {
+            "accuracy": "accuracy",
+            "precision": "precision",
+            "recall": "recall",
+            "f1": "f1",
+            "roc_auc": "roc_auc",
+            "balanced_accuracy": "balanced_accuracy",
+        },
+        "regression": {
+            "mean squared error": "mean squared error",
+            "r2 score": "r2 score",
+            "mean absolute error": "mean absolute error",
+            "median absolute error": "median absolute error",
+            "mean squared log error": "mean squared log error",
+            "explained variance score": "explained variance score",
+        },
     }
 
     if custom_metric:
-        sorted_[custom_metric] = custom_metric
+        sorted_classification = sorted_[task]
+        sorted_classification[custom_metric] = custom_metric
 
     if sort:
         if return_best_model:
             raise MultiTrainError("You can only either sort or return a best model")
+        if task == "classification":
+            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=False)
+        elif task == "regression":
+            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=True)
 
-        results_df = results_df.sort_values(by=sorted_[sort], ascending=False)
         # Move the sorted column to the front
-        column_to_move = sorted_[sort]
+        column_to_move = sorted_[task][sort]
         first_column = results_df.pop(column_to_move)
         results_df.insert(0, column_to_move, first_column)
         return results_df
     else:
         if return_best_model:
-            results_df = results_df.sort_values(
-                by=return_best_model, ascending=False
-            ).head(1)
+            if task == "classification":
+                results_df = results_df.sort_values(
+                    by=return_best_model, ascending=False
+                ).head(1)
+            elif task == "regression":
+                ascending_order = (
+                    True
+                    if return_best_model
+                    in [
+                        "mean squared error",
+                        "mean absolute error",
+                        "median absolute error",
+                        "mean squared log error",
+                    ]
+                    else False
+                )
+                results_df = results_df.sort_values(
+                    by=return_best_model, ascending=ascending_order
+                ).head(1)
+
             return results_df
         else:
             return results_df
