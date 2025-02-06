@@ -15,7 +15,6 @@ from tqdm.notebook import trange, tqdm
 from IPython.display import display
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from imblearn.combine import SMOTEENN, SMOTETomek
 
 from matplotlib import pyplot as plt
 from numpy.random import randint
@@ -23,27 +22,6 @@ from pandas import DataFrame
 from sklearn.decomposition import PCA
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from imblearn.over_sampling import (
-    SMOTE,
-    RandomOverSampler,
-    SMOTEN,
-    ADASYN,
-    BorderlineSMOTE,
-    KMeansSMOTE,
-    SVMSMOTE,
-)
-from imblearn.under_sampling import (
-    CondensedNearestNeighbour,
-    EditedNearestNeighbours,
-    RepeatedEditedNearestNeighbours,
-    AllKNN,
-    InstanceHardnessThreshold,
-    NearMiss,
-    NeighbourhoodCleaningRule,
-    OneSidedSelection,
-    RandomUnderSampler,
-    TomekLinks,
-)
 
 
 from sklearn.metrics import (
@@ -75,7 +53,6 @@ from sklearn.preprocessing import (
     MinMaxScaler,
 )
 
-from skopt import BayesSearchCV
 from MultiTrain.errors.errors import *
 
 
