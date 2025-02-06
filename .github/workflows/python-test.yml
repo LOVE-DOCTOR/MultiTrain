@@ -30,7 +30,7 @@ jobs:
         pip install setuptools
         pip install wheel
         pip install twine
-        python setup.py install
+        pip install .
 
     - name: Lint with flake8
       run: |
