@@ -33,7 +33,7 @@ def sample_dataframe():
 
 @pytest.fixture
 def models():
-    return _models_classifier(random_state=42, n_jobs=1)
+    return _models_classifier(random_state=42, n_jobs=1, max_iter=500)
 
 
 def test_models(models):
@@ -55,9 +55,9 @@ def test_init_metrics():
 def test_metrics(custom_metric, expected_exception):
     if expected_exception:
         with pytest.raises(expected_exception):
-            _metrics(custom_metric=custom_metric)
+            _metrics(custom_metric=custom_metric, metric_type='classification') 
     else:
-        metrics = _metrics(custom_metric=custom_metric)
+        metrics = _metrics(custom_metric=custom_metric, metric_type='classification') 
         assert "accuracy" in metrics
 
 
