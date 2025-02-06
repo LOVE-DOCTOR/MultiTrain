@@ -14,6 +14,8 @@ from sklearn.linear_model import (
     RidgeClassifierCV,
     Perceptron,
 )
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.pipeline import FunctionTransformer, make_pipeline
 from sklearn.svm import LinearSVC, NuSVC, SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -384,6 +386,39 @@ def _check_custom_models(custom_models, models):
     return model_names, model_list
 
 
+def _prep_model_names_list(
+    datasplits, custom_metric, random_state, n_jobs, custom_models
+):
+    # Validate the datasplits parameter
+    if type(datasplits) != tuple or len(datasplits) != 4:
+        raise MultiTrainSplitError(
+            'The "datasplits" parameter can only be of type tuple and must have 4 values. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.'
+        )
+
+    # Unpack the datasplits tuple
+    X_train, X_test, y_train, y_test = (
+        datasplits[0],
+        datasplits[1],
+        datasplits[2],
+        datasplits[3],
+    )
+
+    # Check if the custom metric is already in the default metrics
+    if custom_metric in _init_metrics():
+        raise MultiTrainMetricError(
+            f"Metric already exists. Please pass in a different metric."
+            f"Default metrics are: {_init_metrics()}"
+        )
+
+    # Initialize models
+    models = _models(random_state=random_state, n_jobs=n_jobs)
+
+    # Check for custom models and get model names and list
+    model_names, model_list = _check_custom_models(custom_models, models)
+
+    return model_names, model_list, X_train, X_test, y_train, y_test
+
+
 def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
     """
     Fits a model and predicts on the test set, measuring the time taken.
@@ -416,3 +451,60 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None):
     if average:
         return metric_func(y_true, y_pred, average=average)
     return metric_func(y_true, y_pred)
+
+
+def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
+    """
+    Fits a text processing pipeline and predicts on the test set, measuring the time taken.
+
+    Args:
+        vectorizer (str): The type of vectorizer to use ('count' or 'tfidf').
+        pipeline_dict (dict): Dictionary containing pipeline parameters.
+        model: The model to fit.
+        X_train (pd.DataFrame): Training feature set.
+        y_train (pd.Series): Training target set.
+        X_test (pd.DataFrame): Test feature set.
+
+    Returns:
+        tuple: A tuple containing the fitted pipeline, predictions, and time taken.
+    """
+    vectorizer_map = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
+
+    if vectorizer not in vectorizer_map:
+        raise ValueError(f"Unsupported vectorizer type: {vectorizer}")
+
+    VectorizerClass = vectorizer_map[vectorizer]
+
+    try:
+        start = time.time()
+        pipeline = make_pipeline(
+            VectorizerClass(
+                ngram_range=pipeline_dict["ngram_range"],
+                encoding=pipeline_dict["encoding"],
+                max_features=pipeline_dict["max_features"],
+                analyzer=pipeline_dict["analyzer"],
+            ),
+            model,
+        )
+        pipeline.fit(X_train, y_train)
+        predictions = pipeline.predict(X_test)
+    except Exception:
+        start = time.time()
+        pipeline = make_pipeline(
+            VectorizerClass(
+                ngram_range=pipeline_dict["ngram_range"],
+                encoding=pipeline_dict["encoding"],
+                max_features=pipeline_dict["max_features"],
+                analyzer=pipeline_dict["analyzer"],
+            ),
+            FunctionTransformer(
+                lambda x: x.todense(),
+                accept_sparse=True,
+            ),
+            model,
+        )
+        pipeline.fit(X_train, y_train)
+        predictions = pipeline.predict(X_test)
+
+    end = time.time() - start
+    return pipeline, predictions, end

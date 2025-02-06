@@ -16,6 +16,8 @@ from MultiTrain.utils.utils import (
     _models,
     _metrics,
     _non_auto_cat_encode_error,
+    _fit_pred_text,
+    _prep_model_names_list,
 )
 
 import time
@@ -183,8 +185,11 @@ class MultiClassifier:
         datasplits: tuple,
         custom_metric: str = None,  # must be a valid sklearn metric i.e accuracy_score.
         show_train_score: bool = False,
-        imbalanced=False,
+        imbalanced: bool = False,
         sort: str = None,
+        text: bool = False,
+        vectorizer: str = None,  # example: count or tfidf
+        pipeline_dict: dict = None,  # example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
     ):  # example 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'balanced_accuracy'
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
@@ -200,34 +205,15 @@ class MultiClassifier:
         - final_dataframe: A DataFrame containing the evaluation results of the models.
         """
 
-        # Validate the datasplits parameter
-        if type(datasplits) != tuple or len(datasplits) != 4:
-            raise MultiTrainSplitError(
-                'The "datasplits" parameter can only be of type tuple and must have 4 values. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.'
+        model_names, model_list, X_train, X_test, y_train, y_test = (
+            _prep_model_names_list(
+                datasplits,
+                custom_metric,
+                self.random_state,
+                self.n_jobs,
+                self.custom_models,
             )
-
-        # Unpack the datasplits tuple
-        X_train, X_test, y_train, y_test = (
-            datasplits[0],
-            datasplits[1],
-            datasplits[2],
-            datasplits[3],
         )
-
-        # Check if the custom metric is already in the default metrics
-        if custom_metric in _init_metrics():
-            raise MultiTrainMetricError(
-                f"Metric already exists. Please pass in a different metric."
-                f"Default metrics are: {_init_metrics()}"
-            )
-
-        # Initialize models
-        models = _models(random_state=self.random_state, n_jobs=self.n_jobs)
-
-        results = {}
-
-        # Check for custom models and get model names and list
-        model_names, model_list = _check_custom_models(self.custom_models, models)
 
         # Initialize progress bar for model training
         bar = trange(
@@ -243,10 +229,29 @@ class MultiClassifier:
             bar.set_postfix_str(f"Model: {model_names[idx]}")
             current_model = model_list[idx]
 
-            # Fit the model and make predictions
-            current_model, current_prediction, end = _fit_pred(
-                current_model, model_names, idx, X_train, y_train, X_test
-            )
+            if text is False:
+                if pipeline_dict:
+                    raise MultiTrainTextError(
+                        "You cannot use pipeline_dict when the text parameter is False"
+                    )
+                # Fit the model and make predictions
+                current_model, current_prediction, end = _fit_pred(
+                    current_model, model_names, idx, X_train, y_train, X_test
+                )
+            elif text is True:
+                if not pipeline_dict:
+                    raise MultiTrainTextError(
+                        "You must pass a dictionary with the following keys if you set text to True\n"
+                        "ngram_range, encoding, max_features, analyzer. These keys are found in CountVectorizer or TfidfVectorizer"
+                    )
+                if not vectorizer:
+                    raise MultiTrainTextError(
+                        'You must pass one of "count" or "tfidf" to the vectorizer argument when using text=True'
+                    )
+
+                current_model, current_prediction, end = _fit_pred_text(
+                    vectorizer, pipeline_dict, current_model, X_train, y_train, X_test
+                )
 
             metric_results = {}
             avg_metrics = ["precision", "recall", "f1"]

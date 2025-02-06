@@ -31,3 +31,8 @@ class MultiTrainMetricError(BaseException):
 class MultiTrainSplitError(BaseException):
     def __init__(self, *args):
         super().__init__(*args)
+
+
+class MultiTrainTextError(BaseException):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
