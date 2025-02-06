@@ -74,6 +74,7 @@ class MultiRegressor:
     random_state: int = 42
     custom_models: list = None
     overfit_tolerance: float = 0.2
+    max_iter: int = 1000
 
     @staticmethod
     def split(
@@ -206,7 +207,8 @@ class MultiRegressor:
                 self.random_state,
                 self.n_jobs,
                 self.custom_models,
-                'regression'
+                'regression',
+                self.max_iter
             )
         )
 

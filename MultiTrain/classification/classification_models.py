@@ -171,8 +171,8 @@ class MultiClassifier:
                 self.random_state,
                 self.n_jobs,
                 self.custom_models,
-                'classification'
-                max_iter=self.max_iter
+                'classification',
+                self.max_iter
             )
         )
 
