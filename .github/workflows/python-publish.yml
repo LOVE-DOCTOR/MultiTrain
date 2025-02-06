@@ -8,7 +8,9 @@
 
 name: Upload MultiTrain
 
-on: push
+on:
+  release:
+    types: [published]
 
 jobs:
   build-n-publish:
@@ -19,6 +21,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v5
       with:
@@ -31,7 +40,18 @@ jobs:
         pip install setuptools
         pip install wheel 
         pip install twine
-        python install .
+        pip install .
+
+    - name: Validate package version
+      run: |
+        RELEASE_TAG=${GITHUB_REF##*/}
+        PACKAGE_VERSION=$(python -c "import multitrain; print(multitrain.__version__)")
+        echo "Release tag: $RELEASE_TAG"
+        echo "Package version: $PACKAGE_VERSION"
+        if [ "$RELEASE_TAG" != "$PACKAGE_VERSION" ]; then
+          echo "Version mismatch: release tag does not match package version."
+          exit 1
+        fi
 
     - name: Build package
       run: | 
