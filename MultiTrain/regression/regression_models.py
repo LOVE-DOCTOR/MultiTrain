@@ -136,7 +136,7 @@ class MultiRegressor:
                     fix_keys = list(fix_nan_custom.keys())
                     if len(fix_keys) != len(set(fix_keys)):
                             raise MultiTrainError('You cannot specify a column as a key more than once')
-            if keys > 2:
+            if list(keys) > 2:
                 raise MultiTrainError('You cannot have more than two keys i.e label, onehot')
         
         # Drop specified columns if 'drop' parameter is provided
