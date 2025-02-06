@@ -320,43 +320,6 @@ def _handle_missing_values(
 
     return dataset
 
-
-def _display_table(results, sort, custom_metric=None):
-    """
-    Displays a sorted table of results.
-
-    Args:
-        results (dict): The results to display.
-        sort (str): The metric to sort by.
-        custom_metric (str, optional): A custom metric to include in sorting.
-
-    Returns:
-        pd.DataFrame: A DataFrame of sorted results.
-    """
-    results_df = pd.DataFrame(results).T
-    sorted_ = {
-        "accuracy": "accuracy",
-        "precision": "precision",
-        "recall": "recall",
-        "f1": "f1",
-        "roc_auc": "roc_auc",
-        "balanced_accuracy": "balanced_accuracy",
-    }
-
-    if custom_metric:
-        sorted_[custom_metric] = custom_metric
-
-    if sort:
-        results_df = results_df.sort_values(by=sorted_[sort], ascending=False)
-        # Move the sorted column to the front
-        column_to_move = sorted_[sort]
-        first_column = results_df.pop(column_to_move)
-        results_df.insert(0, column_to_move, first_column)
-        return results_df
-    else:
-        return results_df
-
-
 def _check_custom_models(custom_models, models):
     """
     Checks and retrieves custom models from the provided models dictionary.
@@ -508,3 +471,46 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
 
     end = time.time() - start
     return pipeline, predictions, end
+
+def _display_table(results, sort, custom_metric=None, return_best_model:Optional[bool]=False):
+    """
+    Displays a sorted table of results.
+
+    Args:
+        results (dict): The results to display.
+        sort (str): The metric to sort by.
+        custom_metric (str, optional): A custom metric to include in sorting.
+        return_best_model (bool, dict): The metric to return best model by e.g 'accuracy'
+
+    Returns:
+        pd.DataFrame: A DataFrame of sorted results.
+    """
+    results_df = pd.DataFrame(results).T
+    sorted_ = {
+        "accuracy": "accuracy",
+        "precision": "precision",
+        "recall": "recall",
+        "f1": "f1",
+        "roc_auc": "roc_auc",
+        "balanced_accuracy": "balanced_accuracy",
+    }
+
+    if custom_metric:
+        sorted_[custom_metric] = custom_metric
+
+    if sort:
+        if return_best_model:
+            raise MultiTrainError('You can only either sort or return a best model')
+        
+        results_df = results_df.sort_values(by=sorted_[sort], ascending=False)
+        # Move the sorted column to the front
+        column_to_move = sorted_[sort]
+        first_column = results_df.pop(column_to_move)
+        results_df.insert(0, column_to_move, first_column)
+        return results_df
+    # INSERT_YOUR_REWRITE_HERE
+    else:
+        if return_best_model:
+            results_df = results_df.sort_values(by='accuracy', ascending=False).head(1)
+        else:
+            return results_df
