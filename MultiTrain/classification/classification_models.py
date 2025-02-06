@@ -1,71 +1,22 @@
 from dataclasses import dataclass
-import random
-from typing import Dict, List, Optional
-
-from sklearn import logger
+from typing import Dict, Optional
 
 from MultiTrain.utils.utils import (
     _calculate_metric,
     _cat_encoder,
-    _check_custom_models,
     _display_table,
     _fit_pred,
     _handle_missing_values,
-    _init_metrics,
     _manual_encoder,
-    _models,
     _metrics,
     _non_auto_cat_encode_error,
     _fit_pred_text,
     _prep_model_names_list,
 )
 
-import time
-import numpy as np
 import pandas as pd
-import plotly.express as px
-import seaborn as sns
 from tqdm.notebook import trange, tqdm
-from IPython.display import display
-from catboost import CatBoostClassifier
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-from matplotlib import pyplot as plt
-from numpy.random import randint
-from pandas import DataFrame
-from sklearn.decomposition import PCA
-from sklearn.experimental import enable_halving_search_cv  # noqa
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-
-
-from sklearn.metrics import (
-    precision_score,
-    recall_score,
-    balanced_accuracy_score,
-    accuracy_score,
-    make_scorer,
-    f1_score,
-    roc_auc_score,
-)
-
-from sklearn.model_selection import (
-    HalvingGridSearchCV,
-    HalvingRandomSearchCV,
-    train_test_split,
-    GridSearchCV,
-    RandomizedSearchCV,
-    cross_validate,
-)
-
-from sklearn.pipeline import make_pipeline
-
-from sklearn.preprocessing import (
-    FunctionTransformer,
-    Normalizer,
-    StandardScaler,
-    RobustScaler,
-    MinMaxScaler,
-)
+from sklearn.model_selection import train_test_split
 
 from MultiTrain.errors.errors import *
 
@@ -76,6 +27,7 @@ class MultiClassifier:
     n_jobs: int = -1
     random_state: int = 42
     custom_models: list = None
+    max_iter: int = 1000
     overfit_tolerance: float = 0.2
 
     @staticmethod
@@ -214,6 +166,7 @@ class MultiClassifier:
                 self.random_state,
                 self.n_jobs,
                 self.custom_models,
+                'classification'
             )
         )
 
@@ -259,7 +212,7 @@ class MultiClassifier:
             avg_metrics = ["precision", "recall", "f1"]
             # Wrap metrics in tqdm for additional progress tracking
             for metric_name, metric_func in tqdm(
-                _metrics(custom_metric).items(),
+                _metrics(custom_metric, 'classification').items(),
                 desc=f"Evaluating {model_names[idx]}",
                 leave=False,
             ):
