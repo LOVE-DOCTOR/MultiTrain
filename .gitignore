@@ -27,6 +27,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -51,6 +52,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+settings.json
+.setup.py
 # Translations
 *.mo
 *.pot
@@ -131,36 +134,7 @@ dmypy.json
 # Anaconda
 .idea
 
-Mobile_Price_Classification/
-
 catboost_info/
-Phone_Classification.ipynb
-Financial_Inclusion_in_Africa.ipynb
-test_phone.csv
-train_phone.csv
-
-Training_results.xlsx
-Test_finance.csv
-Train_finance.csv
-Spaceship.ipynb
-spaceship_train.csv
 /Plotting
-Spaceship ds.ipynb
-sample_submission.csv
-Submission1.csv
-test_.csv
-training_.csv
-Untitled.ipynb
-Xente_Variable_Definitions.csv
-/garments_worker_productivity.csv
-/Garment_productivity_.ipynb
-/examples/
-/test.csv
-/train.csv
-/Variable_explanations.csv
-/Busara_Mental_Health_Prediction(1).ipynb
-/EMOTION DETECTION_.ipynb
-/test.txt
-/train.txt
-/val.txt
-/progress_bar.py
+
+*.setup.py
