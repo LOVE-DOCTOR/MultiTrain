@@ -68,6 +68,20 @@ from sklearn.preprocessing import (
 
 from MultiTrain.errors.errors import *
 
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
 
 @dataclass
 class MultiRegressor:
@@ -77,6 +91,8 @@ class MultiRegressor:
     overfit_tolerance: float = 0.2
     max_iter: int = 1000
 
+    logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
+    
     @staticmethod
     def split(
         data: pd.DataFrame,
@@ -109,7 +125,20 @@ class MultiRegressor:
 
         # Create a copy of the dataset to avoid modifying the original data
         dataset = data.copy()
-
+        if manual_encode:
+            keys = list(manual_encode.keys())
+            if 1 < keys < 3:
+                if len(keys) != len(set(keys)):
+                    raise MultiTrainError('You cannot have duplicates of either "label" or "onehot" in your dictionary.')
+                if any(item in manual_encode[keys[0]] for item in manual_encode[keys[1]]):
+                    raise MultiTrainError('You cannot not have a column specified for different types of encoding i.e column1 present for label and column2 present for onehot')
+                if fix_nan_custom:
+                    fix_keys = list(fix_nan_custom.keys())
+                    if len(fix_keys) != len(set(fix_keys)):
+                            raise MultiTrainError('You cannot specify a column as a key more than once')
+            if keys > 2:
+                raise MultiTrainError('You cannot have more than two keys i.e label, onehot')
+        
         # Drop specified columns if 'drop' parameter is provided
         if drop:
             if type(drop) != list:
