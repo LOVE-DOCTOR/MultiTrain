@@ -68,7 +68,8 @@ setup(
         "scipy==1.13.1",
         "seaborn==0.13.2",
         "xgboost==1.6.2",
-        "tqdm==4.64.0"
+        "tqdm==4.64.0",
+        "ipython==8.32.0"
         
     ]
 )
