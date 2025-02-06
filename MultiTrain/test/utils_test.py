@@ -2,12 +2,12 @@ import pytest
 import pandas as pd
 import sklearn
 
-from MultiTrain_2.utils.utils import (
+from MultiTrain.utils.utils import (
     _models, _init_metrics, _metrics, _cat_encoder, _manual_encoder,
     _non_auto_cat_encode_error, _fill_missing_values, _handle_missing_values,
     _display_table, _check_custom_models, _fit_pred, _calculate_metric
 )
-from MultiTrain_2.errors.errors import MultiTrainMetricError, MultiTrainEncodingError, MultiTrainNaNError, MultiTrainTypeError, MultiTrainColumnMissingError
+from MultiTrain.errors.errors import MultiTrainMetricError, MultiTrainEncodingError, MultiTrainNaNError, MultiTrainTypeError, MultiTrainColumnMissingError
 from sklearn.metrics import accuracy_score
 
 @pytest.fixture

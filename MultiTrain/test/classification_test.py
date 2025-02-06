@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
-from MultiTrain_2.classification.classification_models import MultiClassifier
-from MultiTrain_2.errors.errors import (
+from MultiTrain.classification.classification_models import MultiClassifier
+from MultiTrain.errors.errors import (
     MultiTrainDatasetTypeError,
     MultiTrainColumnMissingError,
     MultiTrainEncodingError,
@@ -110,3 +110,4 @@ def test_fit_with_custom_models(sample_data):
     assert isinstance(results, pd.DataFrame)
     assert 'RandomForestClassifier' in results.index
     assert 'LogisticRegression' in results.index
+    

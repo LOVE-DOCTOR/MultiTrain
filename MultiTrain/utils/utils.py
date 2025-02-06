@@ -16,7 +16,7 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from MultiTrain_2.errors.errors import *
+from MultiTrain.errors.errors import *
 from sklearn.metrics import *
 
 logger = logging.getLogger(__name__)
