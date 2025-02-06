@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict, Optional
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+
+# Suppress all sklearn warnings
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 from MultiTrain.utils.utils import (
     _calculate_metric,
@@ -167,6 +172,7 @@ class MultiClassifier:
                 self.n_jobs,
                 self.custom_models,
                 'classification'
+                max_iter=self.max_iter
             )
         )
 

@@ -1,10 +1,10 @@
 import inspect
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+import warnings
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.linear_model import (
     LogisticRegression,
     LogisticRegressionCV,
@@ -46,12 +46,29 @@ from sklearn.ensemble import (
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from xgboost import XGBClassifier, XGBRegressor
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
 from MultiTrain.errors.errors import *
-from sklearn.metrics import *
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    balanced_accuracy_score,
+    accuracy_score,
+    f1_score,
+    roc_auc_score,
+    mean_squared_error,
+    r2_score,
+    mean_absolute_error,
+    median_absolute_error,
+    mean_squared_log_error,
+    explained_variance_score,
+)
 
 logger = logging.getLogger(__name__)
 
+from sklearn.exceptions import ConvergenceWarning
+
+# Suppress all sklearn warnings
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 def _models_classifier(random_state, n_jobs, max_iter):
     """
@@ -585,10 +602,9 @@ def _display_table(results, sort=None, custom_metric=None, return_best_model:Opt
         first_column = results_df.pop(column_to_move)
         results_df.insert(0, column_to_move, first_column)
         return results_df
-    # INSERT_YOUR_REWRITE_HERE
     else:
         if return_best_model:
-            results_df = results_df.sort_values(by='accuracy', ascending=False).head(1)
+            results_df = results_df.sort_values(by=return_best_model, ascending=False).head(1)
             return results_df
         else:
             return results_df
