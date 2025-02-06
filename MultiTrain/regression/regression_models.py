@@ -12,7 +12,7 @@ from MultiTrain.utils.utils import (
     _handle_missing_values,
     _init_metrics,
     _manual_encoder,
-    _models,
+    _models_regressor,
     _metrics,
     _non_auto_cat_encode_error,
     _fit_pred_text,
@@ -235,7 +235,7 @@ class MultiRegressor:
             metric_results = {}
             # Wrap metrics in tqdm for additional progress tracking
             for metric_name, metric_func in tqdm(
-                _metrics(custom_metric).items(),
+                _metrics(custom_metric, 'regression').items(),
                 desc=f"Evaluating {model_names[idx]}",
                 leave=False,
             ):

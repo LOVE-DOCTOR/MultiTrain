@@ -249,6 +249,7 @@ def _metrics(custom_metric: str, metric_type: str):
 
     Args:
         custom_metric (str): Name of a custom metric to include.
+        metric_type (str): 'classification' or 'regression'
 
     Returns:
         dict: A dictionary of metric functions.
@@ -551,10 +552,15 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
 
 
 # Function to calculate metric
-def _calculate_metric(metric_func, y_true, y_pred, average=None):
-    if average:
-        return metric_func(y_true, y_pred, average=average)
-    return metric_func(y_true, y_pred)
+def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
+    try:
+        if average:
+            val = metric_func(y_true, y_pred, average=average)
+        else:
+            val = metric_func(y_true, y_pred)
+    except Exception as e:
+        val = np.nan
+    return val
 
 
 def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
@@ -652,29 +658,37 @@ def _display_table(
         },
     }
 
+    # If a custom metric is provided, add it to the sorted_ dictionary for the specified task.
     if custom_metric:
-        sorted_classification = sorted_[task]
-        sorted_classification[custom_metric] = custom_metric
+        sorted_[task][custom_metric] = custom_metric
 
+    # Check if sorting is requested.
     if sort:
+        # Ensure that sorting and returning the best model are not both requested simultaneously.
         if return_best_model:
             raise MultiTrainError("You can only either sort or return a best model")
-        if task == "classification":
-            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=False)
-        elif task == "regression":
-            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=True)
+        
+        # Proceed with sorting if the task and sort metric are valid.
+        if task in sorted_ and sort in sorted_[task]:
+            # Sort the DataFrame based on the specified metric. For regression tasks, sort in ascending order.
+            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=(task == "regression"))
 
-        # Move the sorted column to the front
-        column_to_move = sorted_[task][sort]
-        first_column = results_df.pop(column_to_move)
-        results_df.insert(0, column_to_move, first_column)
+            # Move the sorted column to the front of the DataFrame for better visibility.
+            column_to_move = sorted_[task][sort]
+            first_column = results_df.pop(column_to_move)
+            results_df.insert(0, column_to_move, first_column)
+        
+        # Return the sorted DataFrame.
         return results_df
     else:
+        # If sorting is not requested, check if returning the best model is requested.
         if return_best_model:
+            # For classification tasks, sort in descending order to get the best model.
             if task == "classification":
                 results_df = results_df.sort_values(
                     by=return_best_model, ascending=False
                 ).head(1)
+            # For regression tasks, determine the sorting order based on the metric.
             elif task == "regression":
                 ascending_order = (
                     True
@@ -691,6 +705,8 @@ def _display_table(
                     by=return_best_model, ascending=ascending_order
                 ).head(1)
 
+            # Return the DataFrame with the best model.
             return results_df
         else:
+            # If neither sorting nor returning the best model is requested, return the original DataFrame.
             return results_df
