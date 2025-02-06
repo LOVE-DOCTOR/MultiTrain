@@ -83,7 +83,7 @@ class MultiClassifier:
         dataset = data.copy()
         if manual_encode:
             keys = list(manual_encode.keys())
-            if 1 < keys < 3:
+            if 1 < len(keys) < 3:
                 if len(keys) != len(set(keys)):
                     raise MultiTrainError('You cannot have duplicates of either "label" or "onehot" in your dictionary.')
                 if any(item in manual_encode[keys[0]] for item in manual_encode[keys[1]]):
