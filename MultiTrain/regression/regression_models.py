@@ -1,79 +1,21 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from sklearn import logger
-from MultiTrain.utils.model_metric_utils import _metrics
 from MultiTrain.utils.utils import (
-    _calculate_metric,
     _cat_encoder,
+    _metrics,
+    _calculate_metric,
     _display_table,
     _fit_pred,
     _handle_missing_values,
     _manual_encoder,
-    _metrics,
     _non_auto_cat_encode_error,
     _prep_model_names_list,
 )
 
-import time
-import numpy as np
 import pandas as pd
-import plotly.express as px
-import seaborn as sns
 from tqdm.notebook import trange, tqdm
-from IPython.display import display
-from catboost import CatBoostClassifier
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-from matplotlib import pyplot as plt
-from numpy.random import randint
-from pandas import DataFrame
-from sklearn.decomposition import PCA
-from sklearn.experimental import enable_halving_search_cv  # noqa
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-
-from MultiTrain.utils.model_metric_utils import _metrics
-from MultiTrain.utils.utils import (
-    _cat_encoder,
-    _calculate_metric,
-    _display_table,
-    _fit_pred,
-    _handle_missing_values,
-    _manual_encoder,
-    _metrics,
-    _non_auto_cat_encode_error,
-    _fit_pred_text,
-    _prep_model_names_list,
-)
-
-from sklearn.metrics import (
-    precision_score,
-    recall_score,
-    balanced_accuracy_score,
-    accuracy_score,
-    make_scorer,
-    f1_score,
-    roc_auc_score,
-)
-
-from sklearn.model_selection import (
-    HalvingGridSearchCV,
-    HalvingRandomSearchCV,
-    train_test_split,
-    GridSearchCV,
-    RandomizedSearchCV,
-    cross_validate,
-)
-
-from sklearn.pipeline import make_pipeline
-
-from sklearn.preprocessing import (
-    FunctionTransformer,
-    Normalizer,
-    StandardScaler,
-    RobustScaler,
-    MinMaxScaler,
-)
+from sklearn.model_selection import train_test_split
 
 from MultiTrain.errors.errors import *
 
