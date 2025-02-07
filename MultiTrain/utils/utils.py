@@ -12,8 +12,6 @@ from MultiTrain.errors.errors import *
 from MultiTrain.regression import regression_models
 
 from catboost import CatBoostClassifier, CatBoostRegressor
-import dask.dataframe as gpd
-from dask_ml.preprocessing import LabelEncoder as LabelEncoderGpu
 from lightgbm import LGBMClassifier, LGBMRegressor
 from sklearn.ensemble import (
     AdaBoostClassifier,
@@ -81,17 +79,7 @@ logger = logging.getLogger(__name__)
 from sklearn.exceptions import ConvergenceWarning
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-use_gpu_classifier = classification_models.MultiClassifier.use_gpu
-use_gpu_regressor = regression_models.MultiRegressor.use_gpu
-device_classifier = classification_models.MultiClassifier.device
-device_regressor = regression_models.MultiRegressor.device
 
-   
-
-if use_gpu_classifier or use_gpu_regressor:
-    from sklearnex import patch_sklearn
-    patch_sklearn()
-    set_gpu = True
 
 
 def _models_classifier(random_state, n_jobs, max_iter):
@@ -107,6 +95,15 @@ def _models_classifier(random_state, n_jobs, max_iter):
     Returns:
         dict: A dictionary of classifier models.
     """
+    
+    use_gpu_classifier = classification_models.MultiClassifier.use_gpu
+    device_classifier = classification_models.MultiClassifier.device
+
+    if use_gpu_classifier:
+        from sklearnex import patch_sklearn
+        patch_sklearn()
+        set_gpu = True
+        
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
             random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
@@ -175,7 +172,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
     }
     
     if set_gpu is True:
-        models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device_classifier.device)
+        models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device_classifier)
         models_dict[XGBClassifier.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
     return models_dict
@@ -193,6 +190,15 @@ def _models_regressor(random_state, n_jobs, max_iter):
     Returns:
         dict: A dictionary of regressor models.
     """
+    use_gpu_regressor = regression_models.MultiRegressor.use_gpu
+    device_regressor = regression_models.MultiRegressor.device
+
+
+    if use_gpu_regressor:
+        from sklearnex import patch_sklearn
+        patch_sklearn()
+        set_gpu = True
+        
     models_dict = {
         LinearRegression.__name__: LinearRegression(n_jobs=n_jobs),
         Ridge.__name__: Ridge(random_state=random_state),
@@ -246,12 +252,37 @@ def _models_regressor(random_state, n_jobs, max_iter):
     }
     
     if set_gpu is True:
-        models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device_regressor.device)
+        models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device_regressor)
         models_dict[XGBRegressor.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
     return models_dict
 
+def _cat_encoder(cat_data, auto_cat_encode):
+    """
+    Encodes categorical columns in the dataset using Label Encoding.
 
+    Args:
+        cat_data (pd.DataFrame): The dataset containing categorical data.
+        auto_cat_encode (bool): If True, automatically encodes all categorical columns.
+
+    Returns:
+        pd.DataFrame: The dataset with encoded categorical columns.
+    """
+    cat_columns = list(cat_data.select_dtypes(include=["object", "category"]).columns)
+
+    if auto_cat_encode is True:
+        le = LabelEncoder()
+        cat_data[cat_columns] = (
+            cat_data[cat_columns].astype(str).apply(le.fit_transform)
+        )
+        return cat_data
+    else:
+        # Raise an error if columns are not encoded
+        raise MultiTrainEncodingError(
+            f"Ensure that all columns are encoded before splitting the dataset. Set "
+            "auto_cat_encode to True or specify manual_encode"
+        )
+        
 def _init_metrics():
     """
     Initializes a list of default metric names.
@@ -267,7 +298,6 @@ def _init_metrics():
         "roc_auc_score",
         "balanced_accuracy_score",
     ]
-
 
 def _metrics(custom_metric: str, metric_type: str):
     """
@@ -317,34 +347,6 @@ def _metrics(custom_metric: str, metric_type: str):
         return metrics
 
     return valid_metrics.get(metric_type, {})
-
-
-def _cat_encoder(cat_data, auto_cat_encode):
-    """
-    Encodes categorical columns in the dataset using Label Encoding.
-
-    Args:
-        cat_data (pd.DataFrame): The dataset containing categorical data.
-        auto_cat_encode (bool): If True, automatically encodes all categorical columns.
-
-    Returns:
-        pd.DataFrame: The dataset with encoded categorical columns.
-    """
-    cat_columns = list(cat_data.select_dtypes(include=["object", "category"]).columns)
-
-    if auto_cat_encode is True:
-        le = LabelEncoder()
-        cat_data[cat_columns] = (
-            cat_data[cat_columns].astype(str).apply(le.fit_transform)
-        )
-        return cat_data
-    else:
-        # Raise an error if columns are not encoded
-        raise MultiTrainEncodingError(
-            f"Ensure that all columns are encoded before splitting the dataset. Set "
-            "auto_cat_encode to True or specify manual_encode"
-        )
-
 
 def _manual_encoder(manual_encode, dataset):
     """

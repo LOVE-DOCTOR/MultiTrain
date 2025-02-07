@@ -6,7 +6,7 @@ from sklearn.exceptions import ConvergenceWarning
 # Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-from MultiTrain.utils.utils import (
+from MultiTrain.utils import (
     _cat_encoder,
     _metrics,
     _calculate_metric,
