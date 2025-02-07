@@ -47,8 +47,11 @@ class MultiClassifier:
     random_state: int = 42
     custom_models: list = None
     max_iter: int = 1000
+    use_gpu: bool = False
+    device: str = '0'
 
     logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
+    
     @staticmethod
     def split(
         data: pd.DataFrame,
@@ -62,6 +65,7 @@ class MultiClassifier:
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
         drop: list = None,
     ):  # List of columns to drop, e.g., ['column1', 'column2']
+        
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 

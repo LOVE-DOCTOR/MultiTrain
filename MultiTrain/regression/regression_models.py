@@ -90,6 +90,8 @@ class MultiRegressor:
     custom_models: list = None
     overfit_tolerance: float = 0.2
     max_iter: int = 1000
+    use_gpu: bool = False
+    device: str = '0'
 
     logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
     
