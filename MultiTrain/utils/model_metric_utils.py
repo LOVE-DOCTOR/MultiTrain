@@ -1,3 +1,6 @@
+import inspect
+
+import sklearn
 from MultiTrain.errors.errors import *
 from sklearn.linear_model import (
     LogisticRegression,
@@ -61,7 +64,7 @@ from sklearn.metrics import (
     explained_variance_score,
 )
 
-from utils.utils import inMultiClassifier, inMultiRegressor
+from MultiTrain.utils.utils import inMultiClassifier, inMultiRegressor
 
 gpu_multiclassifier = inMultiClassifier()
 gpu_multiregressor = inMultiRegressor()

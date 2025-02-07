@@ -6,14 +6,14 @@ from sklearn.exceptions import ConvergenceWarning
 # Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
+from MultiTrain.utils.model_metric_utils import _metrics
 from MultiTrain.utils.utils import (
-    _calculate_metric,
     _cat_encoder,
+    _calculate_metric,
     _display_table,
     _fit_pred,
     _handle_missing_values,
     _manual_encoder,
-    _metrics,
     _non_auto_cat_encode_error,
     _fit_pred_text,
     _prep_model_names_list,
@@ -52,6 +52,10 @@ class MultiClassifier:
 
     logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
     
+    def __post_init__(self):
+        if self.use_gpu:
+            logger.info('Device acceleration enabled')
+            
     @staticmethod
     def split(
         data: pd.DataFrame,

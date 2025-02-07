@@ -6,7 +6,8 @@ import warnings
 import numpy as np
 import sklearn
 import pandas as pd
-from MultiTrain import MultiClassifier, MultiRegressor
+from MultiTrain.classification import classification_models 
+from MultiTrain.regression import regression_models
 
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.pipeline import FunctionTransformer, make_pipeline
@@ -19,6 +20,8 @@ import dask.dataframe as gpd
 
 from dask_ml.preprocessing import LabelEncoder as LabelEncoderGpu
 
+from utils.model_metric_utils import _init_metrics, _models_classifier, _models_regressor
+
 logger = logging.getLogger(__name__)
 
 from sklearn.exceptions import ConvergenceWarning
@@ -29,11 +32,11 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 from dataclasses import dataclass
 
 @dataclass
-class inMultiClassifier(MultiClassifier):
+class inMultiClassifier(classification_models.MultiClassifier):
     pass
 
 @dataclass
-class inMultiRegressor(MultiRegressor):
+class inMultiRegressor(regression_models.MultiRegressor):
     pass
 
 gpu_multiclassifier = inMultiClassifier()
