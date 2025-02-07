@@ -73,30 +73,19 @@ from sklearn.tree import (
     ExtraTreeClassifier,
     ExtraTreeRegressor,
 )
+from dataclasses import dataclass
 from xgboost import XGBClassifier, XGBRegressor
 
 logger = logging.getLogger(__name__)
 
 from sklearn.exceptions import ConvergenceWarning
-
-# Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-from dataclasses import dataclass
+use_gpu_classifier = classification_models.MultiClassifier.use_gpu
+use_gpu_regressor = regression_models.MultiRegressor.use_gpu
+device_classifier = classification_models.MultiClassifier.device
+device_regressor = regression_models.MultiRegressor.device
 
-@dataclass
-class inMultiClassifier(classification_models.MultiClassifier):
-    pass
-
-@dataclass
-class inMultiRegressor(regression_models.MultiRegressor):
-    pass
-
-gpu_multiclassifier = inMultiClassifier()
-gpu_multiregressor = inMultiRegressor()
-
-use_gpu_classifier = gpu_multiclassifier.use_gpu
-use_gpu_regressor = gpu_multiregressor.use_gpu
    
 
 if use_gpu_classifier or use_gpu_regressor:
@@ -186,7 +175,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
     }
     
     if set_gpu is True:
-        models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=gpu_multiclassifier.device)
+        models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device_classifier.device)
         models_dict[XGBClassifier.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
     return models_dict
@@ -257,7 +246,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
     }
     
     if set_gpu is True:
-        models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=gpu_multiclassifier.device)
+        models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device_regressor.device)
         models_dict[XGBRegressor.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
     return models_dict
