@@ -672,9 +672,12 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_sca
     Returns:
         tuple: A tuple containing the fitted model, predictions, and time taken.
     """
-    from sklearnex import config_context
+    
     from MultiTrain.classification.classification_models import subMultiClassifier
     use_gpu = subMultiClassifier().use_gpu
+    if use_gpu is True:
+        from sklearnex import config_context
+        
     device = subMultiClassifier().device
     start = time.time()
 
@@ -737,10 +740,12 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
     if pca:
         raise MultiTrainPCAError('You cannot use pca for nlp tasks (when text is set to True)')
     
-    from sklearnex import config_context
+    
     from MultiTrain.classification.classification_models import subMultiClassifier
     
     use_gpu = subMultiClassifier().use_gpu
+    if use_gpu is True:
+        from sklearnex import config_context
     device = subMultiClassifier().device
     vectorizer_map = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
 

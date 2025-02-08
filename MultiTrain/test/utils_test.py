@@ -118,6 +118,7 @@ def test_fit_pred(models):
         X_train,
         y_train,
         X_test,
+        False
     )
     assert len(prediction) == len(X_test)
 
