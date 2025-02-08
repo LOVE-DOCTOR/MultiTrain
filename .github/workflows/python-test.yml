@@ -13,8 +13,12 @@ jobs:
 
     if: github.ref == 'refs/heads/v2-test'
 
+    
     steps:
     - uses: actions/checkout@v3
+
+    - name: Set pip cache dir
+      run: echo "PIP_CACHE_DIR=~/.cache/pip" >> $GITHUB_ENV
 
     - name: Cache pip dependencies
       uses: actions/cache@v3
