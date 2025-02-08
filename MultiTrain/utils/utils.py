@@ -7,9 +7,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 import sklearn
-from MultiTrain.classification import classification_models
 from MultiTrain.errors.errors import *
-from MultiTrain.regression import regression_models
 
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
@@ -74,9 +72,11 @@ from sklearn.tree import (
 from dataclasses import dataclass
 from xgboost import XGBClassifier, XGBRegressor
 
+from regression.regression_models import subMultiRegressor
+
 logger = logging.getLogger(__name__)
 
-from sklearn.exceptions import ConvergenceWarning
+from sklearn.exceptions import ConvergenceWarning, FitFailedWarning, NotFittedError
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 
@@ -95,14 +95,15 @@ def _models_classifier(random_state, n_jobs, max_iter):
     Returns:
         dict: A dictionary of classifier models.
     """
+    from MultiTrain.classification.classification_models import subMultiClassifier
     
-    use_gpu_classifier = classification_models.MultiClassifier.use_gpu
-    device_classifier = classification_models.MultiClassifier.device
-
-    if use_gpu_classifier:
+    use_gpu_classifier = subMultiClassifier().use_gpu
+    device_classifier = subMultiClassifier().device
+    if use_gpu_classifier is True:
         from sklearnex import patch_sklearn
-        patch_sklearn()
-        set_gpu = True
+        patch_sklearn(global_patch=True)
+        
+    
         
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
@@ -121,7 +122,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
         RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs, max_iter=max_iter),
         LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter),
-        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter),
+        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter, ),
         SVC.__name__: SVC(random_state=random_state, max_iter=max_iter),
         KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs),
         MLPClassifier.__name__: MLPClassifier(
@@ -171,7 +172,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
         ),
     }
     
-    if set_gpu is True:
+    if use_gpu_classifier is True:
         models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device_classifier)
         models_dict[XGBClassifier.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
@@ -190,14 +191,14 @@ def _models_regressor(random_state, n_jobs, max_iter):
     Returns:
         dict: A dictionary of regressor models.
     """
-    use_gpu_regressor = regression_models.MultiRegressor.use_gpu
-    device_regressor = regression_models.MultiRegressor.device
 
-
-    if use_gpu_regressor:
+    from MultiTrain.classification.classification_models import subMultiClassifier
+    
+    use_gpu_regressor = subMultiRegressor().use_gpu
+    device_regressor = subMultiRegressor().device
+    if use_gpu_regressor is True:
         from sklearnex import patch_sklearn
         patch_sklearn()
-        set_gpu = True
         
     models_dict = {
         LinearRegression.__name__: LinearRegression(n_jobs=n_jobs),
@@ -251,7 +252,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
         ),
     }
     
-    if set_gpu is True:
+    if use_gpu_regressor is True:
         models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device_regressor)
         models_dict[XGBRegressor.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
@@ -553,7 +554,53 @@ def _prep_model_names_list(
 
     return model_names, model_list, X_train, X_test, y_train, y_test
 
+def _format_time(seconds):
+    """
+    Convert a duration (in seconds) into a human-readable string.
+    The output will include hours, minutes, seconds, milliseconds, or microseconds.
+    
+    Examples:
+      5400.1234 -> "1 hr 30 m 0.12 s"
+      30.205     -> "30.21 s"
+      0.02       -> "20.00 ms"
+      0.00005    -> "50.00 µs"
+    """
+    hrs = int(seconds // 3600)
+    seconds_remaining = seconds % 3600
+    mins = int(seconds_remaining // 60)
+    secs = seconds_remaining % 60
 
+    parts = []
+    if hrs > 0:
+        parts.append(f"{hrs} hr")
+    if mins > 0:
+        parts.append(f"{mins} m")
+    
+    # If seconds are at least one, display seconds.
+    if secs >= 1:
+        parts.append(f"{secs:.2f} s")
+    # If less than 1 second but at least 1 millisecond, display milliseconds.
+    elif secs >= 0.001:
+        ms = secs * 1000
+        parts.append(f"{ms:.2f} ms")
+    else:
+        us = secs * 1000000
+        parts.append(f"{us:.2f} µs")
+    
+    return " ".join(parts)
+
+def _sub_fit(current_model, X_train, y_train, X_test):
+    try:
+        current_model.fit(X_train, y_train)
+        current_prediction = current_model.predict(X_test)
+    except (ValueError, NotFittedError, FitFailedWarning) as e:
+        logger.error(f"{current_model.__name__} unable to fit properly. Reason: {e}")
+        current_prediction = [np.nan] * len(X_test)
+        
+    return current_model, current_prediction
+    
+    
+    
 def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
     """
     Fits a model and predicts on the test set, measuring the time taken.
@@ -569,20 +616,42 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
     Returns:
         tuple: A tuple containing the fitted model, predictions, and time taken.
     """
+    from sklearnex import config_context
+    from MultiTrain.classification.classification_models import subMultiClassifier
+    use_gpu = subMultiClassifier().use_gpu
+    device = subMultiClassifier().device
     start = time.time()
-    try:
-        current_model.fit(X_train, y_train)
-        current_prediction = current_model.predict(X_test)
-    except ValueError:
-        logger.error(f"{model_names[idx]} unable to fit properly")
-        current_prediction = [np.nan for i in len(X_test)]
-    end = time.time() - start
 
-    return current_model, current_prediction, end
+    if use_gpu is True:
+        with config_context(target_offload=f"gpu:{device}"):
+            current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test)    
+    else:
+        current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test)    
+    
+    end = time.time() - start
+    
+    time_ = _format_time(end)
+
+    return current_model, current_prediction, time_
 
 
 # Function to calculate metric
 def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
+    """
+    Calculate a metric using the provided metric function.
+
+    Args:
+        metric_func (callable): The metric function to use for calculation.
+        y_true (array-like): True labels or target values.
+        y_pred (array-like): Predicted labels or target values.
+        average (str, optional): The type of averaging to perform on the data. 
+            Common options include 'micro', 'macro', 'samples', 'weighted', and 'binary'.
+        task (str, optional): The task type, e.g., 'classification' or 'regression'. 
+            This parameter is currently not used in the function.
+
+    Returns:
+        float: The calculated metric value. Returns NaN if an error occurs during calculation.
+    """
     try:
         if average:
             val = metric_func(y_true, y_pred, average=average)
@@ -608,15 +677,20 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
     Returns:
         tuple: A tuple containing the fitted pipeline, predictions, and time taken.
     """
+    from sklearnex import config_context
+    from MultiTrain.classification.classification_models import subMultiClassifier
+    
+    use_gpu = subMultiClassifier().use_gpu
+    device = subMultiClassifier().device
     vectorizer_map = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
 
     if vectorizer not in vectorizer_map:
         raise ValueError(f"Unsupported vectorizer type: {vectorizer}")
 
     VectorizerClass = vectorizer_map[vectorizer]
-
+    start = time.time()
     try:
-        start = time.time()
+        
         pipeline = make_pipeline(
             VectorizerClass(
                 ngram_range=pipeline_dict["ngram_range"],
@@ -626,10 +700,10 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
             ),
             model,
         )
-        pipeline.fit(X_train, y_train)
-        predictions = pipeline.predict(X_test)
+        
+        pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+
     except Exception:
-        start = time.time()
         pipeline = make_pipeline(
             VectorizerClass(
                 ngram_range=pipeline_dict["ngram_range"],
@@ -643,11 +717,16 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
             ),
             model,
         )
-        pipeline.fit(X_train, y_train)
-        predictions = pipeline.predict(X_test)
-
+        if use_gpu is True:
+            with config_context(target_offload=f"gpu:{device}"):
+                pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+        else:
+            pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+            
     end = time.time() - start
-    return pipeline, predictions, end
+        
+    time_ = _format_time(end)
+    return pipeline, predictions, time_
 
 
 def _display_table(

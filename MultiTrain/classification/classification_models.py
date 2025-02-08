@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from typing import Dict, Optional
 import warnings
+import numpy as np
 from sklearn.exceptions import ConvergenceWarning
 
 # Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-from MultiTrain.utils import (
+from MultiTrain.utils.utils import (
     _cat_encoder,
     _metrics,
     _calculate_metric,
@@ -40,24 +41,46 @@ console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
 
+warnings.filterwarnings("ignore", category=Warning)
+
+
 @dataclass
 class MultiClassifier:
-    
     n_jobs: int = -1
     random_state: int = 42
-    custom_models: list = None
+    custom_models: Optional[list] = None
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
-
-    logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
     
     def __post_init__(self):
+        if not isinstance(self.n_jobs, int):
+            raise MultiTrainTypeError(f'Invalid type for n_jobs: expected int, got {type(self.n_jobs).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.random_state, int):
+            raise MultiTrainTypeError(f'Invalid type for random_state: expected int, got {type(self.random_state).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.custom_models, (list, type(None))):
+            raise MultiTrainTypeError(f'Invalid type for custom_models: expected a list of custom models (check sklearn for the valid model names) or None, got {type(self.custom_models).__name__}. Please provide a list or None.')
+        
+        if not isinstance(self.max_iter, int):
+            raise MultiTrainTypeError(f'Invalid type for max_iter: expected int, got {type(self.max_iter).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.use_gpu, bool):
+            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
+        
+        if not isinstance(self.device, str):
+            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
+        
         if self.use_gpu:
+            from sklearnex import patch_sklearn
+            patch_sklearn(global_patch=True)
             logger.info('Device acceleration enabled')
+
+        logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
             
-    @staticmethod
     def split(
+        self,
         data: pd.DataFrame,
         target: str,  # Target column name
         random_state: int = 42,  # Default random state for reproducibility
@@ -169,7 +192,7 @@ class MultiClassifier:
                 f"Ensure that the target column is encoded before splitting the dataset. \nOriginal error: {e}"
             )
 
-        return (X_train, X_test, y_train, y_test)
+        return (np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)) if self.use_gpu else (X_train, X_test, y_train, y_test)
 
     def fit(
         self,
@@ -206,7 +229,7 @@ class MultiClassifier:
                 self.n_jobs,
                 self.custom_models,
                 "classification",
-                self.max_iter,
+                self.max_iter
             )
         )
 
@@ -215,7 +238,7 @@ class MultiClassifier:
             len(model_list),
             desc="Training Models",
             leave=False,
-            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}, {postfix}]",
         )
 
         results = {}
@@ -290,8 +313,8 @@ class MultiClassifier:
 
             # Store results for the current model
             results[model_names[idx]] = metric_results
-            results[model_names[idx]].update({"Time(s)": end})
-
+            results[model_names[idx]].update({"Time": end})
+            
         # Display the results in a sorted DataFrame
         if custom_metric:
             final_dataframe = _display_table(
@@ -309,3 +332,19 @@ class MultiClassifier:
                 task="classification",
             )
         return final_dataframe
+
+@dataclass
+class subMultiClassifier(MultiClassifier):
+    def __init__(self, n_jobs: int = -1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0'):
+        super().__init__(n_jobs, random_state, custom_models, max_iter, use_gpu, device)
+        
+    def __post_init__(self):
+        if not isinstance(self.use_gpu, bool):
+            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
+        
+        if not isinstance(self.device, str):
+            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
+        
+        logging.disable()  # Disable logger warnings
+        
+        return super().__post_init__()

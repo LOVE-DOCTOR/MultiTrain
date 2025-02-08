@@ -47,9 +47,31 @@ class MultiRegressor:
     logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
     
     def __post_init__(self):
+        if not isinstance(self.n_jobs, int):
+            raise MultiTrainTypeError(f'Invalid type for n_jobs: expected int, got {type(self.n_jobs).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.random_state, int):
+            raise MultiTrainTypeError(f'Invalid type for random_state: expected int, got {type(self.random_state).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.custom_models, (list, type(None))):
+            raise MultiTrainTypeError(f'Invalid type for custom_models: expected a list of custom models (check sklearn for the valid model names) or None, got {type(self.custom_models).__name__}. Please provide a list or None.')
+        
+        if not isinstance(self.max_iter, int):
+            raise MultiTrainTypeError(f'Invalid type for max_iter: expected int, got {type(self.max_iter).__name__}. Please provide an integer value.')
+        
+        if not isinstance(self.use_gpu, bool):
+            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
+        
+        if not isinstance(self.device, str):
+            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
+        
         if self.use_gpu:
+            from sklearnex import patch_sklearn
+            patch_sklearn(global_patch=True)
             logger.info('Device acceleration enabled')
-    
+
+        logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
+        
     @staticmethod
     def split(
         data: pd.DataFrame,
@@ -196,6 +218,8 @@ class MultiRegressor:
                 self.custom_models,
                 "regression",
                 self.max_iter,
+                self.use_gpu,
+                self.device
             )
         )
 
@@ -204,7 +228,7 @@ class MultiRegressor:
             len(model_list),
             desc="Training Models",
             leave=False,
-            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}, {postfix}]",
         )
 
         results = {}
@@ -263,3 +287,20 @@ class MultiRegressor:
                 results=results, sort=sort, return_best_model=return_best_model
             )
         return final_dataframe
+    
+
+@dataclass
+class subMultiRegressor(MultiRegressor):
+    def __init__(self, n_jobs: int = -1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0'):
+        super().__init__(n_jobs, random_state, custom_models, max_iter, use_gpu, device)
+        
+    def __post_init__(self):
+        if not isinstance(self.use_gpu, bool):
+            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
+        
+        if not isinstance(self.device, str):
+            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
+        
+        logging.disable()  # Disable logger warnings
+        
+        return super().__post_init__()

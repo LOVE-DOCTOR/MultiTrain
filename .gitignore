@@ -133,7 +133,7 @@ dmypy.json
 
 # Anaconda
 .idea
-
+/examples/datasets/synthetic_beverage_sales_data.csv
 catboost_info/
 /Plotting
 
