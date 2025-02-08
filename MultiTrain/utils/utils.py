@@ -2,11 +2,12 @@ import inspect
 import logging
 import time
 import warnings
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.decomposition import PCA
 from MultiTrain.errors.errors import *
 
 from catboost import CatBoostClassifier, CatBoostRegressor
@@ -60,7 +61,7 @@ from sklearn.metrics import (
 from sklearn.naive_bayes import BernoulliNB, ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier
-from sklearn.pipeline import FunctionTransformer, make_pipeline
+from sklearn.pipeline import FunctionTransformer, Pipeline, make_pipeline
 from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import LinearSVC, NuSVC, SVC
 from sklearn.tree import (
@@ -72,14 +73,22 @@ from sklearn.tree import (
 from dataclasses import dataclass
 from xgboost import XGBClassifier, XGBRegressor
 
-from regression.regression_models import subMultiRegressor
-
-logger = logging.getLogger(__name__)
-
 from sklearn.exceptions import ConvergenceWarning, FitFailedWarning, NotFittedError
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
 
 
 def _models_classifier(random_state, n_jobs, max_iter):
@@ -192,7 +201,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
         dict: A dictionary of regressor models.
     """
 
-    from MultiTrain.classification.classification_models import subMultiClassifier
+    from MultiTrain.regression.regression_models import subMultiRegressor
     
     use_gpu_regressor = subMultiRegressor().use_gpu
     device_regressor = subMultiRegressor().device
@@ -516,8 +525,15 @@ def _check_custom_models(custom_models, models):
 
 
 def _prep_model_names_list(
-    datasplits, custom_metric, random_state, n_jobs, custom_models, class_type, max_iter
-):
+    datasplits: tuple, 
+    custom_metric: str, 
+    random_state: int, 
+    n_jobs: int, 
+    custom_models: list, 
+    class_type: str, 
+    max_iter: int, 
+    
+) -> tuple:
     # Validate the datasplits parameter
     if type(datasplits) != tuple or len(datasplits) != 4:
         raise MultiTrainSplitError(
@@ -589,19 +605,59 @@ def _format_time(seconds):
     
     return " ".join(parts)
 
-def _sub_fit(current_model, X_train, y_train, X_test):
+def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
+    """
+    Fits a model to the training data and predicts on the test data using an optional PCA scaler.
+
+    Args:
+        current_model: The machine learning model to be fitted.
+        X_train (pd.DataFrame or np.ndarray): The training feature set.
+        y_train (pd.Series or np.ndarray): The training target set.
+        X_test (pd.DataFrame or np.ndarray): The test feature set.
+        pca_scaler (object or bool): A scaler object for PCA transformation or False if not used.
+
+    Returns:
+        tuple: A tuple containing the fitted model pipeline and the predictions on the test set.
+    """
+    # Initialize the steps for the pipeline with the current model
+    steps = [(current_model.__class__.__name__, current_model)]
+    
+    # If a PCA scaler is provided, add it to the pipeline steps
+    if isinstance(X_train, pd.DataFrame):
+        n_components = X_train.shape[1]
+    elif isinstance(X_train, np.ndarray):
+        if X_train.ndim == 1: # if it is a 1d Array
+            n_components = 1
+        else:
+            n_components = X_train.shape[1]
+        
+    if pca_scaler:
+        steps.insert(0, (PCA.__name__, PCA(n_components=n_components, random_state=42)))  # Add PCA with fixed components
+        steps.insert(0, (pca_scaler.__class__.__name__, pca_scaler))  # Add the provided scaler before PCA
+
     try:
-        current_model.fit(X_train, y_train)
-        current_prediction = current_model.predict(X_test)
+        # Create a pipeline with the specified steps and fit it to the training data
+        current_model_pipeline = Pipeline(steps)
+        current_model_pipeline.fit(X_train, y_train)
+        
+        # Predict on the test data using the fitted pipeline
+        current_prediction = current_model_pipeline.predict(X_test)
+        
     except (ValueError, NotFittedError, FitFailedWarning) as e:
-        logger.error(f"{current_model.__name__} unable to fit properly. Reason: {e}")
+        print(f"{current_model.__class__.__name__} unable to fit properly. Reason: {e}")
+        # Log an error if the model fails to fit and return NaN predictions
+        logger.error(f"{current_model.__class__.__name__} unable to fit properly. Reason: {e}")
         current_prediction = [np.nan] * len(X_test)
         
-    return current_model, current_prediction
+    except AttributeError as e:
+        print(f"{current_model.__class__.__name__} unable to predict properly. Reason: {e}")
+        current_prediction = [np.nan] * len(X_test)
+        
+    return current_model_pipeline, current_prediction
     
     
     
-def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
+def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_scaler):
     """
     Fits a model and predicts on the test set, measuring the time taken.
 
@@ -624,9 +680,9 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test):
 
     if use_gpu is True:
         with config_context(target_offload=f"gpu:{device}"):
-            current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test)    
+            current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
     else:
-        current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test)    
+        current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
     
     end = time.time() - start
     
@@ -662,7 +718,7 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
     return val
 
 
-def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
+def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, pca):
     """
     Fits a text processing pipeline and predicts on the test set, measuring the time taken.
 
@@ -677,6 +733,10 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
     Returns:
         tuple: A tuple containing the fitted pipeline, predictions, and time taken.
     """
+    
+    if pca:
+        raise MultiTrainPCAError('You cannot use pca for nlp tasks (when text is set to True)')
+    
     from sklearnex import config_context
     from MultiTrain.classification.classification_models import subMultiClassifier
     
@@ -701,7 +761,7 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
             model,
         )
         
-        pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+        pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
 
     except Exception:
         pipeline = make_pipeline(
@@ -719,9 +779,9 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test):
         )
         if use_gpu is True:
             with config_context(target_offload=f"gpu:{device}"):
-                pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+                pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
         else:
-            pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test)
+            pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
             
     end = time.time() - start
         

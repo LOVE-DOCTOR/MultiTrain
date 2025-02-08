@@ -41,3 +41,7 @@ class MultiTrainTextError(BaseException):
 class MultiTrainError(BaseException):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
+        
+class MultiTrainPCAError(BaseException):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)

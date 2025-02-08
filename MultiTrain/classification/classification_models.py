@@ -1,8 +1,10 @@
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 import warnings
 import numpy as np
+from sklearn.discriminant_analysis import StandardScaler
 from sklearn.exceptions import ConvergenceWarning
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, Normalizer, PowerTransformer, QuantileTransformer, RobustScaler
 
 # Suppress all sklearn warnings
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -202,6 +204,7 @@ class MultiClassifier:
         imbalanced: bool = False,
         sort: str = None,
         text: bool = False,
+        pca: Union[bool, str] = False, # if not false, set the type of scaler to use before PCA
         vectorizer: str = None,  # example: count or tfidf
         pipeline_dict: dict = None,  # example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
         return_best_model: Optional[str] = None,
@@ -220,7 +223,24 @@ class MultiClassifier:
         Returns:
         - final_dataframe: A DataFrame containing the evaluation results of the models.
         """
-
+        supported_scalers = {
+            'StandardScaler': StandardScaler(),
+            'MinMaxScaler': MinMaxScaler(),
+            'MaxAbsScaler': MaxAbsScaler(),
+            'RobustScaler': RobustScaler(),
+            'Normalizer': Normalizer(),
+            'QuantileTransformer': QuantileTransformer(),
+            'PowerTransformer': PowerTransformer()
+        }
+        
+        if pca:
+            if pca not in supported_scalers.keys():
+                raise MultiTrainPCAError(f'Supported scalers are {supported_scalers.keys()}, got {pca}')
+            
+            pca_scaler = supported_scalers[pca]
+        else:
+            pca_scaler = False
+            
         model_names, model_list, X_train, X_test, y_train, y_test = (
             _prep_model_names_list(
                 datasplits,
@@ -229,7 +249,7 @@ class MultiClassifier:
                 self.n_jobs,
                 self.custom_models,
                 "classification",
-                self.max_iter
+                self.max_iter,
             )
         )
 
@@ -254,7 +274,7 @@ class MultiClassifier:
                     )
                 # Fit the model and make predictions
                 current_model, current_prediction, end = _fit_pred(
-                    current_model, model_names, idx, X_train, y_train, X_test
+                    current_model, model_names, idx, X_train, y_train, X_test, pca_scaler
                 )
             elif text is True:
                 if not pipeline_dict:
@@ -268,7 +288,7 @@ class MultiClassifier:
                     )
 
                 current_model, current_prediction, end = _fit_pred_text(
-                    vectorizer, pipeline_dict, current_model, X_train, y_train, X_test
+                    vectorizer, pipeline_dict, current_model, X_train, y_train, X_test, pca_scaler
                 )
 
             metric_results = {}
