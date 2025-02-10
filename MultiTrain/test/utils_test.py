@@ -196,7 +196,7 @@ def test_calculate_metric():
 
 
 def test_fit_pred_text(sample_dataframe):
-    model = models()["LogisticRegression"]
+    model = _models_classifier(random_state=42, n_jobs=1, max_iter=500)["LogisticRegression"]
     pipeline_dict = {
         "ngram_range": (1, 2),
         "encoding": "utf-8",
@@ -223,8 +223,8 @@ def test_fit_pred_text(sample_dataframe):
 
 
 def test_format_time():
-    assert _format_time(61) == "1m 1s"
-    assert _format_time(3661) == "1h 1m 1s"
+    assert _format_time(61) == "1m 1.00s"
+    assert _format_time(3661) == "1h 1m 1.00s"
     assert _format_time(0.5) == "0.5s"
 
 
@@ -253,7 +253,7 @@ def test_sub_fit():
     X_train = pd.DataFrame({"feature": [1, 2, 3]})
     y_train = pd.Series([0, 1, 0])
     X_test = pd.DataFrame({"feature": [4]})
-    model = models()["LogisticRegression"]
+    model = _models_classifier(random_state=42, n_jobs=1, max_iter=500)["LogisticRegression"]
     
     fitted_model, predictions = _sub_fit(model, X_train, y_train, X_test, pca_scaler=False)
     

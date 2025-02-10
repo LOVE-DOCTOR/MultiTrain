@@ -311,6 +311,12 @@ def _init_metrics():
         "f1_score",
         "roc_auc_score",
         "balanced_accuracy_score",
+        "mean_squared_error",
+        "r2_score",
+        "mean_absolute_error",
+        "median_absolute_error",
+        "mean_squared_log_error",
+        "explained_variance_score"
     ]
 
 def _metrics(custom_metric: str, metric_type: str):
@@ -483,6 +489,11 @@ def _handle_missing_values(
             if column not in dataset_copy.columns:
                 raise MultiTrainColumnMissingError(
                     f"Column {column} not found in list of columns. Please pass in a valid column."
+                )
+            
+            if strategy not in fill_list:
+                raise MultiTrainNaNError(
+                    f"Strategy {strategy} not found in list of stragies. Please pass one of {fill_list}"
                 )
 
             if strategy in fill_list[:2]:
