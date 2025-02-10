@@ -625,20 +625,20 @@ def _format_time(seconds):
 
     parts = []
     if hrs > 0:
-        parts.append(f"{hrs} hr")
+        parts.append(f"{hrs}hr")
     if mins > 0:
-        parts.append(f"{mins} m")
+        parts.append(f"{mins}m")
     
     # If seconds are at least one, display seconds.
     if secs >= 1:
-        parts.append(f"{secs:.2f} s")
+        parts.append(f"{secs:.2f}s")
     # If less than 1 second but at least 1 millisecond, display milliseconds.
     elif secs >= 0.001:
         ms = secs * 1000
-        parts.append(f"{ms:.2f} ms")
+        parts.append(f"{ms:.2f}ms")
     else:
         us = secs * 1000000
-        parts.append(f"{us:.2f} µs")
+        parts.append(f"{us:.2f}µs")
     
     return " ".join(parts)
 
