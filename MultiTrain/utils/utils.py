@@ -95,16 +95,16 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 
-def _models_classifier(random_state, n_jobs, max_iter):
+def _models_classifier(random_state=None, n_jobs=None, max_iter=None):
     """
     Generate a dictionary of classifier models from various libraries.
 
     Each entry in the dictionary maps a classifier's name to an instance of the classifier.
 
     Args:
-        random_state (int): Seed for the random number generator.
-        n_jobs (int): Number of parallel jobs to run.
-        max_iter (int): Maximum number of iterations for iterative algorithms.
+        random_state (int, optional): Seed for the random number generator. Defaults to None.
+        n_jobs (int, optional): Number of parallel jobs to run. Defaults to None.
+        max_iter (int, optional): Maximum number of iterations for iterative algorithms. Defaults to None.
 
     Returns:
         dict: A dictionary mapping classifier names to their instances.
@@ -119,26 +119,26 @@ def _models_classifier(random_state, n_jobs, max_iter):
         
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
-            random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 100
         ),
         LogisticRegressionCV.__name__: LogisticRegressionCV(
-            n_jobs=n_jobs,
-            max_iter=max_iter,
+            n_jobs=n_jobs if n_jobs is not None else 1,
+            max_iter=max_iter if max_iter is not None else 100,
             cv=5,
         ),
-        SGDClassifier.__name__: SGDClassifier(n_jobs=n_jobs, max_iter=max_iter),
+        SGDClassifier.__name__: SGDClassifier(n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 1000),
         PassiveAggressiveClassifier.__name__: PassiveAggressiveClassifier(
-            n_jobs=n_jobs, max_iter=max_iter
+            n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 1000
         ),
-        RidgeClassifier.__name__: RidgeClassifier(max_iter=max_iter),
+        RidgeClassifier.__name__: RidgeClassifier(max_iter=max_iter if max_iter is not None else 1000),
         RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
-        Perceptron.__name__: Perceptron(n_jobs=n_jobs, max_iter=max_iter),
-        LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter),
-        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter),
-        SVC.__name__: SVC(random_state=random_state, max_iter=max_iter),
-        KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs),
+        Perceptron.__name__: Perceptron(n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 1000),
+        LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        SVC.__name__: SVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs if n_jobs is not None else 1),
         MLPClassifier.__name__: MLPClassifier(
-            random_state=random_state, max_iter=max_iter
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
         ),
         GaussianNB.__name__: GaussianNB(),
         BernoulliNB.__name__: BernoulliNB(),
@@ -152,35 +152,35 @@ def _models_classifier(random_state, n_jobs, max_iter):
             random_state=random_state
         ),
         ExtraTreesClassifier.__name__: ExtraTreesClassifier(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         BaggingClassifier.__name__: BaggingClassifier(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         CatBoostClassifier.__name__: CatBoostClassifier(
             random_state=random_state,
-            thread_count=n_jobs,
+            thread_count=n_jobs if n_jobs is not None else 1,
             silent=True,
-            iterations=max_iter,
+            iterations=max_iter if max_iter is not None else 1000,
         ),
         RandomForestClassifier.__name__: RandomForestClassifier(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         AdaBoostClassifier.__name__: AdaBoostClassifier(
-            random_state=random_state, n_estimators=max_iter
+            random_state=random_state, n_estimators=max_iter if max_iter is not None else 50
         ),
         HistGradientBoostingClassifier.__name__: HistGradientBoostingClassifier(
-            random_state=random_state, max_iter=max_iter
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 100
         ),
         LGBMClassifier.__name__: LGBMClassifier(
-            random_state=random_state, n_jobs=n_jobs, verbose=-1, n_estimators=max_iter
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbose=-1, n_estimators=max_iter if max_iter is not None else 100
         ),
         XGBClassifier.__name__: XGBClassifier(
             random_state=random_state,
-            n_jobs=n_jobs,
+            n_jobs=n_jobs if n_jobs is not None else 1,
             verbosity=0,
             verbose=False,
-            n_estimators=max_iter,
+            n_estimators=max_iter if max_iter is not None else 100,
         ),
     }
     
@@ -190,16 +190,16 @@ def _models_classifier(random_state, n_jobs, max_iter):
 
     return models_dict
 
-def _models_regressor(random_state, n_jobs, max_iter):
+def _models_regressor(random_state=None, n_jobs=None, max_iter=None):
     """
     Generate a dictionary of regressor models from various libraries.
 
     Each entry in the dictionary maps a regressor's name to an instance of the regressor.
 
     Args:
-        random_state (int): Seed for the random number generator.
-        n_jobs (int): Number of parallel jobs to run.
-        max_iter (int): Maximum number of iterations for iterative algorithms.
+        random_state (int, optional): Seed for the random number generator. Defaults to None.
+        n_jobs (int, optional): Number of parallel jobs to run. Defaults to None.
+        max_iter (int, optional): Maximum number of iterations for iterative algorithms. Defaults to None.
 
     Returns:
         dict: A dictionary mapping regressor names to their instances.
@@ -214,7 +214,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
         patch_sklearn()
         
     models_dict = {
-        LinearRegression.__name__: LinearRegression(n_jobs=n_jobs),
+        LinearRegression.__name__: LinearRegression(n_jobs=n_jobs if n_jobs is not None else 1),
         Ridge.__name__: Ridge(random_state=random_state),
         RidgeCV.__name__: RidgeCV(),
         Lasso.__name__: Lasso(random_state=random_state),
@@ -222,46 +222,46 @@ def _models_regressor(random_state, n_jobs, max_iter):
         ElasticNet.__name__: ElasticNet(random_state=random_state),
         ElasticNetCV.__name__: ElasticNetCV(),
         SGDRegressor.__name__: SGDRegressor(
-            random_state=random_state, max_iter=max_iter
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
         ),
-        KNeighborsRegressor.__name__: KNeighborsRegressor(n_jobs=n_jobs),
+        KNeighborsRegressor.__name__: KNeighborsRegressor(n_jobs=n_jobs if n_jobs is not None else 1),
         DecisionTreeRegressor.__name__: DecisionTreeRegressor(
             random_state=random_state
         ),
         ExtraTreeRegressor.__name__: ExtraTreeRegressor(random_state=random_state),
         RandomForestRegressor.__name__: RandomForestRegressor(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         ExtraTreesRegressor.__name__: ExtraTreesRegressor(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         GradientBoostingRegressor.__name__: GradientBoostingRegressor(
             random_state=random_state
         ),
         AdaBoostRegressor.__name__: AdaBoostRegressor(
-            random_state=random_state, n_estimators=max_iter
+            random_state=random_state, n_estimators=max_iter if max_iter is not None else 50
         ),
         BaggingRegressor.__name__: BaggingRegressor(
-            random_state=random_state, n_jobs=n_jobs
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         CatBoostRegressor.__name__: CatBoostRegressor(
             random_state=random_state,
-            thread_count=n_jobs,
+            thread_count=n_jobs if n_jobs is not None else 1,
             silent=True,
-            iterations=max_iter,
+            iterations=max_iter if max_iter is not None else 1000,
         ),
         LGBMRegressor.__name__: LGBMRegressor(
-            random_state=random_state, n_jobs=n_jobs, verbose=-1, n_estimators=max_iter
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbose=-1, n_estimators=max_iter if max_iter is not None else 100
         ),
         XGBRegressor.__name__: XGBRegressor(
             random_state=random_state,
-            n_jobs=n_jobs,
+            n_jobs=n_jobs if n_jobs is not None else 1,
             verbosity=0,
             verbose=False,
-            n_estimators=max_iter,
+            n_estimators=max_iter if max_iter is not None else 100,
         ),
         HistGradientBoostingRegressor.__name__: HistGradientBoostingRegressor(
-            random_state=random_state, max_iter=max_iter
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 100
         ),
     }
     

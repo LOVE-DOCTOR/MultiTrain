@@ -56,7 +56,7 @@ def test_models_classifier(models):
 
 def test_models_regressor():
     models = _models_regressor(random_state=42, n_jobs=1, max_iter=500)
-    assert "LinearRegression" in models
+    assert "LinearRegression" in models.keys()
     assert isinstance(models["LinearRegression"], sklearn.linear_model.LinearRegression)
 
 
