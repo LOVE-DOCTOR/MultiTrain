@@ -199,12 +199,13 @@ def test_multiple_metrics(sample_data):
     datasplits = regressor.split(data, target, auto_cat_encode=True)
     results = regressor.fit(
         datasplits,
-        custom_metric='mean_absolute_error',
+        custom_metric='max_error',
         show_train_score=True,
         sort='r2_score'
     )
+    
     assert isinstance(results, pd.DataFrame)
-    assert 'mean_absolute_error' in results.columns
+    assert 'max_error' in results.columns
     assert results['r2_score'].is_monotonic_decreasing
 
 
