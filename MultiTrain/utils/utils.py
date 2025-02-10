@@ -93,26 +93,25 @@ logger.addHandler(console_handler)
 
 def _models_classifier(random_state, n_jobs, max_iter):
     """
-    Returns a dictionary of classifier models from various libraries.
+    Generate a dictionary of classifier models from various libraries.
 
-    Each key is a string representing the name of the classifier, and the value is an instance of the classifier.
+    Each entry in the dictionary maps a classifier's name to an instance of the classifier.
 
     Args:
-        random_state (int): Seed used by the random number generator.
-        n_jobs (int): Number of jobs to run in parallel.
+        random_state (int): Seed for the random number generator.
+        n_jobs (int): Number of parallel jobs to run.
+        max_iter (int): Maximum number of iterations for iterative algorithms.
 
     Returns:
-        dict: A dictionary of classifier models.
+        dict: A dictionary mapping classifier names to their instances.
     """
     from MultiTrain.classification.classification_models import subMultiClassifier
     
     use_gpu_classifier = subMultiClassifier().use_gpu
     device_classifier = subMultiClassifier().device
-    if use_gpu_classifier is True:
+    if use_gpu_classifier:
         from sklearnex import patch_sklearn
         patch_sklearn(global_patch=True)
-        
-    
         
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
@@ -131,7 +130,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
         RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs, max_iter=max_iter),
         LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter),
-        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter, ),
+        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter),
         SVC.__name__: SVC(random_state=random_state, max_iter=max_iter),
         KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs),
         MLPClassifier.__name__: MLPClassifier(
@@ -181,7 +180,7 @@ def _models_classifier(random_state, n_jobs, max_iter):
         ),
     }
     
-    if use_gpu_classifier is True:
+    if use_gpu_classifier:
         models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device_classifier)
         models_dict[XGBClassifier.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
@@ -189,23 +188,24 @@ def _models_classifier(random_state, n_jobs, max_iter):
 
 def _models_regressor(random_state, n_jobs, max_iter):
     """
-    Returns a dictionary of regressor models from various libraries.
+    Generate a dictionary of regressor models from various libraries.
 
-    Each key is a string representing the name of the regressor, and the value is an instance of the regressor.
+    Each entry in the dictionary maps a regressor's name to an instance of the regressor.
 
     Args:
-        random_state (int): Seed used by the random number generator.
-        n_jobs (int): Number of jobs to run in parallel.
+        random_state (int): Seed for the random number generator.
+        n_jobs (int): Number of parallel jobs to run.
+        max_iter (int): Maximum number of iterations for iterative algorithms.
 
     Returns:
-        dict: A dictionary of regressor models.
+        dict: A dictionary mapping regressor names to their instances.
     """
 
     from MultiTrain.regression.regression_models import subMultiRegressor
     
     use_gpu_regressor = subMultiRegressor().use_gpu
     device_regressor = subMultiRegressor().device
-    if use_gpu_regressor is True:
+    if use_gpu_regressor:
         from sklearnex import patch_sklearn
         patch_sklearn()
         
@@ -261,7 +261,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
         ),
     }
     
-    if use_gpu_regressor is True:
+    if use_gpu_regressor:
         models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device_regressor)
         models_dict[XGBRegressor.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
 
@@ -269,7 +269,7 @@ def _models_regressor(random_state, n_jobs, max_iter):
 
 def _cat_encoder(cat_data, auto_cat_encode):
     """
-    Encodes categorical columns in the dataset using Label Encoding.
+    Encode categorical columns in the dataset using Label Encoding.
 
     Args:
         cat_data (pd.DataFrame): The dataset containing categorical data.
@@ -280,7 +280,7 @@ def _cat_encoder(cat_data, auto_cat_encode):
     """
     cat_columns = list(cat_data.select_dtypes(include=["object", "category"]).columns)
 
-    if auto_cat_encode is True:
+    if auto_cat_encode:
         le = LabelEncoder()
         cat_data[cat_columns] = (
             cat_data[cat_columns].astype(str).apply(le.fit_transform)
@@ -295,7 +295,7 @@ def _cat_encoder(cat_data, auto_cat_encode):
         
 def _init_metrics():
     """
-    Initializes a list of default metric names.
+    Initialize a list of default metric names.
 
     Returns:
         list: A list of metric names.
@@ -311,16 +311,16 @@ def _init_metrics():
 
 def _metrics(custom_metric: str, metric_type: str):
     """
-    Returns a dictionary of metric functions from sklearn.
+    Retrieve a dictionary of metric functions from sklearn.
 
-    Each key is a string representing the name of the metric, and the value is the metric function.
+    Each entry in the dictionary maps a metric's name to its function.
 
     Args:
         custom_metric (str): Name of a custom metric to include.
         metric_type (str): 'classification' or 'regression'
 
     Returns:
-        dict: A dictionary of metric functions.
+        dict: A dictionary mapping metric names to their functions.
     """
     valid_metrics = {
         "classification": {
@@ -360,7 +360,7 @@ def _metrics(custom_metric: str, metric_type: str):
 
 def _manual_encoder(manual_encode, dataset):
     """
-    Manually encodes specified columns in the dataset using specified encoding types.
+    Manually encode specified columns in the dataset using specified encoding types.
 
     Args:
         manual_encode (dict): Dictionary specifying encoding types and columns.
@@ -398,7 +398,7 @@ def _manual_encoder(manual_encode, dataset):
 
 def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
     """
-    Checks for non-encoded categorical columns and raises an error if found.
+    Check for non-encoded categorical columns and raise an error if found.
 
     Args:
         dataset (pd.DataFrame): The dataset to check.
@@ -410,7 +410,7 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
     """
     for i in dataset.columns:
         if dataset[i].dtype == "object":
-            if auto_cat_encode is False and manual_encode is None:
+            if not auto_cat_encode and manual_encode is None:
                 raise MultiTrainEncodingError(
                     f"Ensure that all columns are encoded before splitting the dataset. Column '{i}' is not encoded.\nSet "
                     "auto_cat_encode to True or pass in a manual encoding dictionary."
@@ -419,7 +419,7 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
 
 def _fill_missing_values(dataset, column):
     """
-    Fills missing values in a specified column of the dataset.
+    Fill missing values in a specified column of the dataset.
 
     Args:
         dataset (pd.DataFrame): The dataset containing missing values.
@@ -441,7 +441,7 @@ def _handle_missing_values(
     dataset: pd.DataFrame, fix_nan_custom: Optional[Dict] = False
 ) -> pd.DataFrame:
     """
-    Handles missing values in the dataset using specified strategies.
+    Handle missing values in the dataset using specified strategies.
 
     Args:
         dataset (pd.DataFrame): The dataset to handle missing values in.
@@ -465,7 +465,7 @@ def _handle_missing_values(
             )
 
     if fix_nan_custom:
-        if type(fix_nan_custom) != dict:
+        if not isinstance(fix_nan_custom, dict):
             raise MultiTrainTypeError(
                 f"fix_nan_custom should be a dictionary of type {dict}. Got {type(fix_nan_custom)}. "
                 '\nExample: {"column1": "ffill", "column2": "bfill", "column3": ["value"]}'
@@ -497,7 +497,7 @@ def _handle_missing_values(
 
 def _check_custom_models(custom_models, models):
     """
-    Checks and retrieves custom models from the provided models dictionary.
+    Check and retrieve custom models from the provided models dictionary.
 
     Args:
         custom_models (list): List of custom model names.
@@ -513,7 +513,7 @@ def _check_custom_models(custom_models, models):
         model_names = list(models.keys())
         model_list = list(models.values())
     elif custom_models:
-        if type(custom_models) != list:
+        if not isinstance(custom_models, list):
             raise MultiTrainTypeError(
                 f"You must pass a list of models to the custom models parameter. Got type {type(custom_models)}"
             )
@@ -534,19 +534,33 @@ def _prep_model_names_list(
     max_iter: int, 
     
 ) -> tuple:
+    """
+    Prepare model names and lists based on provided data splits and parameters.
+
+    Args:
+        datasplits (tuple): A tuple containing training and testing data splits.
+        custom_metric (str): A custom metric to include.
+        random_state (int): Seed for the random number generator.
+        n_jobs (int): Number of parallel jobs to run.
+        custom_models (list): List of custom model names.
+        class_type (str): Type of classification or regression.
+        max_iter (int): Maximum number of iterations for iterative algorithms.
+
+    Returns:
+        tuple: A tuple containing model names, model list, and data splits.
+
+    Raises:
+        MultiTrainSplitError: If datasplits is not a tuple of length 4.
+        MultiTrainMetricError: If the custom metric already exists in default metrics.
+    """
     # Validate the datasplits parameter
-    if type(datasplits) != tuple or len(datasplits) != 4:
+    if not isinstance(datasplits, tuple) or len(datasplits) != 4:
         raise MultiTrainSplitError(
             'The "datasplits" parameter can only be of type tuple and must have 4 values. Ensure that you are passing in the result of the split function into the datasplits parameter for it to function properly.'
         )
 
     # Unpack the datasplits tuple
-    X_train, X_test, y_train, y_test = (
-        datasplits[0],
-        datasplits[1],
-        datasplits[2],
-        datasplits[3],
-    )
+    X_train, X_test, y_train, y_test = datasplits
 
     # Check if the custom metric is already in the default metrics
     if custom_metric in _init_metrics():
@@ -607,7 +621,7 @@ def _format_time(seconds):
 
 def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
     """
-    Fits a model to the training data and predicts on the test data using an optional PCA scaler.
+    Fit a model to the training data and predict on the test data using an optional PCA scaler.
 
     Args:
         current_model: The machine learning model to be fitted.
@@ -622,14 +636,11 @@ def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
     # Initialize the steps for the pipeline with the current model
     steps = [(current_model.__class__.__name__, current_model)]
     
-    # If a PCA scaler is provided, add it to the pipeline steps
+    # Determine the number of components for PCA based on the shape of X_train
     if isinstance(X_train, pd.DataFrame):
         n_components = X_train.shape[1]
     elif isinstance(X_train, np.ndarray):
-        if X_train.ndim == 1: # if it is a 1d Array
-            n_components = 1
-        else:
-            n_components = X_train.shape[1]
+        n_components = 1 if X_train.ndim == 1 else X_train.shape[1]
         
     if pca_scaler:
         steps.insert(0, (PCA.__name__, PCA(n_components=n_components, random_state=42)))  # Add PCA with fixed components
@@ -659,7 +670,7 @@ def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
     
 def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_scaler):
     """
-    Fits a model and predicts on the test set, measuring the time taken.
+    Fit a model and predict on the test set, measuring the time taken.
 
     Args:
         current_model: The model to fit.
@@ -668,6 +679,7 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_sca
         X_train (pd.DataFrame): Training feature set.
         y_train (pd.Series): Training target set.
         X_test (pd.DataFrame): Test feature set.
+        pca_scaler (object or bool): A scaler object for PCA transformation or False if not used.
 
     Returns:
         tuple: A tuple containing the fitted model, predictions, and time taken.
@@ -675,13 +687,13 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_sca
     
     from MultiTrain.classification.classification_models import subMultiClassifier
     use_gpu = subMultiClassifier().use_gpu
-    if use_gpu is True:
+    if use_gpu:
         from sklearnex import config_context
         
     device = subMultiClassifier().device
     start = time.time()
 
-    if use_gpu is True:
+    if use_gpu:
         with config_context(target_offload=f"gpu:{device}"):
             current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
     else:
@@ -694,7 +706,6 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_sca
     return current_model, current_prediction, time_
 
 
-# Function to calculate metric
 def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
     """
     Calculate a metric using the provided metric function.
@@ -723,7 +734,7 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
 
 def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, pca):
     """
-    Fits a text processing pipeline and predicts on the test set, measuring the time taken.
+    Fit a text processing pipeline and predict on the test set, measuring the time taken.
 
     Args:
         vectorizer (str): The type of vectorizer to use ('count' or 'tfidf').
@@ -732,19 +743,22 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
         X_train (pd.DataFrame): Training feature set.
         y_train (pd.Series): Training target set.
         X_test (pd.DataFrame): Test feature set.
+        pca (object or bool): A scaler object for PCA transformation or False if not used.
 
     Returns:
         tuple: A tuple containing the fitted pipeline, predictions, and time taken.
+
+    Raises:
+        MultiTrainPCAError: If PCA is attempted for NLP tasks.
     """
     
     if pca:
         raise MultiTrainPCAError('You cannot use pca for nlp tasks (when text is set to True)')
     
-    
     from MultiTrain.classification.classification_models import subMultiClassifier
     
     use_gpu = subMultiClassifier().use_gpu
-    if use_gpu is True:
+    if use_gpu:
         from sklearnex import config_context
     device = subMultiClassifier().device
     vectorizer_map = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
@@ -782,7 +796,7 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
             ),
             model,
         )
-        if use_gpu is True:
+        if use_gpu:
             with config_context(target_offload=f"gpu:{device}"):
                 pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
         else:
@@ -802,15 +816,20 @@ def _display_table(
     task: str = None,
 ):
     """
-    Displays a sorted table of results.
+    Display a sorted table of results.
 
     Args:
         results (dict): The results to display.
         sort (str, optional): The metric to sort by.
         custom_metric (str, optional): A custom metric to include in sorting.
         return_best_model (str, optional): The metric to return the best model by, e.g., 'accuracy'.
+        task (str, optional): The task type, e.g., 'classification' or 'regression'.
+
     Returns:
         pd.DataFrame: A DataFrame of sorted results.
+
+    Raises:
+        MultiTrainError: If both sorting and returning the best model are requested simultaneously.
     """
     results_df = pd.DataFrame(results).T
     sorted_ = {

@@ -6,7 +6,7 @@ from sklearn.discriminant_analysis import StandardScaler
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, Normalizer, PowerTransformer, QuantileTransformer, RobustScaler
 
-# Suppress all sklearn warnings
+# Suppress all sklearn warnings related to convergence
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 from MultiTrain.utils.utils import (
@@ -43,6 +43,7 @@ console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
 
+# Suppress all warnings
 warnings.filterwarnings("ignore", category=Warning)
 
 
@@ -83,23 +84,22 @@ class MultiClassifier:
             
     def split(
         self,
-        data: pd.DataFrame,
-        target: str,  # Target column name
-        random_state: int = 42,  # Default random state for reproducibility
-        test_size: float = 0.2,  # Default test size for train-test split (80/20 split)
-        auto_cat_encode: bool = False,  # If True, automatically encode all categorical columns
+        data: Union[pd.DataFrame, str],
+        target: str,  # Name of the target column
+        random_state: int = 42,  # Random state for reproducibility
+        test_size: float = 0.2,  # Proportion of the dataset for the test split
+        auto_cat_encode: bool = False,  # Automatically encode all categorical columns if True
         manual_encode: dict = None,  # Manual encoding dictionary, e.g., {'label': ['column1'], 'onehot': ['column2']}
         fix_nan_custom: Optional[
             Dict
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
-        drop: list = None,
-    ):  # List of columns to drop, e.g., ['column1', 'column2']
-        
+        drop: list = None,  # List of columns to drop, e.g., ['column1', 'column2']
+    ):
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
         Parameters:
-        - data (pd.DataFrame): The input dataset.
+        - data (Union[pd.DataFrame, str]): The input dataset or a file path to the dataset.
         - target (str): The name of the target column.
         - random_state (int, optional): Random state for reproducibility. Default is 42.
         - test_size (float, optional): Proportion of the dataset to include in the test split. Default is 0.2.
@@ -113,20 +113,25 @@ class MultiClassifier:
         """
 
         # Create a copy of the dataset to avoid modifying the original data
-        dataset = data.copy()
+        if isinstance(data, pd.DataFrame):
+            dataset = data.copy()
+        elif isinstance(data, str):
+            dataset = pd.read_csv(str)
+        else:
+            raise MultiTrainDatasetTypeError('You must either pass in a dataframe or a filepath')
         if manual_encode:
             keys = list(manual_encode.keys())
             if 1 < len(keys) < 3:
                 if len(keys) != len(set(keys)):
                     raise MultiTrainError('You cannot have duplicates of either "label" or "onehot" in your dictionary.')
                 if any(item in manual_encode[keys[0]] for item in manual_encode[keys[1]]):
-                    raise MultiTrainError('You cannot not have a column specified for different types of encoding i.e column1 present for label and column2 present for onehot')
+                    raise MultiTrainError('You cannot specify a column for different types of encoding, e.g., column1 for label and column2 for onehot')
                 if fix_nan_custom:
                     fix_keys = list(fix_nan_custom.keys())
                     if len(fix_keys) != len(set(fix_keys)):
                             raise MultiTrainError('You cannot specify a column as a key more than once')
             if len(keys) > 2:
-                raise MultiTrainError('You cannot have more than two keys i.e label, onehot')
+                raise MultiTrainError('You cannot have more than two keys, i.e., label, onehot')
         # Drop specified columns if 'drop' parameter is provided
         if drop:
             if type(drop) != list:
@@ -173,7 +178,7 @@ class MultiClassifier:
             manual_encode_dataset = _manual_encoder(manual_encode, filled_dataset)
             if auto_cat_encode:
                 raise MultiTrainEncodingError(
-                    f"You cannot pass in a auto_cat_encode if a manual encoding dictionary is passed in."
+                    f"You cannot pass in auto_cat_encode if a manual encoding dictionary is provided."
                 )
             complete_dataset = manual_encode_dataset.copy()
 
@@ -199,16 +204,16 @@ class MultiClassifier:
     def fit(
         self,
         datasplits: tuple,
-        custom_metric: str = None,  # must be a valid sklearn metric i.e accuracy_score.
+        custom_metric: str = None,  # Must be a valid sklearn metric, e.g., accuracy_score.
         show_train_score: bool = False,
         imbalanced: bool = False,
         sort: str = None,
         text: bool = False,
-        pca: Union[bool, str] = False, # if not false, set the type of scaler to use before PCA
-        vectorizer: str = None,  # example: count or tfidf
-        pipeline_dict: dict = None,  # example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
-        return_best_model: Optional[str] = None,
-    ):  # example 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'balanced_accuracy'
+        pca: Union[bool, str] = False, # If not False, set the type of scaler to use before PCA
+        vectorizer: str = None,  # Example: 'count' or 'tfidf'
+        pipeline_dict: dict = None,  # Example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
+        return_best_model: Optional[str] = None,  # Example: 'accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'balanced_accuracy'
+    ):
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
 

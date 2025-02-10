@@ -1,5 +1,10 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
+import warnings
+
+import numpy as np
+from sklearn.discriminant_analysis import StandardScaler
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, Normalizer, PowerTransformer, QuantileTransformer, RobustScaler
 
 from MultiTrain.utils.utils import (
     _cat_encoder,
@@ -33,7 +38,7 @@ formatter = logging.Formatter(
 console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
-
+warnings.filterwarnings("ignore", category=Warning)
 @dataclass
 class MultiRegressor:
     n_jobs: int = -1
@@ -72,8 +77,8 @@ class MultiRegressor:
 
         logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
         
-    @staticmethod
     def split(
+        self,
         data: pd.DataFrame,
         target: str,  # Target column name
         random_state: int = 42,  # Default random state for reproducibility
@@ -185,7 +190,7 @@ class MultiRegressor:
                 f"Ensure that the target column is encoded before splitting the dataset. \nOriginal error: {e}"
             )
 
-        return (X_train, X_test, y_train, y_test)
+        return (np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)) if self.use_gpu else (X_train, X_test, y_train, y_test)
 
     def fit(
         self,
@@ -193,6 +198,7 @@ class MultiRegressor:
         custom_metric: str = None,  # must be a valid sklearn metric i.e mean_squared_error.
         show_train_score: bool = False,
         sort: str = None,
+        pca: Union[bool, str] = False,
         return_best_model: Optional[str] = None,
     ):  # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
         """
@@ -208,6 +214,25 @@ class MultiRegressor:
         Returns:
         - final_dataframe: A DataFrame containing the evaluation results of the models.
         """
+        
+        supported_scalers = {
+            'StandardScaler': StandardScaler(),
+            'MinMaxScaler': MinMaxScaler(),
+            'MaxAbsScaler': MaxAbsScaler(),
+            'RobustScaler': RobustScaler(),
+            'Normalizer': Normalizer(),
+            'QuantileTransformer': QuantileTransformer(),
+            'PowerTransformer': PowerTransformer()
+        }
+        
+        if pca:
+            if pca not in supported_scalers.keys():
+                raise MultiTrainPCAError(f'Supported scalers are {supported_scalers.keys()}, got {pca}')
+            
+            pca_scaler = supported_scalers[pca]
+        else:
+            pca_scaler = False
+        
 
         model_names, model_list, X_train, X_test, y_train, y_test = (
             _prep_model_names_list(
@@ -239,7 +264,7 @@ class MultiRegressor:
 
             # Fit the model and make predictions
             current_model, current_prediction, end = _fit_pred(
-                current_model, model_names, idx, X_train, y_train, X_test
+                current_model, model_names, idx, X_train, y_train, X_test, pca_scaler
             )
 
             metric_results = {}
