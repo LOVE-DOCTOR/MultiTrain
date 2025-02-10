@@ -85,6 +85,7 @@ class MultiRegressor:
             )
 
         if self.use_gpu:
+            import sklearnex
             from sklearnex import patch_sklearn
             patch_sklearn(global_patch=True)
             logger.info('Device acceleration enabled')
