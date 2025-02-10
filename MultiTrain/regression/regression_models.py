@@ -142,6 +142,11 @@ class MultiRegressor:
             if len(keys) > 2:
                 raise MultiTrainError('You cannot have more than two keys, i.e., label, onehot')
 
+        # Validate fix_nan_custom for duplicate keys
+        if fix_nan_custom:
+            if len(fix_nan_custom.keys()) != len(set(fix_nan_custom.keys())):
+                raise MultiTrainError('You cannot specify a column as a key more than once in fix_nan_custom')
+
         # Handle drops
         if drop:
             if not isinstance(drop, list):
