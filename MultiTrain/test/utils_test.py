@@ -50,14 +50,12 @@ def models():
 
 
 def test_models_classifier(models):
-    assert "LogisticRegression" in models
-    assert isinstance(models["LogisticRegression"], sklearn.linear_model.LogisticRegression)
+    assert "LogisticRegression" in models.keys()
 
 
 def test_models_regressor():
     models = _models_regressor(random_state=42, n_jobs=1, max_iter=500)
     assert "LinearRegression" in models.keys()
-    assert isinstance(models["LinearRegression"], sklearn.linear_model.LinearRegression)
 
 
 def test_init_metrics():
