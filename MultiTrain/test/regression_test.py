@@ -242,6 +242,6 @@ def test_invalid_nan_handling(sample_data):
 def test_duplicate_nan_handling_columns(sample_data):
     data, target, regressor = sample_data
     data.loc[0, ['feature1', 'feature2']] = None
-    with pytest.raises(MultiTrainError):
+    with pytest.raises(MultiTrainNaNError):
         fix_nan_custom = {'feature1': 'ffill', 'feature1': 'bfill'}  # Duplicate key
         regressor.split(data, target, auto_cat_encode=True, fix_nan_custom=fix_nan_custom)
