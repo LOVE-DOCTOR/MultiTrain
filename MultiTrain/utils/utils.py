@@ -79,6 +79,10 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+# Remove any existing handlers to avoid duplicate logging
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 
@@ -282,10 +286,10 @@ def _cat_encoder(cat_data, auto_cat_encode):
 
     if auto_cat_encode:
         le = LabelEncoder()
-        cat_data[cat_columns] = (
-            cat_data[cat_columns].astype(str).apply(le.fit_transform)
-        )
-        return cat_data
+        cat_data_copy = cat_data.copy()
+        for col in cat_columns:
+            cat_data_copy[col] = le.fit_transform(cat_data_copy[col].astype(str))
+        return cat_data_copy
     else:
         # Raise an error if columns are not encoded
         raise MultiTrainEncodingError(
@@ -370,6 +374,7 @@ def _manual_encoder(manual_encode, dataset):
         pd.DataFrame: The dataset with manually encoded columns.
     """
     encoder_types = ["label", "onehot"]
+    dataset_copy = dataset.copy()
 
     for encode_type, encode_columns in manual_encode.items():
         if encode_type not in encoder_types:
@@ -379,21 +384,20 @@ def _manual_encoder(manual_encode, dataset):
 
     if "label" in manual_encode.keys():
         le = LabelEncoder()
-        dataset[manual_encode["label"]] = dataset[manual_encode["label"]].apply(
-            le.fit_transform
-        )
+        for col in manual_encode["label"]:
+            dataset_copy[col] = le.fit_transform(dataset_copy[col].astype(str))
 
     if "onehot" in manual_encode.keys():
         encode_columns = manual_encode["onehot"]
         for column in encode_columns:
             # Apply one-hot encoding
-            dummies = pd.get_dummies(dataset[column], prefix=column)
+            dummies = pd.get_dummies(dataset_copy[column], prefix=column)
             # Concatenate the new dummy columns with the original dataset
-            dataset = pd.concat([dataset, dummies], axis=1)
+            dataset_copy = pd.concat([dataset_copy, dummies], axis=1)
             # Drop the original categorical column
-            dataset.drop(column, axis=1, inplace=True)
+            dataset_copy.drop(column, axis=1, inplace=True)
 
-    return dataset
+    return dataset_copy
 
 
 def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
@@ -455,8 +459,10 @@ def _handle_missing_values(
         MultiTrainTypeError: If fix_nan_custom is not a dictionary.
         MultiTrainColumnMissingError: If a specified column is not found in the dataset.
     """
+    dataset_copy = dataset.copy()
+    
     # Check for missing values in the dataset and raise an error if found
-    if dataset.isna().values.any():
+    if dataset_copy.isna().values.any():
         if not fix_nan_custom:
             raise MultiTrainNaNError(
                 f"Missing values found in the dataset. Please handle missing values before proceeding."
@@ -474,25 +480,24 @@ def _handle_missing_values(
         fill_list = ["ffill", "bfill", "interpolate"]
 
         for column, strategy in fix_nan_custom.items():
-            if column not in dataset.columns:
+            if column not in dataset_copy.columns:
                 raise MultiTrainColumnMissingError(
                     f"Column {column} not found in list of columns. Please pass in a valid column."
                 )
 
             if strategy in fill_list[:2]:
-                dataset[column] = getattr(
-                    dataset[column], strategy
+                dataset_copy[column] = getattr(
+                    dataset_copy[column], strategy
                 )()  # dataset[column].ffill()
-                if dataset[column].isnull().any():
-                    print(len(dataset[column]))
-                    dataset[column] = _fill_missing_values(dataset, column)
+                if dataset_copy[column].isnull().any():
+                    dataset_copy[column] = _fill_missing_values(dataset_copy, column)
 
             elif strategy == "interpolate":
-                dataset[column] = getattr(dataset[column], strategy)(method="linear")
-                if dataset[column].isnull().any():
-                    dataset[column] = _fill_missing_values(dataset, column)
+                dataset_copy[column] = getattr(dataset_copy[column], strategy)(method="linear")
+                if dataset_copy[column].isnull().any():
+                    dataset_copy[column] = _fill_missing_values(dataset_copy, column)
 
-    return dataset
+    return dataset_copy
 
 
 def _check_custom_models(custom_models, models):
@@ -508,6 +513,7 @@ def _check_custom_models(custom_models, models):
 
     Raises:
         MultiTrainTypeError: If custom_models is not a list.
+        MultiTrainModelError: If a custom model name is not found in available models.
     """
     if custom_models is None:
         model_names = list(models.keys())
@@ -519,7 +525,11 @@ def _check_custom_models(custom_models, models):
             )
 
         model_names = custom_models
-        model_list = [models[values] for values in models if values in custom_models]
+        model_list = []
+        for model_name in custom_models:
+            if model_name not in models:
+                raise MultiTrainModelError(f"Model {model_name} not found in available models")
+            model_list.append(models[model_name])
 
     return model_names, model_list
 
@@ -578,6 +588,8 @@ def _prep_model_names_list(
         models = _models_regressor(
             random_state=random_state, n_jobs=n_jobs, max_iter=max_iter
         )
+    else:
+        raise MultiTrainTypeError(f"Invalid class_type: {class_type}. Must be 'classification' or 'regression'")
 
     # Check for custom models and get model names and list
     model_names, model_list = _check_custom_models(custom_models, models)
@@ -638,9 +650,9 @@ def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
     
     # Determine the number of components for PCA based on the shape of X_train
     if isinstance(X_train, pd.DataFrame):
-        n_components = X_train.shape[1]
+        n_components = min(X_train.shape[0], X_train.shape[1])
     elif isinstance(X_train, np.ndarray):
-        n_components = 1 if X_train.ndim == 1 else X_train.shape[1]
+        n_components = 1 if X_train.ndim == 1 else min(X_train.shape[0], X_train.shape[1])
         
     if pca_scaler:
         steps.insert(0, (PCA.__name__, PCA(n_components=n_components, random_state=42)))  # Add PCA with fixed components
@@ -655,14 +667,12 @@ def _sub_fit(current_model, X_train, y_train, X_test, pca_scaler):
         current_prediction = current_model_pipeline.predict(X_test)
         
     except (ValueError, NotFittedError, FitFailedWarning) as e:
-        print(f"{current_model.__class__.__name__} unable to fit properly. Reason: {e}")
-        # Log an error if the model fails to fit and return NaN predictions
         logger.error(f"{current_model.__class__.__name__} unable to fit properly. Reason: {e}")
-        current_prediction = [np.nan] * len(X_test)
+        current_prediction = np.full(len(X_test), np.nan)
         
     except AttributeError as e:
-        print(f"{current_model.__class__.__name__} unable to predict properly. Reason: {e}")
-        current_prediction = [np.nan] * len(X_test)
+        logger.error(f"{current_model.__class__.__name__} unable to predict properly. Reason: {e}")
+        current_prediction = np.full(len(X_test), np.nan)
         
     return current_model_pipeline, current_prediction
     
@@ -723,6 +733,9 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
         float: The calculated metric value. Returns NaN if an error occurs during calculation.
     """
     try:
+        if any(np.isnan(y_pred)):
+            return np.nan
+            
         if average:
             val = metric_func(y_true, y_pred, average=average)
         else:

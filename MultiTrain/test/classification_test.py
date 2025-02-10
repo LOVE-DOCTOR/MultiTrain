@@ -1,15 +1,20 @@
 import pytest
 import pandas as pd
+import numpy as np
 from MultiTrain.classification.classification_models import MultiClassifier
 from MultiTrain.errors.errors import (
     MultiTrainDatasetTypeError,
     MultiTrainColumnMissingError,
     MultiTrainEncodingError,
+    MultiTrainError,
     MultiTrainTypeError,
     MultiTrainNaNError,
     MultiTrainMetricError,
     MultiTrainSplitError,
+    MultiTrainPCAError,
+    MultiTrainTextError,
 )
+import logging
 
 
 @pytest.fixture
@@ -136,3 +141,125 @@ def test_fit_with_custom_models(sample_data):
     assert isinstance(results, pd.DataFrame)
     assert "RandomForestClassifier" in results.index
     assert "LogisticRegression" in results.index
+
+
+def test_fit_with_pca(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, pca='StandardScaler')
+    assert isinstance(results, pd.DataFrame)
+
+
+def test_fit_with_invalid_pca_scaler(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    with pytest.raises(MultiTrainPCAError):
+        classifier.fit(datasplits, pca='InvalidScaler')
+
+
+def test_text_processing():
+    data = pd.DataFrame({
+        'text': ['This is sample text', 'Another example', 'Third sample'],
+        'target': [0, 1, 0]
+    })
+    classifier = MultiClassifier()
+    datasplits = classifier.split(data, 'target')
+    pipeline_dict = {
+        'ngram_range': (1, 2),
+        'encoding': 'utf-8',
+        'max_features': 1000,
+        'analyzer': 'word'
+    }
+    results = classifier.fit(
+        datasplits,
+        text=True,
+        vectorizer='tfidf',
+        pipeline_dict=pipeline_dict
+    )
+    assert isinstance(results, pd.DataFrame)
+
+
+def test_text_processing_missing_params(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target)
+    with pytest.raises(MultiTrainTextError):
+        classifier.fit(datasplits, text=True)
+
+
+def test_return_best_model(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, return_best_model='accuracy')
+    assert isinstance(results, pd.DataFrame)
+    assert 'Best Model' in results.index
+
+
+def test_sort_results(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, sort='accuracy')
+    # Check if results are sorted by accuracy (descending)
+    assert results['accuracy'].is_monotonic_decreasing
+
+
+def test_gpu_classifier():
+    classifier = MultiClassifier(use_gpu=True)
+    assert classifier.use_gpu == True
+    data = pd.DataFrame({
+        'feature1': [1, 2, 3, 4, 5],
+        'target': [0, 1, 0, 1, 0]
+    })
+    datasplits = classifier.split(data, 'target')
+    # GPU splits should return numpy arrays
+    assert isinstance(datasplits[0], np.ndarray)
+
+
+def test_invalid_test_size(sample_data):
+    data, target, classifier = sample_data
+    with pytest.raises(ValueError):
+        classifier.split(data, target, test_size=1.5)
+
+
+def test_show_train_score(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, show_train_score=True)
+    assert 'accuracy_train' in results.columns
+
+
+def test_invalid_manual_encode(sample_data):
+    data, target, classifier = sample_data
+    with pytest.raises(MultiTrainError):
+        # Test duplicate encoding types
+        manual_encode = {'label': ['feature2'], 'label': ['feature1']}
+        classifier.split(data, target, manual_encode=manual_encode)
+
+
+def test_invalid_device_type():
+    with pytest.raises(MultiTrainTypeError):
+        MultiClassifier(device=123)  # device should be string
+
+
+def test_pipeline_dict_without_text(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target)
+    pipeline_dict = {
+        'ngram_range': (1, 2),
+        'encoding': 'utf-8'
+    }
+    with pytest.raises(MultiTrainTextError):
+        classifier.fit(datasplits, pipeline_dict=pipeline_dict)
+
+
+def test_multiple_custom_metrics(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(
+        datasplits,
+        custom_metric='f1_score',
+        show_train_score=True,
+        sort='accuracy'
+    )
+    assert isinstance(results, pd.DataFrame)
+    assert 'f1_score' in results.columns
+    assert results['accuracy'].is_monotonic_decreasing

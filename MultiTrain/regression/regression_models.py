@@ -38,45 +38,59 @@ formatter = logging.Formatter(
 console_handler.setFormatter(formatter)
 
 logger.addHandler(console_handler)
+
+# Suppress all warnings at start
 warnings.filterwarnings("ignore", category=Warning)
+
+# Cache supported scalers
+SUPPORTED_SCALERS = {
+    'StandardScaler': StandardScaler(),
+    'MinMaxScaler': MinMaxScaler(),
+    'MaxAbsScaler': MaxAbsScaler(), 
+    'RobustScaler': RobustScaler(),
+    'Normalizer': Normalizer(),
+    'QuantileTransformer': QuantileTransformer(),
+    'PowerTransformer': PowerTransformer()
+}
+
 @dataclass
 class MultiRegressor:
     n_jobs: int = -1
     random_state: int = 42
-    custom_models: list = None
-    overfit_tolerance: float = 0.2
+    custom_models: Optional[list] = None
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
-
-    logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
     
     def __post_init__(self):
-        if not isinstance(self.n_jobs, int):
-            raise MultiTrainTypeError(f'Invalid type for n_jobs: expected int, got {type(self.n_jobs).__name__}. Please provide an integer value.')
+        type_validations = {
+            'n_jobs': (self.n_jobs, int),
+            'random_state': (self.random_state, int),
+            'max_iter': (self.max_iter, int),
+            'use_gpu': (self.use_gpu, bool),
+            'device': (self.device, str)
+        }
         
-        if not isinstance(self.random_state, int):
-            raise MultiTrainTypeError(f'Invalid type for random_state: expected int, got {type(self.random_state).__name__}. Please provide an integer value.')
-        
+        for param_name, (param_value, expected_type) in type_validations.items():
+            if not isinstance(param_value, expected_type):
+                raise MultiTrainTypeError(
+                    f'Invalid type for {param_name}: expected {expected_type.__name__}, '
+                    f'got {type(param_value).__name__}. Please provide a {expected_type.__name__} value.'
+                )
+                
         if not isinstance(self.custom_models, (list, type(None))):
-            raise MultiTrainTypeError(f'Invalid type for custom_models: expected a list of custom models (check sklearn for the valid model names) or None, got {type(self.custom_models).__name__}. Please provide a list or None.')
-        
-        if not isinstance(self.max_iter, int):
-            raise MultiTrainTypeError(f'Invalid type for max_iter: expected int, got {type(self.max_iter).__name__}. Please provide an integer value.')
-        
-        if not isinstance(self.use_gpu, bool):
-            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
-        
-        if not isinstance(self.device, str):
-            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
-        
+            raise MultiTrainTypeError(
+                f'Invalid type for custom_models: expected a list of custom models or None, '
+                f'got {type(self.custom_models).__name__}. Please provide a list or None.'
+            )
+
         if self.use_gpu:
             from sklearnex import patch_sklearn
             patch_sklearn(global_patch=True)
             logger.info('Device acceleration enabled')
 
         logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
-        
+            
     def split(
         self,
         data: pd.DataFrame,
@@ -94,7 +108,7 @@ class MultiRegressor:
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
         Parameters:
-        - data (pd.DataFrame): The input dataset.
+        - data (Union[pd.DataFrame, str]): The input dataset or a filepath to a dataset.
         - target (str): The name of the target column.
         - random_state (int, optional): Random state for reproducibility. Default is 42.
         - test_size (float, optional): Proportion of the dataset to include in the test split. Default is 0.2.
@@ -107,88 +121,62 @@ class MultiRegressor:
         - tuple: A tuple containing the training and testing data splits (X_train, X_test, y_train, y_test).
         """
 
-        # Create a copy of the dataset to avoid modifying the original data
-        dataset = data.copy()
+        # Load dataset
+        if isinstance(data, pd.DataFrame):
+            dataset = data.copy()
+        elif isinstance(data, str):
+            dataset = pd.read_csv(data)
+        else:
+            raise MultiTrainDatasetTypeError('You must either pass in a dataframe or a filepath')
+
+        # Validate manual encoding
         if manual_encode:
             keys = list(manual_encode.keys())
             if 1 < len(keys) < 3:
                 if len(keys) != len(set(keys)):
                     raise MultiTrainError('You cannot have duplicates of either "label" or "onehot" in your dictionary.')
                 if any(item in manual_encode[keys[0]] for item in manual_encode[keys[1]]):
-                    raise MultiTrainError('You cannot not have a column specified for different types of encoding i.e column1 present for label and column2 present for onehot')
-                if fix_nan_custom:
-                    fix_keys = list(fix_nan_custom.keys())
-                    if len(fix_keys) != len(set(fix_keys)):
-                            raise MultiTrainError('You cannot specify a column as a key more than once')
-            if list(keys) > 2:
-                raise MultiTrainError('You cannot have more than two keys i.e label, onehot')
-        
-        # Drop specified columns if 'drop' parameter is provided
+                    raise MultiTrainError('You cannot specify a column for different types of encoding')
+                if fix_nan_custom and len(fix_nan_custom.keys()) != len(set(fix_nan_custom.keys())):
+                    raise MultiTrainError('You cannot specify a column as a key more than once')
+            if len(keys) > 2:
+                raise MultiTrainError('You cannot have more than two keys, i.e., label, onehot')
+
+        # Handle drops
         if drop:
-            if type(drop) != list:
-                raise MultiTrainTypeError(
-                    f"You need to pass in a list of columns to drop. Got {type(drop)}"
-                )
+            if not isinstance(drop, list):
+                raise MultiTrainTypeError(f"Drop parameter must be a list. Got {type(drop)}")
             dataset.drop(drop, axis=1, inplace=True)
 
-        # Ensure the dataset is a pandas DataFrame
-        if type(dataset) != pd.DataFrame:
-            raise MultiTrainDatasetTypeError(
-                f"You need to pass in a Dataset of type {pd.DataFrame}. Got {type(dataset)}"
-            )
-
-        # Check if the target column exists in the dataset
+        # Validate dataset and target
+        if not isinstance(dataset, pd.DataFrame):
+            raise MultiTrainDatasetTypeError(f"Dataset must be a pandas DataFrame. Got {type(dataset)}")
         if target not in dataset.columns:
-            raise MultiTrainColumnMissingError(
-                f"Target column {target} not found in list of columns. Please pass in a target column."
-            )
+            raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
-        # Check for categorical columns and raise an error if necessary
-        _non_auto_cat_encode_error(
-            dataset=dataset,
-            auto_cat_encode=auto_cat_encode,
-            manual_encode=manual_encode,
-        )
+        # Process dataset
+        _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
+        filled_dataset = _handle_missing_values(dataset, fix_nan_custom)
+        complete_dataset = filled_dataset.copy()
 
-        # Handle missing values in the dataset using custom instructions
-        filled_dataset = _handle_missing_values(
-            dataset=dataset, fix_nan_custom=fix_nan_custom
-        )
+        # Handle encoding
+        if auto_cat_encode and manual_encode:
+            raise MultiTrainEncodingError("Cannot use both auto_cat_encode and manual_encode")
+        elif auto_cat_encode:
+            complete_dataset = _cat_encoder(filled_dataset, auto_cat_encode)
+        elif manual_encode:
+            complete_dataset = _manual_encoder(manual_encode, filled_dataset)
 
-        # Encode categorical columns if 'auto_cat_encode' is True
-        if auto_cat_encode:
-            cat_encoded_dataset = _cat_encoder(filled_dataset, auto_cat_encode)
-            if manual_encode:
-                raise MultiTrainEncodingError(
-                    f"You cannot pass in a manual encoding dictionary if auto_cat_encode is set to True."
-                )
-            complete_dataset = cat_encoded_dataset.copy()
-
-        # Encode columns as specified in 'manual_encode' dictionary
-        if manual_encode:
-            manual_encode_dataset = _manual_encoder(manual_encode, filled_dataset)
-            if auto_cat_encode:
-                raise MultiTrainEncodingError(
-                    f"You cannot pass in a auto_cat_encode if a manual encoding dictionary is passed in."
-                )
-            complete_dataset = manual_encode_dataset.copy()
-
-        # Separate features and target from the complete dataset
-        data_features = complete_dataset.drop(target, axis=1)
-        data_target = complete_dataset[target]
-
-        # Split the dataset into training and testing sets
+        # Split data
         try:
             X_train, X_test, y_train, y_test = train_test_split(
-                data_features,
-                data_target,
+                complete_dataset.drop(target, axis=1),
+                complete_dataset[target],
                 test_size=test_size,
-                random_state=random_state,
+                random_state=random_state
             )
         except ValueError as e:
-            raise MultiTrainEncodingError(
-                f"Ensure that the target column is encoded before splitting the dataset. \nOriginal error: {e}"
-            )
+            raise MultiTrainEncodingError(f"Target column must be encoded before splitting. Error: {e}")
 
         return (np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)) if self.use_gpu else (X_train, X_test, y_train, y_test)
 
@@ -215,37 +203,17 @@ class MultiRegressor:
         - final_dataframe: A DataFrame containing the evaluation results of the models.
         """
         
-        supported_scalers = {
-            'StandardScaler': StandardScaler(),
-            'MinMaxScaler': MinMaxScaler(),
-            'MaxAbsScaler': MaxAbsScaler(),
-            'RobustScaler': RobustScaler(),
-            'Normalizer': Normalizer(),
-            'QuantileTransformer': QuantileTransformer(),
-            'PowerTransformer': PowerTransformer()
-        }
-        
+        # Handle PCA scaler
         if pca:
-            if pca not in supported_scalers.keys():
-                raise MultiTrainPCAError(f'Supported scalers are {supported_scalers.keys()}, got {pca}')
-            
-            pca_scaler = supported_scalers[pca]
+            if pca not in SUPPORTED_SCALERS:
+                raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
+            pca_scaler = SUPPORTED_SCALERS[pca]
         else:
             pca_scaler = False
         
-
-        model_names, model_list, X_train, X_test, y_train, y_test = (
-            _prep_model_names_list(
-                datasplits,
-                custom_metric,
-                self.random_state,
-                self.n_jobs,
-                self.custom_models,
-                "regression",
-                self.max_iter,
-                self.use_gpu,
-                self.device
-            )
+        model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
+            datasplits, custom_metric, self.random_state, self.n_jobs,
+            self.custom_models, "regression", self.max_iter
         )
 
         # Initialize progress bar for model training
@@ -328,4 +296,4 @@ class subMultiRegressor(MultiRegressor):
         
         logging.disable()  # Disable logger warnings
         
-        return super().__post_init__()
+        super().__post_init__()
