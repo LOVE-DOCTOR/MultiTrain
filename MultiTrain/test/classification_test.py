@@ -253,10 +253,10 @@ def test_multiple_custom_metrics(sample_data):
     datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(
         datasplits,
-        custom_metric='f1_score',
+        custom_metric='roc_auc_ovr',
         show_train_score=True,
         sort='accuracy'
     )
     assert isinstance(results, pd.DataFrame)
-    assert 'f1_score' in results.columns
+    assert 'roc_auc_ovr' in results.columns
     assert results['accuracy'].is_monotonic_decreasing
