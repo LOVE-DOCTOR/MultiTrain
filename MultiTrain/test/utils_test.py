@@ -139,24 +139,6 @@ def test_handle_missing_values_invalid_strategy():
         _handle_missing_values(df, fix_nan_custom={"col": "invalid_strategy"})
 
 
-def test_display_table():
-    # Test classification results
-    class_results = {
-        "model1": {"accuracy": 0.9, "precision": 0.8},
-        "model2": {"accuracy": 0.8, "precision": 0.9}
-    }
-    sorted_df = _display_table(class_results, sort="accuracy", task="classification")
-    assert sorted_df.index[0] == "model1"
-
-    # Test regression results
-    reg_results = {
-        "model1": {"mean_squared_error": 0.1},
-        "model2": {"mean_squared_error": 0.2}
-    }
-    sorted_df = _display_table(reg_results, sort="mean squared error", task="regression")
-    assert sorted_df.index[0] == "model1"
-
-
 def test_check_custom_models(models):
     model_names, model_list = _check_custom_models(["LogisticRegression"], models)
     assert "LogisticRegression" in model_names

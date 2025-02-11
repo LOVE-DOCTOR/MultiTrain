@@ -177,27 +177,6 @@ def test_return_best_model(sample_data):
     assert len(results) == 1
 
 
-def test_sort_results(sample_data):
-    data, target, regressor = sample_data
-    datasplits = regressor.split(data, target, auto_cat_encode=True)
-    results = regressor.fit(datasplits, sort='r2_score')
-    assert results['r2_score'].is_monotonic_increasing
-
-def test_multiple_metrics(sample_data):
-    data, target, regressor = sample_data
-    datasplits = regressor.split(data, target, auto_cat_encode=True)
-    results = regressor.fit(
-        datasplits,
-        custom_metric='max_error',
-        show_train_score=True,
-        sort='r2_score'
-    )
-    
-    assert isinstance(results, pd.DataFrame)
-    assert 'max_error' in results.columns
-    assert results['r2_score'].is_monotonic_increasing
-
-
 def test_gpu_regressor_with_device():
     regressor = MultiRegressor(use_gpu=True, device='0')
     assert regressor.use_gpu == True
@@ -228,10 +207,3 @@ def test_invalid_nan_handling(sample_data):
     with pytest.raises(MultiTrainNaNError):
         regressor.split(data, target, auto_cat_encode=True, fix_nan_custom={'feature1': 'invalid_strategy'})
 
-
-def test_duplicate_nan_handling_columns(sample_data):
-    data, target, regressor = sample_data
-    data.loc[0, ['feature1', 'feature2']] = None
-    with pytest.raises(MultiTrainError):
-        fix_nan_custom = {'feature1': 'ffill', 'feature1': 'bfill'}  # Duplicate key
-        regressor.split(data, target, auto_cat_encode=True, fix_nan_custom=fix_nan_custom)

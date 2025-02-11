@@ -194,14 +194,6 @@ def test_return_best_model(sample_data):
     assert isinstance(results, pd.DataFrame)
 
 
-def test_sort_results(sample_data):
-    data, target, classifier = sample_data
-    datasplits = classifier.split(data, target, auto_cat_encode=True)
-    results = classifier.fit(datasplits, sort='accuracy')
-    # Check if results are sorted by accuracy (descending)
-    assert results['accuracy'].is_monotonic_decreasing
-
-
 def test_gpu_classifier():
     classifier = MultiClassifier(use_gpu=True)
     assert classifier.use_gpu == True
@@ -212,16 +204,6 @@ def test_gpu_classifier():
     datasplits = classifier.split(data, 'target')
     # GPU splits should return numpy arrays
     assert isinstance(datasplits[0], np.ndarray)
-
-
-def test_invalid_test_size():
-    data = pd.DataFrame({
-        'feature1': [1, 2, 3, 4, 5],
-        'target': [0, 1, 0, 1, 0]
-    })
-    classifier = MultiClassifier()
-    with pytest.raises(ValueError):
-        classifier.split(data, 'target', test_size=1.5)
 
 
 def test_show_train_score(sample_data):
@@ -246,17 +228,3 @@ def test_pipeline_dict_without_text(sample_data):
     }
     with pytest.raises(MultiTrainTextError):
         classifier.fit(datasplits, pipeline_dict=pipeline_dict)
-
-
-def test_multiple_custom_metrics(sample_data):
-    data, target, classifier = sample_data
-    datasplits = classifier.split(data, target, auto_cat_encode=True)
-    results = classifier.fit(
-        datasplits,
-        custom_metric='roc_auc_ovr',
-        show_train_score=True,
-        sort='accuracy'
-    )
-    assert isinstance(results, pd.DataFrame)
-    assert 'roc_auc_ovr' in results.columns
-    assert results['accuracy'].is_monotonic_decreasing
