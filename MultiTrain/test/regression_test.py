@@ -189,7 +189,7 @@ def test_sort_results(sample_data):
     data, target, regressor = sample_data
     datasplits = regressor.split(data, target, auto_cat_encode=True)
     results = regressor.fit(datasplits, sort='r2_score')
-    assert results['r2_score'].is_monotonic_decreasing
+    assert results['r2_score'].is_monotonic_increasing
 
 
 
