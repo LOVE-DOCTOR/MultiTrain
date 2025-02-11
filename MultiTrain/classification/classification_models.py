@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import platform
 from typing import Dict, Optional, Union
 import warnings
 import numpy as np
@@ -84,9 +85,12 @@ class MultiClassifier:
             )
 
         if self.use_gpu:
-            from sklearnex import patch_sklearn
-            patch_sklearn(global_patch=True)
-            logger.info('Device acceleration enabled')
+            if platform.system() != 'Darwin':  # Skip on macOS
+                from sklearnex import patch_sklearn
+                patch_sklearn(global_patch=True)
+                logger.info('Device acceleration enabled')
+            else:
+                logger.warning('Device acceleration not supported on macOS')
 
         logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
             

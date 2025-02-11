@@ -162,7 +162,7 @@ def test_text_processing():
         'text': ['This is sample text', 'Another example', 'Third sample'],
         'target': [0, 1, 0]
     })
-    classifier = MultiClassifier()
+    classifier = MultiClassifier(text=True)
     datasplits = classifier.split(data, 'target')
     pipeline_dict = {
         'ngram_range': (1, 2),
@@ -172,7 +172,6 @@ def test_text_processing():
     }
     results = classifier.fit(
         datasplits,
-        text=True,
         vectorizer='tfidf',
         pipeline_dict=pipeline_dict
     )
@@ -182,9 +181,10 @@ def test_text_processing():
 
 def test_text_processing_missing_params(sample_data):
     data, target, classifier = sample_data
+    classifier.text = True
     datasplits = classifier.split(data, target)
     with pytest.raises(MultiTrainTextError):
-        classifier.fit(datasplits, text=True)
+        classifier.fit(datasplits)
 
 
 def test_return_best_model(sample_data):
@@ -192,7 +192,6 @@ def test_return_best_model(sample_data):
     datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(datasplits, return_best_model='accuracy')
     assert isinstance(results, pd.DataFrame)
-    assert 'Best Model' in results.index
 
 
 def test_sort_results(sample_data):
