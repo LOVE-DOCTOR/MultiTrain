@@ -36,6 +36,7 @@ from sklearn.linear_model import (
     LogisticRegression,
     LogisticRegressionCV,
     PassiveAggressiveClassifier,
+    PassiveAggressiveRegressor,
     Perceptron,
     Ridge,
     RidgeCV,
@@ -43,6 +44,18 @@ from sklearn.linear_model import (
     RidgeClassifierCV,
     SGDClassifier,
     SGDRegressor,
+    HuberRegressor,
+    TheilSenRegressor,
+    RANSACRegressor,
+    PoissonRegressor,
+    GammaRegressor,
+    TweedieRegressor,
+    Lars,
+    LarsCV,
+    OrthogonalMatchingPursuit,
+    OrthogonalMatchingPursuitCV,
+    BayesianRidge,
+    ARDRegression,
 )
 from sklearn.metrics import (
     accuracy_score,
@@ -60,10 +73,10 @@ from sklearn.metrics import (
 )
 from sklearn.naive_bayes import BernoulliNB, ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.neural_network import MLPClassifier
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import FunctionTransformer, Pipeline, make_pipeline
 from sklearn.preprocessing import LabelEncoder
-from sklearn.svm import LinearSVC, NuSVC, SVC
+from sklearn.svm import LinearSVC, NuSVC, SVC, SVR, LinearSVR, NuSVR
 from sklearn.tree import (
     DecisionTreeClassifier,
     DecisionTreeRegressor,
@@ -215,13 +228,28 @@ def _models_regressor(random_state=None, n_jobs=None, max_iter=None):
         
     models_dict = {
         LinearRegression.__name__: LinearRegression(n_jobs=n_jobs if n_jobs is not None else 1),
-        Ridge.__name__: Ridge(random_state=random_state),
-        RidgeCV.__name__: RidgeCV(),
-        Lasso.__name__: Lasso(random_state=random_state),
-        LassoCV.__name__: LassoCV(),
-        ElasticNet.__name__: ElasticNet(random_state=random_state),
-        ElasticNetCV.__name__: ElasticNetCV(),
+        Ridge.__name__: Ridge(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        RidgeCV.__name__: RidgeCV(cv=5),
+        Lasso.__name__: Lasso(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        LassoCV.__name__: LassoCV(max_iter=max_iter if max_iter is not None else 1000, cv=5),
+        ElasticNet.__name__: ElasticNet(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        ElasticNetCV.__name__: ElasticNetCV(max_iter=max_iter if max_iter is not None else 1000, cv=5),
+        Lars.__name__: Lars(random_state=random_state),
+        LarsCV.__name__: LarsCV(),
+        OrthogonalMatchingPursuit.__name__: OrthogonalMatchingPursuit(),
+        OrthogonalMatchingPursuitCV.__name__: OrthogonalMatchingPursuitCV(max_iter=max_iter if max_iter is not None else None),
+        BayesianRidge.__name__: BayesianRidge(n_iter=max_iter if max_iter is not None else 300),
+        ARDRegression.__name__: ARDRegression(n_iter=max_iter if max_iter is not None else 300),
+        HuberRegressor.__name__: HuberRegressor(max_iter=max_iter if max_iter is not None else 100),
+        TheilSenRegressor.__name__: TheilSenRegressor(random_state=random_state, max_iter=max_iter if max_iter is not None else 300),
+        RANSACRegressor.__name__: RANSACRegressor(random_state=random_state, max_trials=max_iter if max_iter is not None else 100),
+        PoissonRegressor.__name__: PoissonRegressor(max_iter=max_iter if max_iter is not None else 100),
+        GammaRegressor.__name__: GammaRegressor(max_iter=max_iter if max_iter is not None else 100),
+        TweedieRegressor.__name__: TweedieRegressor(max_iter=max_iter if max_iter is not None else 100),
         SGDRegressor.__name__: SGDRegressor(
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
+        ),
+        PassiveAggressiveRegressor.__name__: PassiveAggressiveRegressor(
             random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
         ),
         KNeighborsRegressor.__name__: KNeighborsRegressor(n_jobs=n_jobs if n_jobs is not None else 1),
@@ -236,7 +264,7 @@ def _models_regressor(random_state=None, n_jobs=None, max_iter=None):
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         GradientBoostingRegressor.__name__: GradientBoostingRegressor(
-            random_state=random_state
+            random_state=random_state, n_estimators=max_iter if max_iter is not None else 100
         ),
         AdaBoostRegressor.__name__: AdaBoostRegressor(
             random_state=random_state, n_estimators=max_iter if max_iter is not None else 50
@@ -244,6 +272,12 @@ def _models_regressor(random_state=None, n_jobs=None, max_iter=None):
         BaggingRegressor.__name__: BaggingRegressor(
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
+        MLPRegressor.__name__: MLPRegressor(
+            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
+        ),
+        SVR.__name__: SVR(max_iter=max_iter if max_iter is not None else -1),
+        LinearSVR.__name__: LinearSVR(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        NuSVR.__name__: NuSVR(max_iter=max_iter if max_iter is not None else -1),
         CatBoostRegressor.__name__: CatBoostRegressor(
             random_state=random_state,
             thread_count=n_jobs if n_jobs is not None else 1,
@@ -833,14 +867,14 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
 
 
 def _display_table(
-    results,
-    sort=None,
-    custom_metric=None,
+    results: dict,
+    sort: Optional[str] = None,
+    custom_metric: Optional[str] = None,
     return_best_model: Optional[str] = None,
-    task: str = None,
-):
+    task: Optional[str] = None,
+) -> pd.DataFrame:
     """
-    Display a sorted table of results.
+    Displays a sorted table of results.
 
     Args:
         results (dict): The results to display.
@@ -855,75 +889,90 @@ def _display_table(
     Raises:
         MultiTrainError: If both sorting and returning the best model are requested simultaneously.
     """
+    
+    # Convert the results dictionary to a DataFrame and transpose it.
     results_df = pd.DataFrame(results).T
+    
+    # Define the default sorting mapping for each task.
+    # Metrics that should be sorted in descending order (higher is better)
+    descending_metrics = ["accuracy", "precision", "recall", "f1", "roc_auc", "balanced_accuracy", "r2_score", "explained_variance_score", 
+                          "precision_micro", "precision_macro", "precision_weighted", "recall_micro", "recall_macro", "recall_weighted", 
+                          "f1_micro", "f1_macro", "f1_weighted", "roc_auc_ovr", "roc_auc_ovo", "jaccard", "matthews_corrcoef", "top_k_accuracy", 
+                          "average_precision", "neg_log_loss", "adjusted_rand_score", "adjusted_mutual_info_score", "normalized_mutual_info_score", 
+                          "homogeneity_score", "completeness_score", "v_measure_score", "fowlkes_mallows_score"]
+
+    # Metrics that should be sorted in ascending order (lower is better) 
+    ascending_metrics = ["mean_squared_error", "mean_absolute_error", "median_absolute_error", "mean_squared_log_error", "max_error", 
+                         "mean_poisson_deviance", "mean_gamma_deviance", "mean_absolute_percentage_error", "d2_absolute_error_score", 
+                         "d2_pinball_score", "d2_tweedie_score", "hamming_loss", "zero_one_loss", "hinge_loss", "log_loss", "brier_score_loss"]
+
     sorted_ = {
         "classification": {
             "accuracy": "accuracy",
             "precision": "precision",
             "recall": "recall",
-            "f1": "f1",
+            "f1": "f1", 
             "roc_auc": "roc_auc",
             "balanced_accuracy": "balanced_accuracy",
         },
         "regression": {
-            "mean squared error": "mean squared error",
-            "r2 score": "r2 score",
-            "mean absolute error": "mean absolute error",
-            "median absolute error": "median absolute error",
-            "mean squared log error": "mean squared log error",
-            "explained variance score": "explained variance score",
+            "mean_squared_error": "mean_squared_error",
+            "r2_score": "r2_score",
+            "mean_absolute_error": "mean_absolute_error",
+            "median_absolute_error": "median_absolute_error",
+            "mean_squared_log_error": "mean_squared_log_error",
+            "explained_variance_score": "explained_variance_score",
         },
     }
 
     # If a custom metric is provided, add it to the sorted_ dictionary for the specified task.
-    if custom_metric:
+    if custom_metric and task:
         sorted_[task][custom_metric] = custom_metric
 
-    # Check if sorting is requested.
+    # If a sorting metric is requested
     if sort:
         # Ensure that sorting and returning the best model are not both requested simultaneously.
         if return_best_model:
             raise MultiTrainError("You can only either sort or return a best model")
         
-        # Proceed with sorting if the task and sort metric are valid.
-        if task in sorted_ and sort in sorted_[task]:
-            # Sort the DataFrame based on the specified metric. For regression tasks, sort in ascending order.
-            results_df = results_df.sort_values(by=sorted_[task][sort], ascending=(task == "regression"))
-
-            # Move the sorted column to the front of the DataFrame for better visibility.
+        # Check if the task and sort metric are valid before sorting.
+        if task in sorted_.keys() and sort in sorted_[task]:
+            if sort in ascending_metrics:
+                ascending=True
+            elif sort in descending_metrics:
+                ascending=False
+            else:
+                raise MultiTrainMetricError('Please use a valid metric')
+            
+            print(f'Ascending: {ascending}')
+            results_df = results_df.sort_values(
+                by=sorted_[task][sort],
+                ascending=ascending
+            )
+            
+            
+            # Bring the sorted column to the front of the DataFrame for better visibility.
             column_to_move = sorted_[task][sort]
             first_column = results_df.pop(column_to_move)
             results_df.insert(0, column_to_move, first_column)
-        
-        # Return the sorted DataFrame.
-        return results_df
-    else:
-        # If sorting is not requested, check if returning the best model is requested.
-        if return_best_model:
-            # For classification tasks, sort in descending order to get the best model.
-            if task == "classification":
-                results_df = results_df.sort_values(
-                    by=return_best_model, ascending=False
-                ).head(1)
-            # For regression tasks, determine the sorting order based on the metric.
-            elif task == "regression":
-                ascending_order = (
-                    True
-                    if return_best_model
-                    in [
-                        "mean squared error",
-                        "mean absolute error",
-                        "median absolute error",
-                        "mean squared log error",
-                    ]
-                    else False
-                )
-                results_df = results_df.sort_values(
-                    by=return_best_model, ascending=ascending_order
-                ).head(1)
 
-            # Return the DataFrame with the best model.
+            return results_df
+        
+    elif sort is None:
+        
+        if return_best_model:
+            if task == "classification":
+                results_df = results_df.sort_values(by=return_best_model, ascending=False).head(1)
+                
+            elif task == "regression":
+                print('It came here')
+                if return_best_model in ascending_metrics:
+                    ascending_order = True
+                elif return_best_model in descending_metrics:
+                    ascending_order = False
+                
+                results_df = results_df.sort_values(by=return_best_model, ascending=ascending_order).head(1)
+                
             return results_df
         else:
-            # If neither sorting nor returning the best model is requested, return the original DataFrame.
             return results_df

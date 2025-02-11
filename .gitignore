@@ -27,6 +27,13 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+MultiTrainVenv/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -45,6 +52,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.vscode/
 nosetests.xml
 coverage.xml
 *.cover

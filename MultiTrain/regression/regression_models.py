@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
 import warnings
-
 import numpy as np
 from sklearn.discriminant_analysis import StandardScaler
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, Normalizer, PowerTransformer, QuantileTransformer, RobustScaler
+
+warnings.filterwarnings("ignore", category=Warning)
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
 from MultiTrain.utils.utils import (
     _cat_encoder,
@@ -21,16 +24,13 @@ from MultiTrain.utils.utils import (
 import pandas as pd
 from tqdm.notebook import trange, tqdm
 from sklearn.model_selection import train_test_split
-
 from MultiTrain.errors.errors import *
 
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
-
 formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
@@ -85,7 +85,6 @@ class MultiRegressor:
             )
 
         if self.use_gpu:
-            import sklearnex
             from sklearnex import patch_sklearn
             patch_sklearn(global_patch=True)
             logger.info('Device acceleration enabled')
@@ -94,17 +93,17 @@ class MultiRegressor:
             
     def split(
         self,
-        data: pd.DataFrame,
-        target: str,  # Target column name
-        random_state: int = 42,  # Default random state for reproducibility
-        test_size: float = 0.2,  # Default test size for train-test split (80/20 split)
-        auto_cat_encode: bool = False,  # If True, automatically encode all categorical columns
+        data: Union[pd.DataFrame, str],
+        target: str,  # Name of the target column
+        random_state: int = 42,  # Random state for reproducibility
+        test_size: float = 0.2,  # Proportion of the dataset for the test split
+        auto_cat_encode: bool = False,  # Automatically encode all categorical columns if True
         manual_encode: dict = None,  # Manual encoding dictionary, e.g., {'label': ['column1'], 'onehot': ['column2']}
         fix_nan_custom: Optional[
             Dict
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
-        drop: list = None,
-    ):  # List of columns to drop, e.g., ['column1', 'column2']
+        drop: list = None, # List of columns to drop, e.g., ['column1', 'column2']
+    ):  
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
@@ -193,8 +192,8 @@ class MultiRegressor:
         show_train_score: bool = False,
         sort: str = None,
         pca: Union[bool, str] = False,
-        return_best_model: Optional[str] = None,
-    ):  # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
+        return_best_model: Optional[str] = None, # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
+    ):  
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
 
@@ -269,10 +268,10 @@ class MultiRegressor:
                         f"Error calculating {metric_name} for {model_names[idx]}: {e}"
                     )
 
-            # Store results for the current model
-            results[model_names[idx]] = metric_results
-            results[model_names[idx]].update({"Time(s)": end})
-
+            
+            metric_results['root_mean_squared_error'] = np.sqrt(metric_results['mean_squared_error'])
+            results[model_names[idx]] = {**metric_results, "Time": end}
+    
         # Display the results in a sorted DataFrame
         if custom_metric:
             final_dataframe = _display_table(
@@ -280,10 +279,14 @@ class MultiRegressor:
                 sort=sort,
                 custom_metric=custom_metric,
                 return_best_model=return_best_model,
+                task='regression'
             )
         else:
             final_dataframe = _display_table(
-                results=results, sort=sort, return_best_model=return_best_model
+                results=results, 
+                sort=sort, 
+                return_best_model=return_best_model,
+                task='regression'
             )
         return final_dataframe
     
