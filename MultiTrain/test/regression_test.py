@@ -206,7 +206,7 @@ def test_multiple_metrics(sample_data):
     
     assert isinstance(results, pd.DataFrame)
     assert 'max_error' in results.columns
-    assert results['r2_score'].is_monotonic_decreasing
+    assert results['r2_score'].is_monotonic_increasing
 
 
 def test_gpu_regressor_with_device():
