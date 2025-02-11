@@ -176,6 +176,7 @@ def test_text_processing():
         vectorizer='tfidf',
         pipeline_dict=pipeline_dict
     )
+    
     assert isinstance(results, pd.DataFrame)
 
 

@@ -59,6 +59,7 @@ class MultiClassifier:
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
+    text: bool = False
     
     def __post_init__(self):
         type_validations = {
@@ -153,7 +154,8 @@ class MultiClassifier:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
         # Process dataset
-        _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
+        if not self.text:
+            _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
         filled_dataset = _handle_missing_values(dataset, fix_nan_custom)
         complete_dataset = filled_dataset.copy()
 
@@ -176,7 +178,7 @@ class MultiClassifier:
         except ValueError as e:
             raise MultiTrainEncodingError(f"Target column must be encoded before splitting. Error: {e}")
 
-        return (np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)) if self.use_gpu else (X_train, X_test, y_train, y_test)
+        return X_train, X_test, y_train, y_test
 
     def fit(
         self,
@@ -185,7 +187,6 @@ class MultiClassifier:
         show_train_score: bool = False,
         imbalanced: bool = False,
         sort: str = None,
-        text: bool = False,
         pca: Union[bool, str] = False, # If not False, set the type of scaler to use before PCA
         vectorizer: str = None,  # Example: 'count' or 'tfidf'
         pipeline_dict: dict = None,  # Example: {'ngram_range': (1, 2), 'encoding': 'utf-8', 'max_features': 5000, 'analyzer': 'word'}
@@ -214,6 +215,8 @@ class MultiClassifier:
             pca_scaler = False
 
         # Prepare models
+        if self.use_gpu:
+            np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test) = X_train, X_test, y_train, y_test
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
             self.custom_models, "classification", self.max_iter
@@ -234,7 +237,7 @@ class MultiClassifier:
             current_model = model_list[idx]
 
             # Handle text vs non-text processing
-            if text:
+            if self.text:
                 if not pipeline_dict:
                     raise MultiTrainTextError(
                         "Text processing requires pipeline_dict with ngram_range, encoding, max_features, analyzer"

@@ -223,7 +223,7 @@ def test_fit_pred_text(sample_dataframe):
 def test_format_time():
     assert _format_time(61) == "1m 1.00s"
     assert _format_time(3661) == "1hr 1m 1.00s"
-    assert _format_time(0.5) == "0.5s"
+    assert _format_time(0.5) == "500.00ms"
 
 
 def test_prep_model_names_list():
