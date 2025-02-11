@@ -176,13 +176,12 @@ def test_gpu_regressor():
     datasplits = regressor.split(data, 'target')
     assert isinstance(datasplits[0], np.ndarray)
 
-
 def test_return_best_model(sample_data):
     data, target, regressor = sample_data
     datasplits = regressor.split(data, target, auto_cat_encode=True)
     results = regressor.fit(datasplits, return_best_model='r2_score')
     assert isinstance(results, pd.DataFrame)
-    assert 'Best Model' in results.index
+    assert len(results) == 1
 
 
 def test_sort_results(sample_data):
