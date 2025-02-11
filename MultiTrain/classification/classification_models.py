@@ -219,7 +219,7 @@ class MultiClassifier:
             pca_scaler = False
 
         # Prepare models
-        if self.use_gpu:
+        if self.use_gpu and platform.system() != 'Darwin':
             np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test) = X_train, X_test, y_train, y_test
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,

@@ -1,5 +1,6 @@
 import inspect
 import logging
+import platform
 import time
 import warnings
 from typing import Dict, Optional, Union
@@ -740,15 +741,16 @@ def _fit_pred(current_model, model_names, idx, X_train, y_train, X_test, pca_sca
         tuple: A tuple containing the fitted model, predictions, and time taken.
     """
     
-    from MultiTrain.classification.classification_models import subMultiClassifier
-    use_gpu = subMultiClassifier().use_gpu
-    if use_gpu:
-        from sklearnex import config_context
-        
+    if platform.system() != 'Darwin':
+        from MultiTrain.classification.classification_models import subMultiClassifier
+        use_gpu = subMultiClassifier().use_gpu
+        if use_gpu:
+            from sklearnex import config_context
+            
     device = subMultiClassifier().device
     start = time.time()
 
-    if use_gpu:
+    if use_gpu and platform.system() != 'Darwin':
         with config_context(target_offload=f"gpu:{device}"):
             current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
     else:
@@ -813,12 +815,14 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
     if pca:
         raise MultiTrainPCAError('You cannot use pca for nlp tasks (when text is set to True)')
     
-    from MultiTrain.classification.classification_models import subMultiClassifier
     
-    use_gpu = subMultiClassifier().use_gpu
-    if use_gpu:
-        from sklearnex import config_context
-    device = subMultiClassifier().device
+    if platform.system() != 'Darwin':
+        from MultiTrain.classification.classification_models import subMultiClassifier
+        use_gpu = subMultiClassifier().use_gpu
+        if use_gpu:
+            from sklearnex import config_context
+        device = subMultiClassifier().device
+        
     vectorizer_map = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
 
     if vectorizer not in vectorizer_map:
@@ -854,7 +858,7 @@ def _fit_pred_text(vectorizer, pipeline_dict, model, X_train, y_train, X_test, p
             ),
             model,
         )
-        if use_gpu:
+        if use_gpu and platform.system() != 'Darwin':
             with config_context(target_offload=f"gpu:{device}"):
                 pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
         else:
