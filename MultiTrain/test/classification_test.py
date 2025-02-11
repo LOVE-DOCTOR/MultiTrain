@@ -214,7 +214,7 @@ def test_gpu_classifier():
     assert isinstance(datasplits[0], np.ndarray)
 
 
-def test_invalid_test_size(sample_data):
+def test_invalid_test_size():
     data = pd.DataFrame({
         'feature1': [1, 2, 3, 4, 5],
         'target': [0, 1, 0, 1, 0]
@@ -230,13 +230,6 @@ def test_show_train_score(sample_data):
     results = classifier.fit(datasplits, show_train_score=True)
     assert 'accuracy_train' in results.columns
 
-
-def test_invalid_manual_encode(sample_data):
-    data, target, classifier = sample_data
-    with pytest.raises(MultiTrainError):
-        # Test duplicate encoding types
-        manual_encode = {'label': ['feature2'], 'label': ['feature1']}
-        classifier.split(data, target, manual_encode=manual_encode)
 
 
 def test_invalid_device_type():

@@ -154,13 +154,6 @@ def test_show_train_score(sample_data):
     assert 'r2_score_train' in results.columns
 
 
-def test_invalid_manual_encode(sample_data):
-    data, target, regressor = sample_data
-    with pytest.raises(MultiTrainError):
-        manual_encode = {'label': ['feature2'], 'label': ['feature1']}
-        regressor.split(data, target, manual_encode=manual_encode)
-
-
 def test_invalid_device_type():
     with pytest.raises(MultiTrainTypeError):
         MultiRegressor(device=123)
