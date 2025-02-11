@@ -215,9 +215,13 @@ def test_gpu_classifier():
 
 
 def test_invalid_test_size(sample_data):
-    data, target, classifier = sample_data
+    data = pd.DataFrame({
+        'feature1': [1, 2, 3, 4, 5],
+        'target': [0, 1, 0, 1, 0]
+    })
+    classifier = MultiClassifier()
     with pytest.raises(ValueError):
-        classifier.split(data, target, test_size=1.5)
+        classifier.split(data, 'target', test_size=1.5)
 
 
 def test_show_train_score(sample_data):
