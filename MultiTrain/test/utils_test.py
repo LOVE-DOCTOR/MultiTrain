@@ -150,8 +150,8 @@ def test_display_table():
 
     # Test regression results
     reg_results = {
-        "model1": {"mean squared error": 0.1},
-        "model2": {"mean squared error": 0.2}
+        "model1": {"mean_squared_error": 0.1},
+        "model2": {"mean_squared_error": 0.2}
     }
     sorted_df = _display_table(reg_results, sort="mean squared error", task="regression")
     assert sorted_df.index[0] == "model1"
