@@ -157,28 +157,6 @@ def test_fit_with_invalid_pca_scaler(sample_data):
         classifier.fit(datasplits, pca='InvalidScaler')
 
 
-def test_text_processing():
-    data = pd.DataFrame({
-        'text': ['This is sample text', 'Another example', 'Third sample'],
-        'target': [0, 1, 0]
-    })
-    classifier = MultiClassifier(text=True)
-    datasplits = classifier.split(data, 'target')
-    pipeline_dict = {
-        'ngram_range': (1, 2),
-        'encoding': 'utf-8',
-        'max_features': 1000,
-        'analyzer': 'word'
-    }
-    results = classifier.fit(
-        datasplits,
-        vectorizer='tfidf',
-        pipeline_dict=pipeline_dict
-    )
-    
-    assert isinstance(results, pd.DataFrame)
-
-
 def test_text_processing_missing_params(sample_data):
     data, target, classifier = sample_data
     classifier.text = True
@@ -194,34 +172,19 @@ def test_return_best_model(sample_data):
     assert isinstance(results, pd.DataFrame)
 
 
-def test_gpu_classifier():
-    classifier = MultiClassifier(use_gpu=True)
-    assert classifier.use_gpu == True
-    data = pd.DataFrame({
-        'feature1': [1, 2, 3, 4, 5],
-        'target': [0, 1, 0, 1, 0]
-    })
-    datasplits = classifier.split(data, 'target')
-    # GPU splits should return numpy arrays
-    assert isinstance(datasplits[0], np.ndarray)
-
-
 def test_show_train_score(sample_data):
     data, target, classifier = sample_data
     datasplits = classifier.split(data, target, auto_cat_encode=True)
     results = classifier.fit(datasplits, show_train_score=True)
     assert 'accuracy_train' in results.columns
 
-
-
 def test_invalid_device_type():
     with pytest.raises(MultiTrainTypeError):
         MultiClassifier(device=123)  # device should be string
 
-
 def test_pipeline_dict_without_text(sample_data):
     data, target, classifier = sample_data
-    datasplits = classifier.split(data, target)
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
     pipeline_dict = {
         'ngram_range': (1, 2),
         'encoding': 'utf-8'

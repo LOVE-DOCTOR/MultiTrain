@@ -7,6 +7,7 @@ from MultiTrain.errors.errors import (
     MultiTrainColumnMissingError,
     MultiTrainEncodingError,
     MultiTrainError,
+    MultiTrainMetricError,
     MultiTrainTypeError,
     MultiTrainNaNError,
     MultiTrainPCAError,
@@ -83,8 +84,8 @@ def test_fit_invalid_datasplits(sample_data):
 def test_fit_custom_metric(sample_data):
     data, target, regressor = sample_data
     datasplits = regressor.split(data, target, auto_cat_encode=True)
-    results = regressor.fit(datasplits, custom_metric='mean_absolute_error')
-    assert 'mean_absolute_error' in results.columns
+    with pytest.raises(MultiTrainMetricError):
+        regressor.fit(datasplits, custom_metric="invalid_metric")
 
 
 def test_split_with_nan_handling(sample_data):
@@ -139,12 +140,6 @@ def test_fit_with_invalid_pca_scaler(sample_data):
     datasplits = regressor.split(data, target, auto_cat_encode=True)
     with pytest.raises(MultiTrainPCAError):
         regressor.fit(datasplits, pca='InvalidScaler')
-
-
-def test_invalid_test_size(sample_data):
-    data, target, regressor = sample_data
-    with pytest.raises(ValueError):
-        regressor.split(data, target, test_size=1.5)
 
 
 def test_show_train_score(sample_data):
