@@ -91,7 +91,7 @@ class MultiClassifier:
                 logger.info('Device acceleration enabled')
             else:
                 logger.warning('Device acceleration not supported on macOS')
-
+            
         logger.warning('Version 1.1.1 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
             
     def split(
@@ -217,14 +217,15 @@ class MultiClassifier:
             pca_scaler = SUPPORTED_SCALERS[pca]
         else:
             pca_scaler = False
-
-        # Prepare models
-        if self.use_gpu and platform.system() != 'Darwin':
-            X_train, X_test, y_train, y_test = np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)
+        
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
             self.custom_models, "classification", self.max_iter
         )
+
+        # Prepare models
+        if self.use_gpu and platform.system() != 'Darwin':
+            X_train, X_test, y_train, y_test = np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)
 
         # Initialize progress bar for model training
         bar = trange(
@@ -307,6 +308,8 @@ class MultiClassifier:
                 task="classification",
             )
         return final_dataframe
+    
+
 
 @dataclass 
 class subMultiClassifier(MultiClassifier):

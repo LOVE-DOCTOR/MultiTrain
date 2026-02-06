@@ -13,27 +13,27 @@ class MultiTrainModelError(BaseException):
 
 
 class MultiTrainEncodingError(BaseException):
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
 
 
 class MultiTrainTypeError(BaseException):
-    def __init__(self, *args):
+    def __init__(self, *args)-> None:
         super().__init__(*args)
 
 
 class MultiTrainNaNError(BaseException):
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
 
 
 class MultiTrainMetricError(BaseException):
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
 
 
 class MultiTrainSplitError(BaseException):
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         super().__init__(*args)
 
 
