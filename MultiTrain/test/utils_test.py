@@ -22,6 +22,7 @@ from MultiTrain.utils.utils import (
     _fit_pred_text,
     _format_time,
     _prep_model_names_list,
+    _prepare_train_test,
     _sub_fit,
 )
 from MultiTrain.errors.errors import (
@@ -31,6 +32,7 @@ from MultiTrain.errors.errors import (
     MultiTrainTypeError,
     MultiTrainColumnMissingError,
     MultiTrainPCAError,
+    MultiTrainModelError,
 )
 from sklearn.metrics import accuracy_score, mean_squared_error
 
@@ -145,6 +147,32 @@ def test_check_custom_models(models):
     assert len(model_list) == 1
 
 
+def test_check_custom_models_rejects_empty_list(models):
+    with pytest.raises(MultiTrainModelError):
+        _check_custom_models([], models)
+
+
+def test_custom_metric_resolves_to_callable():
+    metrics = _metrics(custom_metric="max_error", metric_type="regression")
+    assert callable(metrics["max_error"])
+
+
+def test_prepare_train_test_does_not_learn_test_categories():
+    train = pd.DataFrame({"category": ["a", "b"], "target": [0, 1]})
+    test = pd.DataFrame({"category": ["test-only"], "target": [1]})
+
+    encoded_train, encoded_test = _prepare_train_test(
+        train, test, auto_cat_encode=True
+    )
+
+    assert set(encoded_train["category"]) == {0, 1}
+    assert encoded_test["category"].iloc[0] == 2
+
+
+def test_multitrain_errors_are_normal_exceptions():
+    assert issubclass(MultiTrainModelError, Exception)
+
+
 def test_fit_pred(models):
     X_train = pd.DataFrame({"feature": [1, 2, 3]})
     y_train = pd.Series([0, 1, 0])
@@ -160,6 +188,27 @@ def test_fit_pred(models):
     )
     assert len(prediction) == len(X_test)
     assert isinstance(time_taken, str)
+
+
+def test_fit_pred_runs_on_macos_path(models, monkeypatch):
+    monkeypatch.setattr(
+        "MultiTrain.utils.utils.platform.system", lambda: "Darwin"
+    )
+    X_train = pd.DataFrame({"feature": [1, 2, 3]})
+    y_train = pd.Series([0, 1, 0])
+    X_test = pd.DataFrame({"feature": [1, 2]})
+
+    _, prediction, _ = _fit_pred(
+        models["LogisticRegression"],
+        ["LogisticRegression"],
+        0,
+        X_train,
+        y_train,
+        X_test,
+        False,
+    )
+
+    assert len(prediction) == len(X_test)
 
 
 def test_calculate_metric():
@@ -200,6 +249,33 @@ def test_fit_pred_text(sample_dataframe):
     assert isinstance(pipeline, Pipeline)
     assert len(predictions) == 1
     assert isinstance(time_taken, str)
+
+
+def test_fit_pred_text_retries_with_dense_features():
+    model = _models_classifier(
+        random_state=42, n_jobs=1, max_iter=100
+    )["GaussianNB"]
+    X_train = pd.Series(["red apple", "blue sky", "red berry", "blue sea"])
+    y_train = pd.Series([0, 1, 0, 1])
+    X_test = pd.Series(["red fruit", "blue water"])
+    pipeline_dict = {
+        "ngram_range": (1, 1),
+        "encoding": "utf-8",
+        "max_features": 100,
+        "analyzer": "word",
+    }
+
+    _, predictions, _ = _fit_pred_text(
+        "tfidf",
+        pipeline_dict,
+        model,
+        X_train,
+        y_train,
+        X_test,
+        pca=False,
+    )
+
+    assert not pd.isna(predictions).any()
 
 
 def test_format_time():

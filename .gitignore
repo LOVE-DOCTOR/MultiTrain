@@ -33,6 +33,7 @@ env/
 ENV/
 .env
 .venv
+.venv310/
 MultiTrainVenv/
 
 # PyInstaller

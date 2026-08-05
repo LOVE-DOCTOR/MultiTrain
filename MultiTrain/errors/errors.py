@@ -1,51 +1,42 @@
-class MultiTrainDatasetTypeError(BaseException):
-    def __init__(self, *args):
-        super().__init__(*args)
+class MultiTrainError(Exception):
+    """Base class for all errors raised by MultiTrain."""
 
 
-class MultiTrainColumnMissingError(BaseException):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-class MultiTrainModelError(BaseException):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
+class MultiTrainDatasetTypeError(MultiTrainError):
+    pass
 
 
-class MultiTrainEncodingError(BaseException):
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+class MultiTrainColumnMissingError(MultiTrainError):
+    pass
 
 
-class MultiTrainTypeError(BaseException):
-    def __init__(self, *args)-> None:
-        super().__init__(*args)
+class MultiTrainModelError(MultiTrainError):
+    pass
 
 
-class MultiTrainNaNError(BaseException):
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+class MultiTrainEncodingError(MultiTrainError):
+    pass
 
 
-class MultiTrainMetricError(BaseException):
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+class MultiTrainTypeError(MultiTrainError):
+    pass
 
 
-class MultiTrainSplitError(BaseException):
-    def __init__(self, *args) -> None:
-        super().__init__(*args)
+class MultiTrainNaNError(MultiTrainError):
+    pass
 
 
-class MultiTrainTextError(BaseException):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
+class MultiTrainMetricError(MultiTrainError):
+    pass
 
 
-class MultiTrainError(BaseException):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
-        
-class MultiTrainPCAError(BaseException):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
+class MultiTrainSplitError(MultiTrainError):
+    pass
+
+
+class MultiTrainTextError(MultiTrainError):
+    pass
+
+
+class MultiTrainPCAError(MultiTrainError):
+    pass

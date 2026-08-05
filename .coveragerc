@@ -1,0 +1,9 @@
+[run]
+branch = True
+source = MultiTrain
+omit =
+    MultiTrain/test/*
+
+[report]
+show_missing = True
+skip_covered = False

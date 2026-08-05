@@ -191,3 +191,21 @@ def test_pipeline_dict_without_text(sample_data):
     }
     with pytest.raises(MultiTrainTextError):
         classifier.fit(datasplits, pipeline_dict=pipeline_dict)
+
+
+def test_multiclass_metrics_are_calculated():
+    data = pd.DataFrame(
+        {
+            "feature1": range(30),
+            "feature2": [value % 5 for value in range(30)],
+            "target": [value % 3 for value in range(30)],
+        }
+    )
+    classifier = MultiClassifier(custom_models=["LogisticRegression"])
+    datasplits = classifier.split(data, "target", test_size=0.3)
+
+    results = classifier.fit(datasplits)
+
+    assert not np.isnan(results.loc["LogisticRegression", "precision"])
+    assert not np.isnan(results.loc["LogisticRegression", "recall"])
+    assert not np.isnan(results.loc["LogisticRegression", "f1"])
