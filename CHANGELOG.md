@@ -14,6 +14,7 @@
 - Shared PCA, scaling, and text vectorization across model runs to avoid repeated preprocessing.
 - Added explicit PCA component sizing, dense-text memory limits, cached predictions, and sequential GPU scheduling.
 - Added the required macOS OpenMP runtime setup to CI and deployment instructions.
+- Constrained Pyparsing on Python 3.8 and 3.9 to remain compatible with their Matplotlib releases.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression
