@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from numbers import Real
-import platform
 from typing import Dict, List, Optional, Union
 import numpy as np
 from sklearn.discriminant_analysis import StandardScaler
@@ -17,7 +16,6 @@ from MultiTrain.utils.utils import (
     _non_auto_cat_encode_error,
     _prep_model_names_list,
     _prepare_train_test,
-    _REGRESSOR_ACCELERATED_PATCHES,
 )
 
 import pandas as pd
@@ -29,7 +27,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# Cache supported scalers
+# Keep the accepted scaler names in one place so validation and pipeline setup agree.
 SUPPORTED_SCALERS = {
     'StandardScaler': StandardScaler(),
     'MinMaxScaler': MinMaxScaler(),
@@ -86,13 +84,6 @@ class MultiRegressor:
         if not self.device:
             raise MultiTrainTypeError("device cannot be empty")
 
-        if self.use_gpu and platform.system() != 'Darwin':
-            from sklearnex import patch_sklearn
-            patch_sklearn(name=_REGRESSOR_ACCELERATED_PATCHES)
-            logger.info('Device acceleration enabled')
-        elif self.use_gpu:
-            logger.warning('Device acceleration is not supported on macOS')
-
         logger.debug('MultiTrain regressor initialized')
             
     def split(
@@ -136,7 +127,7 @@ class MultiRegressor:
         if not isinstance(auto_cat_encode, bool):
             raise MultiTrainTypeError("auto_cat_encode must be a boolean")
 
-        # Load dataset
+        # Normalize file paths and dataframes into the same in-memory representation.
         if isinstance(data, pd.DataFrame):
             dataset = data.copy()
         elif isinstance(data, str):
@@ -144,7 +135,7 @@ class MultiRegressor:
         else:
             raise MultiTrainDatasetTypeError('You must either pass in a dataframe or a filepath')
 
-        # Validate preprocessing options
+        # Fail before modifying the dataset when preprocessing instructions are malformed.
         if manual_encode is not None and not isinstance(manual_encode, dict):
             raise MultiTrainTypeError(
                 f"manual_encode must be a dictionary or None. Got {type(manual_encode)}"
@@ -158,7 +149,7 @@ class MultiRegressor:
                 f"fix_nan_custom must be a dictionary. Got {type(fix_nan_custom)}"
             )
 
-        # Validate manual encoding
+        # A column needs one unambiguous encoding strategy.
         if manual_encode:
             invalid_keys = set(manual_encode) - {"label", "onehot"}
             if invalid_keys:
@@ -183,7 +174,7 @@ class MultiRegressor:
         if manual_encode and target in manual_encode.get("onehot", []):
             raise MultiTrainEncodingError("The target column cannot be one-hot encoded")
 
-        # Handle drops
+        # Remove ignored features before checking the columns used for training.
         if drop is not None and not isinstance(drop, list):
             raise MultiTrainTypeError(f"Drop parameter must be a list. Got {type(drop)}")
         if drop:
@@ -194,13 +185,12 @@ class MultiRegressor:
                 )
             dataset.drop(drop, axis=1, inplace=True)
 
-        # Validate dataset and target
+        # The target must still exist after optional columns have been dropped.
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
-        # Process dataset
         _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
-        # Split first so preprocessing cannot learn from the held-out rows.
+        # Split first so encoders and missing-value rules cannot learn from held-out rows.
         try:
             train_dataset, test_dataset = train_test_split(
                 dataset,
@@ -260,7 +250,7 @@ class MultiRegressor:
         if return_best_model is not None and not isinstance(return_best_model, str):
             raise MultiTrainTypeError("return_best_model must be a string or None")
 
-        # Handle PCA scaler
+        # The historical pca argument selects the scaler placed before each model.
         if pca:
             if pca not in SUPPORTED_SCALERS:
                 raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
@@ -274,7 +264,7 @@ class MultiRegressor:
             self.use_gpu, self.device,
         )
 
-        # Initialize progress bar for model training
+        # Training the full model catalog can take a while, so keep progress visible.
         bar = trange(
             len(model_list),
             desc="Training Models",
@@ -284,11 +274,10 @@ class MultiRegressor:
 
         results = {}
         for idx in bar:
-            # Update the postfix with the current model's name
             bar.set_postfix_str(f"Model: {model_names[idx]}")
             current_model = model_list[idx]
 
-            # Fit the model and make predictions
+            # Fit through the shared pipeline path so preprocessing stays consistent.
             current_model, current_prediction, end = _fit_pred(
                 current_model, model_names, idx, X_train, y_train, X_test,
                 pca_scaler, self.use_gpu, self.device
@@ -302,7 +291,7 @@ class MultiRegressor:
                     train_prediction = np.full(len(y_train), np.nan)
 
             metric_results = {}
-            # Wrap metrics in tqdm for additional progress tracking
+            # Score every model the same way, including optional training-set scores.
             for metric_name, metric_func in tqdm(
                 _metrics(custom_metric, 'regression').items(),
                 desc=f"Evaluating {model_names[idx]}",
@@ -325,7 +314,7 @@ class MultiRegressor:
             metric_results['root_mean_squared_error'] = np.sqrt(metric_results['mean_squared_error'])
             results[model_names[idx]] = {**metric_results, "Time": end}
     
-        # Display the results in a sorted DataFrame
+        # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
             final_dataframe = _display_table(
                 results=results,

@@ -61,6 +61,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+
 settings.json
 .setup.py
 # Translations

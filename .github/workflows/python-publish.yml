@@ -1,53 +1,76 @@
-# This workflow will upload a Python Package using Twine when a release is created
-# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+name: Publish to PyPI
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
 
-name: Upload MultiTrain
-
-on: push
+permissions:
+  contents: read
 
 jobs:
-  build-n-publish:
-    name: Build and publish Python distributions to PyPI and TestPyPI
-    runs-on: 'ubuntu-latest'
-
-    if: github.ref == 'refs/heads/main'
+  verify:
+    name: Test and build release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-3.10-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-3.10-
-          ${{ runner.os }}-pip-
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install build
-        pip install setuptools
-        pip install wheel 
-        pip install twine
-        pip install .
+      - name: Install release tooling and project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
 
-    - name: Build package
-      run: | 
-        python -m build
-        python -m twine upload --verbose dist/*
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        TWINE_REPOSITORY_URL: https://upload.pypi.org/legacy/
+      - name: Run release tests
+        run: python -m pytest -q
+
+      - name: Build and check distributions
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Ensure release tag matches package version
+        if: github.event_name == 'release'
+        run: >-
+          python -c "import os, MultiTrain;
+          tag=os.environ['GITHUB_REF_NAME'].removeprefix('v');
+          assert tag == MultiTrain.__version__,
+          f'tag {tag!r} does not match version {MultiTrain.__version__!r}'"
+
+      - name: Verify wheel can be installed
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import MultiTrain; print(MultiTrain.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish verified distributions
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/MultiTrain
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

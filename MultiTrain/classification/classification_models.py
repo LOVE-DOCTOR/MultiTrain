@@ -19,7 +19,6 @@ from MultiTrain.utils.utils import (
     _prep_model_names_list,
     _prepare_train_test,
     _classification_roc_auc,
-    _CLASSIFIER_ACCELERATED_PATCHES,
 )
 
 import pandas as pd
@@ -31,7 +30,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# Cache supported scalers
+# Keep the accepted scaler names in one place so validation and pipeline setup agree.
 SUPPORTED_SCALERS = {
     'StandardScaler': StandardScaler(),
     'MinMaxScaler': MinMaxScaler(),
@@ -90,15 +89,8 @@ class MultiClassifier:
         if not self.device:
             raise MultiTrainTypeError("device cannot be empty")
 
-        if self.use_gpu:
-            if platform.system() != 'Darwin':  # Skip on macOS
-                from sklearnex import patch_sklearn
-                # Keep acceleration local to this interpreter. A global patch
-                # persists into later CPU-only Python processes.
-                patch_sklearn(name=_CLASSIFIER_ACCELERATED_PATCHES)
-                logger.info('Device acceleration enabled')
-            else:
-                logger.warning('Device acceleration not supported on macOS')
+        if self.use_gpu and platform.system() == 'Darwin':
+            logger.warning('GPU acceleration is not supported on macOS')
             
         logger.debug('MultiTrain classifier initialized')
             
@@ -143,7 +135,7 @@ class MultiClassifier:
         if not isinstance(auto_cat_encode, bool):
             raise MultiTrainTypeError("auto_cat_encode must be a boolean")
 
-        # Load dataset
+        # Normalize file paths and dataframes into the same in-memory representation.
         if isinstance(data, pd.DataFrame):
             dataset = data.copy()
         elif isinstance(data, str):
@@ -151,7 +143,7 @@ class MultiClassifier:
         else:
             raise MultiTrainDatasetTypeError('You must either pass in a dataframe or a filepath')
 
-        # Validate preprocessing options
+        # Fail before modifying the dataset when preprocessing instructions are malformed.
         if manual_encode is not None and not isinstance(manual_encode, dict):
             raise MultiTrainTypeError(
                 f"manual_encode must be a dictionary or None. Got {type(manual_encode)}"
@@ -165,7 +157,7 @@ class MultiClassifier:
                 f"fix_nan_custom must be a dictionary. Got {type(fix_nan_custom)}"
             )
 
-        # Validate manual encoding
+        # A column needs one unambiguous encoding strategy.
         if manual_encode:
             invalid_keys = set(manual_encode) - {"label", "onehot"}
             if invalid_keys:
@@ -190,7 +182,7 @@ class MultiClassifier:
         if manual_encode and target in manual_encode.get("onehot", []):
             raise MultiTrainEncodingError("The target column cannot be one-hot encoded")
 
-        # Handle drops
+        # Remove ignored features before checking the columns used for training.
         if drop is not None and not isinstance(drop, list):
             raise MultiTrainTypeError(f"Drop parameter must be a list. Got {type(drop)}")
         if drop:
@@ -201,14 +193,13 @@ class MultiClassifier:
                 )
             dataset.drop(drop, axis=1, inplace=True)
 
-        # Validate dataset and target
+        # The target must still exist after optional columns have been dropped.
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
-        # Process dataset
         if not self.text:
             _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
-        # Split first so preprocessing cannot learn from the held-out rows.
+        # Split first so encoders and missing-value rules cannot learn from held-out rows.
         try:
             train_dataset, test_dataset = train_test_split(
                 dataset,
@@ -277,7 +268,7 @@ class MultiClassifier:
         if return_best_model is not None and not isinstance(return_best_model, str):
             raise MultiTrainTypeError("return_best_model must be a string or None")
 
-        # Handle PCA scaler
+        # The historical pca argument selects the scaler placed before each model.
         if pca:
             if pca not in SUPPORTED_SCALERS:
                 raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
@@ -307,11 +298,11 @@ class MultiClassifier:
                 X_train = X_train[:, 0]
                 X_test = X_test[:, 0]
 
-        # Prepare models
+        # GPU-backed estimators accept NumPy arrays consistently across supported inputs.
         if self.use_gpu and platform.system() != 'Darwin':
             X_train, X_test, y_train, y_test = np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)
 
-        # Initialize progress bar for model training
+        # Training the full model catalog can take a while, so keep progress visible.
         bar = trange(
             len(model_list),
             desc="Training Models",
@@ -321,11 +312,10 @@ class MultiClassifier:
 
         results = {}
         for idx in bar:
-            # Update the postfix with the current model's name
             bar.set_postfix_str(f"Model: {model_names[idx]}")
             current_model = model_list[idx]
 
-            # Handle text vs non-text processing
+            # Text models need a vectorizer pipeline; tabular models can fit directly.
             if self.text:
                 if not pipeline_dict:
                     raise MultiTrainTextError(
@@ -345,7 +335,6 @@ class MultiClassifier:
                     pca_scaler, self.use_gpu, self.device
                 )
 
-            # Calculate metrics
             metric_results = {}
             avg_metrics = ["precision", "recall", "f1"]
             all_targets = np.concatenate(
@@ -358,7 +347,7 @@ class MultiClassifier:
                     train_prediction = current_model.predict(X_train)
                 except Exception:
                     train_prediction = np.full(len(y_train), np.nan)
-            # Wrap metrics in tqdm for additional progress tracking
+            # Score every model the same way, including optional training-set scores.
             for metric_name, metric_func in tqdm(
                 _metrics(custom_metric, "classification").items(),
                 desc=f"Evaluating {model_names[idx]}",
@@ -389,10 +378,10 @@ class MultiClassifier:
                     metric_func, y_test, current_prediction, average_type
                 )
 
-            # Store results for the current model
+            # Retain the fitted estimator so callers can use the selected result directly.
             results[model_names[idx]] = {**metric_results, "Time": end}
             
-        # Display the results in a sorted DataFrame
+        # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
             final_dataframe = _display_table(
                 results=results,

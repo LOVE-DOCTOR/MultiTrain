@@ -1,5 +1,15 @@
 # WHAT'S NEW
 
+## 1.2.0
+
+- Modernized packaging around a single `pyproject.toml` source of truth.
+- Raised the supported runtime to Python 3.10+ and refreshed compatible dependencies.
+- Split runtime, notebook, acceleration, and development dependencies.
+- Added comprehensive validation, combinatorial, property, and mutation tests.
+- Fixed data leakage, metric handling, estimator defaults, and GPU patch isolation.
+- Added pull-request CI, built-artifact verification, and trusted PyPI publishing.
+- Removed tests and development tools from the production wheel.
+
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression
 - add roc_auc metric in kfold - classification

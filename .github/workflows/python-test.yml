@@ -1,67 +1,97 @@
-name: Test Python Code
+name: CI
 
-on: push
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-n-publish:
-    name: Testing MultiTrain
+  test:
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: windows-latest
+            python-version: "3.10"
+          - os: macos-latest
+            python-version: "3.10"
 
-    if: github.ref == 'refs/heads/v2-test'
-
-    
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set pip cache dir
-      run: echo "PIP_CACHE_DIR=~/.cache/pip" >> $GITHUB_ENV
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-3.10-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-3.10-
-          ${{ runner.os }}-pip-
-            
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Install project and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
 
-    - name: Display Python version
-      run: python -c "import sys; print(sys.version)"
+      - name: Check for syntax and undefined-name errors
+        run: python -m ruff check .
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install build
-        pip install setuptools
-        pip install wheel
-        pip install twine
-        pip install .
+      - name: Run test suite
+        run: python -m pytest -q
 
-    - name: Lint with flake8
-      run: |
-        pip install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  package:
+    name: Verify distributions
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
 
-    #- name: Format with black
-    #  run: |
-    #    pip install black
-    #    # format directory
-    #    black MultiTrain/ --check
+    steps:
+      - uses: actions/checkout@v4
 
-    - name: Test with pytest
-      run: |
-        pip install -e .
-        pip install pytest
-        python -m pytest --import-mode=append MultiTrain/test/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Build and validate metadata
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Verify wheel contents
+        run: >-
+          python -c "import glob, zipfile;
+          wheel=glob.glob('dist/*.whl')[0];
+          names=zipfile.ZipFile(wheel).namelist();
+          assert not any('/test/' in name for name in names), names"
+
+      - name: Install and import the wheel
+        run: |
+          python -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import MultiTrain; print(MultiTrain.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

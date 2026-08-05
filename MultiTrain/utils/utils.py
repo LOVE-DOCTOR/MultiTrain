@@ -91,31 +91,6 @@ from sklearn.exceptions import FitFailedWarning, NotFittedError
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# Patch only estimators MultiTrain can accelerate.  Patching every sklearn
-# entry also replaces train_test_split, whose sklearnex implementation does
-# not preserve pandas DataFrame behavior in the supported dependency version.
-_CLASSIFIER_ACCELERATED_PATCHES = [
-    "ridge",
-    "svc",
-    "nusvc",
-    "logisticregression",
-    "kneighborsclassifier",
-    "extratreesclassifier",
-    "randomforestclassifier",
-]
-_REGRESSOR_ACCELERATED_PATCHES = [
-    "ridge",
-    "elasticnet",
-    "lasso",
-    "svr",
-    "nusvr",
-    "linearregression",
-    "kneighborsregressor",
-    "extratreesregressor",
-    "randomforestregressor",
-]
-
-
 def _models_classifier(
     random_state=None,
     n_jobs=None,
@@ -153,10 +128,6 @@ def _models_classifier(
     if not isinstance(device, str) or not device:
         raise MultiTrainTypeError("device must be a non-empty string")
 
-    if use_gpu and platform.system() != "Darwin":
-        from sklearnex import patch_sklearn
-        patch_sklearn(name=_CLASSIFIER_ACCELERATED_PATCHES)
-        
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 100
@@ -226,7 +197,9 @@ def _models_classifier(
     
     if use_gpu and platform.system() != "Darwin":
         models_dict[CatBoostClassifier.__name__].set_params(task_type='GPU', devices=device)
-        models_dict[XGBClassifier.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
+        models_dict[XGBClassifier.__name__].set_params(
+            tree_method='hist', device=f'cuda:{device}'
+        )
 
     return models_dict
 
@@ -268,10 +241,6 @@ def _models_regressor(
     if not isinstance(device, str) or not device:
         raise MultiTrainTypeError("device must be a non-empty string")
 
-    if use_gpu and platform.system() != "Darwin":
-        from sklearnex import patch_sklearn
-        patch_sklearn(name=_REGRESSOR_ACCELERATED_PATCHES)
-        
     models_dict = {
         LinearRegression.__name__: LinearRegression(n_jobs=n_jobs if n_jobs is not None else 1),
         Ridge.__name__: Ridge(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
@@ -290,8 +259,12 @@ def _models_regressor(
             max_iter=None,
             n_jobs=n_jobs if n_jobs is not None else 1,
         ),
-        BayesianRidge.__name__: BayesianRidge(n_iter=max_iter if max_iter is not None else 300),
-        ARDRegression.__name__: ARDRegression(n_iter=max_iter if max_iter is not None else 300),
+        BayesianRidge.__name__: BayesianRidge(
+            max_iter=max_iter if max_iter is not None else 300
+        ),
+        ARDRegression.__name__: ARDRegression(
+            max_iter=max_iter if max_iter is not None else 300
+        ),
         HuberRegressor.__name__: HuberRegressor(max_iter=max_iter if max_iter is not None else 100),
         TheilSenRegressor.__name__: TheilSenRegressor(random_state=random_state, max_iter=max_iter if max_iter is not None else 300),
         RANSACRegressor.__name__: RANSACRegressor(random_state=random_state, max_trials=max_iter if max_iter is not None else 100),
@@ -353,7 +326,9 @@ def _models_regressor(
     
     if use_gpu and platform.system() != "Darwin":
         models_dict[CatBoostRegressor.__name__].set_params(task_type='GPU', devices=device)
-        models_dict[XGBRegressor.__name__].set_params(tree_method='gpu_hist', predictor='gpu_predictor')
+        models_dict[XGBRegressor.__name__].set_params(
+            tree_method='hist', device=f'cuda:{device}'
+        )
 
     return models_dict
 
@@ -1001,12 +976,9 @@ def _fit_pred(
     
     start = time.time()
 
-    if use_gpu and platform.system() != 'Darwin':
-        from sklearnex import config_context
-        with config_context(target_offload=f"gpu:{device}"):
-            current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
-    else:
-        current_model, current_prediction = _sub_fit(current_model, X_train, y_train, X_test, pca_scaler)    
+    current_model, current_prediction = _sub_fit(
+        current_model, X_train, y_train, X_test, pca_scaler
+    )
     
     end = time.time() - start
     
@@ -1156,12 +1128,9 @@ def _fit_pred_text(
             ),
             model,
         )
-        if use_gpu and platform.system() != 'Darwin':
-            from sklearnex import config_context
-            with config_context(target_offload=f"gpu:{device}"):
-                pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
-        else:
-            pipeline, predictions = _sub_fit(pipeline, X_train, y_train, X_test, pca)
+        pipeline, predictions = _sub_fit(
+            pipeline, X_train, y_train, X_test, pca
+        )
             
     end = time.time() - start
         

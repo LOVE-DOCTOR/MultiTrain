@@ -1,3 +1,97 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=80.9", "wheel>=0.45"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "MultiTrain"
+dynamic = ["version"]
+description = "Train and compare multiple classification and regression models through one consistent API."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Shittu Samson", email = "tunexo885@gmail.com" },
+]
+maintainers = [
+    { name = "Shittu Samson", email = "tunex885@gmail.com" },
+]
+keywords = [
+    "automl",
+    "classification",
+    "machine-learning",
+    "model-comparison",
+    "regression",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "catboost>=1.2.10,<2",
+    "lightgbm>=4.7.0,<5",
+    "numpy>=2.2.6,<3",
+    "pandas>=2.3.3,<4",
+    "scikit-learn>=1.7.2,<2",
+    "tqdm>=4.70.0,<5",
+    "xgboost>=3.0.5,<4",
+]
+
+[project.optional-dependencies]
+notebook = [
+    "ipywidgets>=8.1.8,<9",
+    "jupyter>=1.1.1,<2",
+    "seaborn>=0.13.2,<0.14",
+]
+dev = [
+    "build>=1.5.0,<2",
+    "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
+    "ruff>=0.16.1,<0.17",
+    "twine>=7.0.0,<8",
+]
+
+[project.urls]
+Changelog = "https://github.com/LOVE-DOCTOR/MultiTrain/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/LOVE-DOCTOR/MultiTrain#readme"
+Homepage = "https://github.com/LOVE-DOCTOR/MultiTrain"
+Issues = "https://github.com/LOVE-DOCTOR/MultiTrain/issues"
+Repository = "https://github.com/LOVE-DOCTOR/MultiTrain.git"
+
+[tool.setuptools.dynamic]
+version = { attr = "MultiTrain.__version__.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["MultiTrain*"]
+exclude = ["MultiTrain.test*"]
+
+[tool.pytest.ini_options]
+testpaths = ["MultiTrain/test"]
+addopts = ["-ra"]
+
+[tool.coverage.run]
+branch = true
+source = ["MultiTrain"]
+omit = ["MultiTrain/test/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

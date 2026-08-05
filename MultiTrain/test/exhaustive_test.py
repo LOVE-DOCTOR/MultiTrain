@@ -1,9 +1,6 @@
-from contextlib import contextmanager
-
 import numpy as np
 import pandas as pd
 import pytest
-import sklearnex
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -131,8 +128,8 @@ def test_model_factory_defaults_for_every_configurable_estimator():
         "ElasticNet": ("max_iter", 1000),
         "ElasticNetCV": ("max_iter", 1000),
         "OrthogonalMatchingPursuitCV": ("max_iter", None),
-        "BayesianRidge": ("n_iter", 300),
-        "ARDRegression": ("n_iter", 300),
+        "BayesianRidge": ("max_iter", 300),
+        "ARDRegression": ("max_iter", 300),
         "HuberRegressor": ("max_iter", 100),
         "TheilSenRegressor": ("max_iter", 300),
         "RANSACRegressor": ("max_trials", 100),
@@ -164,16 +161,14 @@ def test_model_factory_defaults_for_every_configurable_estimator():
 def test_model_factories_propagate_gpu_settings(
     monkeypatch, factory, catboost_name, xgboost_name
 ):
-    patched = []
     monkeypatch.setattr(utils.platform, "system", lambda: "Windows")
-    monkeypatch.setattr(sklearnex, "patch_sklearn", lambda *a, **k: patched.append(True))
 
     models = factory(use_gpu=True, device="2", max_iter=2)
 
-    assert patched
     assert models[catboost_name].get_param("task_type") == "GPU"
     assert models[catboost_name].get_param("devices") == "2"
-    assert models[xgboost_name].get_params()["tree_method"] == "gpu_hist"
+    assert models[xgboost_name].get_params()["tree_method"] == "hist"
+    assert models[xgboost_name].get_params()["device"] == "cuda:2"
 
 
 def test_model_factories_skip_gpu_patch_on_macos(monkeypatch):
@@ -388,17 +383,8 @@ def test_sub_fit_covers_pca_failure_and_reraise_paths():
         utils._sub_fit(LinearRegression(), [1, 2], y_train[:2], [[3]], False)
 
 
-def test_fit_pred_uses_gpu_context_when_requested(monkeypatch):
-    calls = []
-
-    @contextmanager
-    def fake_context(**kwargs):
-        calls.append(kwargs)
-        yield
-
-    monkeypatch.setattr(utils.platform, "system", lambda: "Windows")
-    monkeypatch.setattr(sklearnex, "config_context", fake_context)
-    utils._fit_pred(
+def test_fit_pred_accepts_gpu_options_for_models_that_manage_their_own_device():
+    _, predictions, _ = utils._fit_pred(
         LogisticRegression(),
         ["LogisticRegression"],
         0,
@@ -409,7 +395,7 @@ def test_fit_pred_uses_gpu_context_when_requested(monkeypatch):
         use_gpu=True,
         device="3",
     )
-    assert calls == [{"target_offload": "gpu:3"}]
+    assert predictions.tolist() == [0, 1]
 
 
 def test_calculate_metric_handles_average_nan_and_metric_errors():
@@ -485,16 +471,7 @@ def test_fit_pred_text_validates_every_input():
     assert len(prediction) == 2
 
 
-def test_fit_pred_text_dense_gpu_fallback_uses_requested_device(monkeypatch):
-    calls = []
-
-    @contextmanager
-    def fake_context(**kwargs):
-        calls.append(kwargs)
-        yield
-
-    monkeypatch.setattr(utils.platform, "system", lambda: "Windows")
-    monkeypatch.setattr(sklearnex, "config_context", fake_context)
+def test_fit_pred_text_dense_fallback_accepts_gpu_options():
     config = {
         "ngram_range": (1, 1),
         "encoding": "utf-8",
@@ -514,7 +491,6 @@ def test_fit_pred_text_dense_gpu_fallback_uses_requested_device(monkeypatch):
         device="4",
     )
     assert not pd.isna(predictions).any()
-    assert calls == [{"target_offload": "gpu:4"}]
 
 
 def test_display_table_all_sorting_and_validation_paths():
@@ -586,15 +562,9 @@ def test_regressor_constructor_validates_every_field(kwargs):
 
 
 def test_gpu_constructor_paths_and_subclasses(monkeypatch):
-    calls = []
-    monkeypatch.setattr(sklearnex, "patch_sklearn", lambda *a, **k: calls.append(k))
     monkeypatch.setattr("MultiTrain.classification.classification_models.platform.system", lambda: "Windows")
-    monkeypatch.setattr("MultiTrain.regression.regression_models.platform.system", lambda: "Windows")
     assert MultiClassifier(use_gpu=True).use_gpu
     assert MultiRegressor(use_gpu=True).use_gpu
-    assert len(calls) == 2
-    assert all(not call.get("global_patch", False) for call in calls)
-    assert all("train_test_split" not in call["name"] for call in calls)
     classifier_subclass = subMultiClassifier()
     regressor_subclass = subMultiRegressor()
     assert isinstance(classifier_subclass, MultiClassifier)
@@ -616,9 +586,8 @@ def test_gpu_constructor_paths_and_subclasses(monkeypatch):
         subMultiRegressor(device=1)
 
 
-def test_gpu_constructors_skip_patch_on_macos(monkeypatch):
+def test_gpu_constructors_remain_valid_on_macos(monkeypatch):
     monkeypatch.setattr("MultiTrain.classification.classification_models.platform.system", lambda: "Darwin")
-    monkeypatch.setattr("MultiTrain.regression.regression_models.platform.system", lambda: "Darwin")
     assert MultiClassifier(use_gpu=True).use_gpu
     assert MultiRegressor(use_gpu=True).use_gpu
 
