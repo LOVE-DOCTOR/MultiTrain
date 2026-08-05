@@ -4,9 +4,10 @@
 
 - Modernized packaging around a single `pyproject.toml` source of truth.
 - Raised the supported runtime to Python 3.10+ and refreshed compatible dependencies.
-- Split runtime, notebook, acceleration, and development dependencies.
+- Split runtime, notebook, and development dependencies.
 - Added comprehensive validation, combinatorial, property, and mutation tests.
-- Fixed data leakage, metric handling, estimator defaults, and GPU patch isolation.
+- Fixed data leakage, metric handling, estimator defaults, and GPU configuration.
+- Aligned pandas, scikit-learn, CatBoost, LightGBM, and XGBoost usage with their documented APIs.
 - Added pull-request CI, built-artifact verification, and trusted PyPI publishing.
 - Removed tests and development tools from the production wheel.
 

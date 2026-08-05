@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 import pytest
+import warnings
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import QuantileTransformer, StandardScaler
 
 from MultiTrain.classification.classification_models import (
     MultiClassifier,
@@ -74,12 +75,14 @@ def test_model_factories_apply_defaults_and_requested_values():
     assert classifiers["LogisticRegression"].max_iter == 11
     assert classifiers["RandomForestClassifier"].n_jobs == 2
     assert classifiers["CatBoostClassifier"].get_param("task_type") is None
+    assert classifiers["CatBoostClassifier"].get_param("random_seed") == 7
     assert classifiers["XGBClassifier"].get_params()["tree_method"] is None
     assert regressors["Ridge"].max_iter == 11
     assert regressors["LinearRegression"].n_jobs == 2
     assert regressors["OrthogonalMatchingPursuitCV"].max_iter is None
     assert regressors["OrthogonalMatchingPursuitCV"].n_jobs == 2
     assert regressors["CatBoostRegressor"].get_param("task_type") is None
+    assert regressors["CatBoostRegressor"].get_param("random_seed") == 7
     assert regressors["XGBRegressor"].get_params()["tree_method"] is None
 
 
@@ -104,7 +107,10 @@ def test_model_factory_defaults_for_every_configurable_estimator():
     for model_name, (parameter, expected) in classifier_defaults.items():
         assert classifiers[model_name].get_params()[parameter] == expected
     assert classifiers["CatBoostClassifier"].get_param("iterations") == 1000
-    assert classifiers["CatBoostClassifier"].get_param("silent") is True
+    assert classifiers["CatBoostClassifier"].get_param("verbose") is False
+    assert classifiers["CatBoostClassifier"].get_param("allow_writing_files") is False
+    assert classifiers["LGBMClassifier"].get_params()["verbosity"] == -1
+    assert "verbose" not in classifiers["XGBClassifier"].get_params()
     for model_name in [
         "LogisticRegression",
         "LogisticRegressionCV",
@@ -151,7 +157,10 @@ def test_model_factory_defaults_for_every_configurable_estimator():
     for model_name, (parameter, expected) in regressor_defaults.items():
         assert regressors[model_name].get_params()[parameter] == expected
     assert regressors["CatBoostRegressor"].get_param("iterations") == 1000
-    assert regressors["CatBoostRegressor"].get_param("silent") is True
+    assert regressors["CatBoostRegressor"].get_param("verbose") is False
+    assert regressors["CatBoostRegressor"].get_param("allow_writing_files") is False
+    assert regressors["LGBMRegressor"].get_params()["verbosity"] == -1
+    assert "verbose" not in regressors["XGBRegressor"].get_params()
 
 
 @pytest.mark.parametrize("factory,catboost_name,xgboost_name", [
@@ -216,10 +225,18 @@ def test_non_auto_encoder_validation_allows_complete_manual_mapping():
 def test_fill_missing_values_handles_numeric_categorical_and_all_null():
     numeric = pd.DataFrame({"value": [1.0, np.nan]})
     categorical = pd.DataFrame({"value": ["a", None, "a"]})
+    nullable_string = pd.DataFrame(
+        {"value": pd.Series(["a", None, "a"], dtype="string")}
+    )
     all_null = pd.DataFrame({"value": pd.Series([None, None], dtype="object")})
 
     assert utils._fill_missing_values(numeric, "value").tolist() == [1.0, 0.0]
     assert utils._fill_missing_values(categorical, "value").tolist() == ["a", "a", "a"]
+    assert utils._fill_missing_values(nullable_string, "value").tolist() == [
+        "a",
+        "a",
+        "a",
+    ]
     assert utils._fill_missing_values(all_null, "value").tolist() == ["", ""]
 
 
@@ -371,6 +388,13 @@ def test_sub_fit_covers_pca_failure_and_reraise_paths():
     )
     assert len(pipeline.steps) == 3 and len(prediction) == 1
 
+    quantile_pipeline, _ = utils._sub_fit(
+        LinearRegression(), X_train, y_train, X_test, QuantileTransformer()
+    )
+    assert quantile_pipeline.named_steps["QuantileTransformer"].n_quantiles == len(
+        X_train
+    )
+
     pipeline, prediction = utils._sub_fit(
         BrokenEstimator(), X_train, y_train, X_test, False
     )
@@ -406,6 +430,13 @@ def test_calculate_metric_handles_average_nan_and_metric_errors():
         utils.precision_score, [0, 1, 2], [0, 1, 1], average="weighted"
     )
     assert 0 <= weighted <= 1
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        undefined_precision = utils._calculate_metric(
+            utils.precision_score, [0, 0], [0, 0]
+        )
+    assert undefined_precision == 0
+    assert not captured
 
 
 def test_metrics_reject_invalid_metric_type_and_custom_metric_type():

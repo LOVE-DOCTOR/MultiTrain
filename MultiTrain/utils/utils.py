@@ -7,6 +7,7 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.base import clone
 from sklearn.decomposition import PCA
 from MultiTrain.errors.errors import *
 
@@ -75,7 +76,7 @@ from sklearn.naive_bayes import BernoulliNB, ComplementNB, GaussianNB, Multinomi
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import FunctionTransformer, Pipeline, make_pipeline
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, QuantileTransformer
 from sklearn.svm import LinearSVC, NuSVC, SVC, SVR, LinearSVR, NuSVR
 from sklearn.tree import (
     DecisionTreeClassifier,
@@ -83,13 +84,29 @@ from sklearn.tree import (
     ExtraTreeClassifier,
     ExtraTreeRegressor,
 )
-from dataclasses import dataclass
 from xgboost import XGBClassifier, XGBRegressor
-
-from sklearn.exceptions import FitFailedWarning, NotFittedError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+
+def _is_categorical_dtype(dtype):
+    """Recognize pandas object, string, and categorical extension dtypes."""
+    return (
+        pd.api.types.is_object_dtype(dtype)
+        or pd.api.types.is_string_dtype(dtype)
+        or isinstance(dtype, pd.CategoricalDtype)
+    )
+
+
+def _categorical_columns(dataset):
+    """Return columns that need categorical encoding without relying on pandas defaults."""
+    return [
+        column
+        for column in dataset.columns
+        if _is_categorical_dtype(dataset[column].dtype)
+    ]
+
 
 def _models_classifier(
     random_state=None,
@@ -169,9 +186,10 @@ def _models_classifier(
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         CatBoostClassifier.__name__: CatBoostClassifier(
-            random_state=random_state,
+            random_seed=random_state,
             thread_count=n_jobs if n_jobs is not None else 1,
-            silent=True,
+            verbose=False,
+            allow_writing_files=False,
             iterations=max_iter if max_iter is not None else 1000,
         ),
         RandomForestClassifier.__name__: RandomForestClassifier(
@@ -184,13 +202,12 @@ def _models_classifier(
             random_state=random_state, max_iter=max_iter if max_iter is not None else 100
         ),
         LGBMClassifier.__name__: LGBMClassifier(
-            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbose=-1, n_estimators=max_iter if max_iter is not None else 100
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbosity=-1, n_estimators=max_iter if max_iter is not None else 100
         ),
         XGBClassifier.__name__: XGBClassifier(
             random_state=random_state,
             n_jobs=n_jobs if n_jobs is not None else 1,
             verbosity=0,
-            verbose=False,
             n_estimators=max_iter if max_iter is not None else 100,
         ),
     }
@@ -304,19 +321,19 @@ def _models_regressor(
         LinearSVR.__name__: LinearSVR(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
         NuSVR.__name__: NuSVR(max_iter=max_iter if max_iter is not None else -1),
         CatBoostRegressor.__name__: CatBoostRegressor(
-            random_state=random_state,
+            random_seed=random_state,
             thread_count=n_jobs if n_jobs is not None else 1,
-            silent=True,
+            verbose=False,
+            allow_writing_files=False,
             iterations=max_iter if max_iter is not None else 1000,
         ),
         LGBMRegressor.__name__: LGBMRegressor(
-            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbose=-1, n_estimators=max_iter if max_iter is not None else 100
+            random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, verbosity=-1, n_estimators=max_iter if max_iter is not None else 100
         ),
         XGBRegressor.__name__: XGBRegressor(
             random_state=random_state,
             n_jobs=n_jobs if n_jobs is not None else 1,
             verbosity=0,
-            verbose=False,
             n_estimators=max_iter if max_iter is not None else 100,
         ),
         HistGradientBoostingRegressor.__name__: HistGradientBoostingRegressor(
@@ -343,7 +360,7 @@ def _cat_encoder(cat_data, auto_cat_encode):
     Returns:
         pd.DataFrame: The dataset with encoded categorical columns.
     """
-    cat_columns = list(cat_data.select_dtypes(include=["object", "category"]).columns)
+    cat_columns = _categorical_columns(cat_data)
 
     if auto_cat_encode:
         le = LabelEncoder()
@@ -510,9 +527,7 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
         for columns in (manual_encode or {}).values()
         for column in columns
     }
-    categorical_columns = dataset.select_dtypes(
-        include=["object", "category"]
-    ).columns
+    categorical_columns = _categorical_columns(dataset)
     unencoded_columns = [
         column for column in categorical_columns if column not in manually_encoded
     ]
@@ -535,7 +550,7 @@ def _fill_missing_values(dataset, column):
     Returns:
         pd.Series: The column with missing values filled.
     """
-    if dataset[column].dtype in ["object", "category"]:
+    if _is_categorical_dtype(dataset[column].dtype):
         modes = dataset[column].mode()
         mode_val = modes.iloc[0] if not modes.empty else ""
         dataset[column] = dataset[column].fillna(mode_val)
@@ -706,9 +721,7 @@ def _prepare_train_test(
         )
 
     if auto_cat_encode:
-        label_columns = list(
-            train_copy.select_dtypes(include=["object", "category"]).columns
-        )
+        label_columns = _categorical_columns(train_copy)
         onehot_columns = []
     else:
         for encoding_type, columns in (manual_encode or {}).items():
@@ -927,8 +940,13 @@ def _sub_fit(
     )
     steps = [(current_model.__class__.__name__, current_model)]
     if pca_scaler:
+        fitted_scaler = clone(pca_scaler)
+        if isinstance(fitted_scaler, QuantileTransformer):
+            fitted_scaler.set_params(
+                n_quantiles=min(fitted_scaler.n_quantiles, X_train.shape[0])
+            )
         steps.insert(0, (PCA.__name__, PCA(n_components=n_components, random_state=42)))
-        steps.insert(0, (pca_scaler.__class__.__name__, pca_scaler))
+        steps.insert(0, (fitted_scaler.__class__.__name__, fitted_scaler))
 
     current_model_pipeline = None
     try:
@@ -1007,10 +1025,12 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
         if pd.isna(np.asarray(y_pred)).any():
             return np.nan
             
+        metric_kwargs = {}
+        if metric_func in {precision_score, recall_score, f1_score}:
+            metric_kwargs["zero_division"] = 0
         if average:
-            val = metric_func(y_true, y_pred, average=average)
-        else:
-            val = metric_func(y_true, y_pred)
+            metric_kwargs["average"] = average
+        val = metric_func(y_true, y_pred, **metric_kwargs)
     except Exception as e:
         val = np.nan
     return val

@@ -2,8 +2,15 @@ from dataclasses import dataclass
 from numbers import Real
 from typing import Dict, List, Optional, Union
 import numpy as np
-from sklearn.discriminant_analysis import StandardScaler
-from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, Normalizer, PowerTransformer, QuantileTransformer, RobustScaler
+from sklearn.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    StandardScaler,
+)
 
 from MultiTrain.utils.utils import (
     _cat_encoder,
