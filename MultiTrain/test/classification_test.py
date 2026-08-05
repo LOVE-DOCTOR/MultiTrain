@@ -21,9 +21,9 @@ import logging
 def sample_data():
     data = pd.DataFrame(
         {
-            "feature1": [1, 2, 3, 4, 5],
-            "feature2": ["A", "B", "A", "B", "A"],
-            "target": [0, 1, 0, 1, 0],
+            "feature1": list(range(1, 11)),
+            "feature2": ["A", "B"] * 5,
+            "target": [0, 1] * 5,
         }
     )
     target = "target"
@@ -36,10 +36,10 @@ def test_split_normal(sample_data):
     X_train, X_test, y_train, y_test = classifier.split(
         data=data, target=target, auto_cat_encode=True
     )
-    assert len(X_train) == 4
-    assert len(X_test) == 1
-    assert len(y_train) == 4
-    assert len(y_test) == 1
+    assert len(X_train) == 8
+    assert len(X_test) == 2
+    assert len(y_train) == 8
+    assert len(y_test) == 2
 
 
 def test_split_with_drop(sample_data):

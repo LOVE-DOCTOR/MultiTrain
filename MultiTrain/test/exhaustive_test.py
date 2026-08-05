@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import warnings
+from types import SimpleNamespace
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -601,7 +602,8 @@ def test_gpu_constructor_paths_and_subclasses(monkeypatch):
     assert isinstance(classifier_subclass, MultiClassifier)
     assert isinstance(regressor_subclass, MultiRegressor)
     for subclass in (classifier_subclass, regressor_subclass):
-        assert subclass.n_jobs == -1
+        assert subclass.n_jobs == 1
+        assert subclass.model_workers is None
         assert subclass.random_state == 42
         assert subclass.custom_models is None
         assert subclass.max_iter == 1000
@@ -741,7 +743,6 @@ def test_classifier_fit_covers_gpu_conversion_and_failed_train_prediction(monkey
     X_test = pd.DataFrame({"x": [4, 5]})
     y_train = pd.Series([0, 0, 1, 1])
     y_test = pd.Series([0, 1])
-    result_model = PredictingResult(fail=True)
     classifier = MultiClassifier(custom_models=["LogisticRegression"])
     classifier.use_gpu = True
 
@@ -760,8 +761,17 @@ def test_classifier_fit_covers_gpu_conversion_and_failed_train_prediction(monkey
     )
     monkeypatch.setattr(
         classification_module,
-        "_fit_pred",
-        lambda *a, **k: (result_model, np.array([0, 1]), "1ms"),
+        "run_models",
+        lambda *a, **k: [
+            SimpleNamespace(
+                name="fake",
+                test_prediction=np.array([0, 1]),
+                train_prediction=np.full(4, np.nan),
+                test_roc_auc=np.nan,
+                train_roc_auc=np.nan,
+                elapsed="1ms",
+            )
+        ],
     )
     results = classifier.fit((X_train, X_test, y_train, y_test), show_train_score=True)
     assert np.isnan(results.loc["fake", "accuracy_train"])
@@ -772,7 +782,6 @@ def test_regressor_fit_handles_failed_train_prediction(monkeypatch):
     X_test = pd.DataFrame({"x": [4, 5]})
     y_train = pd.Series([0.0, 1.0, 2.0, 3.0])
     y_test = pd.Series([4.0, 5.0])
-    result_model = PredictingResult(fail=True)
     regressor = MultiRegressor(custom_models=["LinearRegression"])
     monkeypatch.setattr(
         regression_module,
@@ -788,8 +797,15 @@ def test_regressor_fit_handles_failed_train_prediction(monkeypatch):
     )
     monkeypatch.setattr(
         regression_module,
-        "_fit_pred",
-        lambda *a, **k: (result_model, np.array([4.0, 5.0]), "1ms"),
+        "run_models",
+        lambda *a, **k: [
+            SimpleNamespace(
+                name="fake",
+                test_prediction=np.array([4.0, 5.0]),
+                train_prediction=np.full(4, np.nan),
+                elapsed="1ms",
+            )
+        ],
     )
     results = regressor.fit((X_train, X_test, y_train, y_test), show_train_score=True)
     assert np.isnan(results.loc["fake", "mean_squared_error_train"])

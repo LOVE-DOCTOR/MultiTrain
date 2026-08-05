@@ -27,26 +27,6 @@ CLASSIFIER_NAMES = list(utils._models_classifier(max_iter=20))
 REGRESSOR_NAMES = list(utils._models_regressor(max_iter=20))
 
 
-class QuietRange:
-    """Small tqdm-compatible iterator so exhaustive tests remain readable."""
-
-    def __init__(self, length):
-        self._range = range(length)
-
-    def __iter__(self):
-        return iter(self._range)
-
-    def set_postfix_str(self, _value):
-        return None
-
-
-@pytest.fixture(autouse=True)
-def quiet_progress(monkeypatch):
-    for module in (classification_module, regression_module):
-        monkeypatch.setattr(module, "trange", lambda length, **_kwargs: QuietRange(length))
-        monkeypatch.setattr(module, "tqdm", lambda iterable, **_kwargs: iterable)
-
-
 def _classification_frame(rows=80):
     rng = np.random.default_rng(711)
     values = rng.uniform(0.1, 4.0, size=(rows, 5))

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from numbers import Real
+import platform
 from typing import Dict, List, Optional, Union
 import numpy as np
 from sklearn.preprocessing import (
@@ -17,16 +18,15 @@ from MultiTrain.utils.utils import (
     _metrics,
     _calculate_metric,
     _display_table,
-    _fit_pred,
     _handle_missing_values,
     _manual_encoder,
     _non_auto_cat_encode_error,
     _prep_model_names_list,
     _prepare_train_test,
 )
+from MultiTrain.utils.execution import prepare_tabular_features, run_models
 
 import pandas as pd
-from tqdm.auto import trange, tqdm
 from sklearn.model_selection import train_test_split
 from MultiTrain.errors.errors import *
 
@@ -47,12 +47,13 @@ SUPPORTED_SCALERS = {
 
 @dataclass
 class MultiRegressor:
-    n_jobs: int = -1
+    n_jobs: int = 1
     random_state: int = 42
     custom_models: Optional[list] = None
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
+    model_workers: Optional[int] = None
     
     def __post_init__(self):
         type_validations = {
@@ -86,6 +87,15 @@ class MultiRegressor:
             raise MultiTrainTypeError("Every custom model name must be a string")
         if self.n_jobs == 0:
             raise MultiTrainTypeError("n_jobs cannot be zero")
+        if self.model_workers is not None and (
+            not isinstance(self.model_workers, int)
+            or isinstance(self.model_workers, bool)
+            or self.model_workers == 0
+            or self.model_workers < -1
+        ):
+            raise MultiTrainTypeError(
+                "model_workers must be None, -1, or a positive integer"
+            )
         if self.max_iter <= 0:
             raise MultiTrainTypeError("max_iter must be positive")
         if not self.device:
@@ -229,6 +239,7 @@ class MultiRegressor:
         sort: str = None,
         pca: Union[bool, str] = False,
         return_best_model: Optional[str] = None, # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
+        n_components: Optional[Union[int, float]] = None,
     ):  
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
@@ -238,10 +249,12 @@ class MultiRegressor:
         - custom_metric (str, optional): A custom metric to evaluate the models. Must be a valid sklearn metric.
         - show_train_score (bool, optional): If True, also calculates and displays training scores.
         - sort (str, optional): Metric name to sort the final results. Examples include 'mean_squared_error', 'r2_score', etc.
+        - pca (bool or str, optional): Scaler to apply before the shared PCA transformation.
         - return_best_model (str, optional): The metric to return the best model by, e.g., 'mean_squared_error'.
+        - n_components (int or float, optional): Component count or explained-variance target for PCA.
 
         Returns:
-        - final_dataframe: A DataFrame containing the evaluation results of the models.
+        - final_dataframe: A DataFrame containing measurements for every selected model.
         """
         
         if custom_metric is not None and not isinstance(custom_metric, str):
@@ -257,7 +270,7 @@ class MultiRegressor:
         if return_best_model is not None and not isinstance(return_best_model, str):
             raise MultiTrainTypeError("return_best_model must be a string or None")
 
-        # The historical pca argument selects the scaler placed before each model.
+        # The historical pca argument selects the scaler used before PCA.
         if pca:
             if pca not in SUPPORTED_SCALERS:
                 raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
@@ -265,61 +278,53 @@ class MultiRegressor:
         else:
             pca_scaler = False
         
+        gpu_enabled = self.use_gpu and platform.system() != "Darwin"
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
             self.custom_models, "regression", self.max_iter,
-            self.use_gpu, self.device,
+            gpu_enabled, self.device,
         )
 
-        # Training the full model catalog can take a while, so keep progress visible.
-        bar = trange(
-            len(model_list),
-            desc="Training Models",
-            leave=False,
-            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}, {postfix}]",
+        prepared_train, prepared_test = prepare_tabular_features(
+            X_train, X_test, pca_scaler, n_components
+        )
+        completed = run_models(
+            model_names,
+            model_list,
+            prepared_train,
+            y_train,
+            prepared_test,
+            y_test,
+            show_train_score,
+            "regression",
+            self.model_workers,
+            self.n_jobs,
+            use_gpu=gpu_enabled,
         )
 
         results = {}
-        for idx in bar:
-            bar.set_postfix_str(f"Model: {model_names[idx]}")
-            current_model = model_list[idx]
-
-            # Fit through the shared pipeline path so preprocessing stays consistent.
-            current_model, current_prediction, end = _fit_pred(
-                current_model, model_names, idx, X_train, y_train, X_test,
-                pca_scaler, self.use_gpu, self.device
-            )
-
-            train_prediction = None
-            if show_train_score:
-                try:
-                    train_prediction = current_model.predict(X_train)
-                except Exception:
-                    train_prediction = np.full(len(y_train), np.nan)
-
+        for completed_model in completed:
             metric_results = {}
-            # Score every model the same way, including optional training-set scores.
-            for metric_name, metric_func in tqdm(
-                _metrics(custom_metric, 'regression').items(),
-                desc=f"Evaluating {model_names[idx]}",
-                leave=False,
-            ):
+            for metric_name, metric_func in _metrics(
+                custom_metric, "regression"
+            ).items():
                 if show_train_score:
                     metric_results[f"{metric_name}_train"] = _calculate_metric(
                         metric_func,
                         y_train,
-                        train_prediction,
+                        completed_model.train_prediction,
                     )
-
                 metric_results[metric_name] = _calculate_metric(
                     metric_func,
                     y_test,
-                    current_prediction,
+                    completed_model.test_prediction,
                 )
 
-            
             metric_results['root_mean_squared_error'] = np.sqrt(metric_results['mean_squared_error'])
-            results[model_names[idx]] = {**metric_results, "Time": end}
+            results[completed_model.name] = {
+                **metric_results,
+                "Time": completed_model.elapsed,
+            }
     
         # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
@@ -342,8 +347,16 @@ class MultiRegressor:
 
 @dataclass
 class subMultiRegressor(MultiRegressor):
-    def __init__(self, n_jobs: int = -1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0'):
-        super().__init__(n_jobs, random_state, custom_models, max_iter, use_gpu, device)
+    def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+        super().__init__(
+            n_jobs=n_jobs,
+            random_state=random_state,
+            custom_models=custom_models,
+            max_iter=max_iter,
+            use_gpu=use_gpu,
+            device=device,
+            model_workers=model_workers,
+        )
         
     def __post_init__(self):
         if not isinstance(self.use_gpu, bool):

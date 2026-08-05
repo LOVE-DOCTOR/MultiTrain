@@ -3,13 +3,17 @@
 ## 1.2.0
 
 - Modernized packaging around a single `pyproject.toml` source of truth.
-- Raised the supported runtime to Python 3.10+ and refreshed compatible dependencies.
+- Added tested Python 3.8 through 3.13 support with runtime-specific dependency constraints.
 - Split runtime, notebook, and development dependencies.
 - Added comprehensive validation, combinatorial, property, and mutation tests.
 - Fixed data leakage, metric handling, estimator defaults, and GPU configuration.
 - Aligned pandas, scikit-learn, CatBoost, LightGBM, and XGBoost usage with their documented APIs.
 - Added pull-request CI, built-artifact verification, and trusted PyPI publishing.
 - Removed tests and development tools from the production wheel.
+- Added bounded model-level process parallelism while keeping every selected model on the full training dataset.
+- Shared PCA, scaling, and text vectorization across model runs to avoid repeated preprocessing.
+- Added explicit PCA component sizing, dense-text memory limits, cached predictions, and sequential GPU scheduling.
+- Added the required macOS OpenMP runtime setup to CI and deployment instructions.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression

@@ -5,7 +5,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/love-doctor/train-with-models)
 ![GitHub contributors](https://img.shields.io/github/contributors/love-doctor/train-with-models)
 [![Downloads](https://pepy.tech/badge/multitrain)](https://pepy.tech/project/multitrain)
-[![python version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blue)
+[![python version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?&logo=windows&logoColor=white)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-E95420?&logo=ubuntu&logoColor=white)
 ![macOS](https://img.shields.io/badge/mac%20os-0078D6?&logo=macos&logoColor=white)
@@ -36,7 +36,7 @@ MultiTrain is a python module for machine learning, built with the aim of assist
 
 # REQUIREMENTS
 
-MultiTrain requires Python 3.10 or newer. The Python 3.10 development environment currently uses these mutually compatible versions:
+MultiTrain supports Python 3.8 through Python 3.13. Pip selects the newest compatible dependency set for the Python version being used. The Python 3.10 development environment currently uses these versions:
 
 - numpy==2.2.6
 - pandas==2.3.3
@@ -44,11 +44,17 @@ MultiTrain requires Python 3.10 or newer. The Python 3.10 development environmen
 - xgboost==3.0.5
 - catboost==1.2.10
 - lightgbm==4.7.0
+- joblib==1.5.3
 - tqdm==4.70.0
 
 These packages are installed automatically when you install MultiTrain. Jupyter, ipywidgets, and seaborn are available through the optional notebook dependencies if you are working through the examples in a notebook.
 
 # INSTALLATION
+On macOS, install the OpenMP runtime required by LightGBM and XGBoost first:
+```commandline
+brew install libomp
+```
+
 Install MultiTrain using:
 ```commandline
 pip install MultiTrain
@@ -70,7 +76,8 @@ The MultiClassifier is a combination of many classifier estimators, each of whic
 
 from MultiTrain import MultiClassifier
 train = MultiClassifier(
-    n_jobs=-1,          # Use all available CPU cores
+    n_jobs=1,           # Give each model one CPU thread
+    model_workers=4,    # Train up to four different models at the same time
     random_state=42,    # Ensure reproducibility
     max_iter=1000,      # Maximum number of iterations for models that require it
     custom_models=['LogisticRegression', 'GradientBoostingClassifier']  # Leave this as None to train every available classifier.
@@ -162,7 +169,7 @@ split = train.split(
 ### FIT CLASSIFIER
 Now that the dataset has been split using the split method, it is time to train on it using the fit method.
 Instead of the standard training in scikit-learn, catboost, or xgboost, this fit method integrates almost all available machine learning algorithms and trains them all on the dataset.
-It then returns a pandas dataframe including information such as which algorithm is overfitting, which algorithm has the greatest accuracy, and so on. A basic code example for using the fit function is shown below.
+It then returns a pandas dataframe containing the assessment metrics for each model. A basic code example for using the fit function is shown below.
 ```python
 import pandas as pd
 from MultiTrain import MultiClassifier
@@ -247,6 +254,8 @@ fit = train.fit(datasplits=split,
 
 Set `text=True` when you create `MultiClassifier`, not when you call `fit`. Your feature data must contain exactly one text column for this mode.
 
+The vectorizer is fitted once and the same feature matrix is shared by every selected model. Models such as `GaussianNB` need a dense matrix, so MultiTrain checks the allocation before creating it. The default limit is 1 GiB; change `max_dense_bytes` only when you know the machine has enough memory.
+
 #### Returning only the best classifier
 Use `return_best_model` when you only need the strongest result for one metric. Do not pass `sort` in the same call because these two options return different kinds of results.
 
@@ -257,16 +266,37 @@ best_model = train.fit(
 )
 ```
 
-#### Scaling features before training
-The `pca` argument keeps its original name for API compatibility, but it selects a scaler to place before each model. The supported values are `StandardScaler`, `MinMaxScaler`, `MaxAbsScaler`, `RobustScaler`, `Normalizer`, `QuantileTransformer`, and `PowerTransformer`.
+#### Scaling features and reducing dimensions before training
+The `pca` argument keeps its original name for API compatibility. It chooses the scaler used before PCA, and that transformation is fitted once on the training data and shared by every model. The supported values are `StandardScaler`, `MinMaxScaler`, `MaxAbsScaler`, `RobustScaler`, `Normalizer`, `QuantileTransformer`, and `PowerTransformer`.
 
 ```python
 fit = train.fit(
     datasplits=split,
     sort='accuracy',
     pca='StandardScaler',
+    n_components=20,  # Keep 20 principal components.
 )
 ```
+
+#### Training large datasets
+MultiTrain parallelizes across models because the models are independent. `model_workers` controls how many models train in separate processes, while `n_jobs` controls the threads used inside each model. Keeping `n_jobs=1` is usually the best starting point when `model_workers` is greater than one because it prevents every model from trying to use every CPU core at the same time.
+
+```python
+train = MultiClassifier(
+    n_jobs=1,
+    model_workers=4,
+    custom_models=[
+        'LogisticRegression',
+        'RandomForestClassifier',
+        'LGBMClassifier',
+        'XGBClassifier',
+    ],
+)
+
+results = train.fit(datasplits=split, show_train_score=True)
+```
+
+Leave `model_workers=None` if you want MultiTrain to choose a conservative process count. Setting `model_workers=-1` allows one worker per available CPU allocation, so watch memory use on large datasets. If you intentionally set `n_jobs=-1`, models run one after another to avoid nested parallelism. GPU-backed CatBoost and XGBoost models also run one at a time so they do not compete for the same device.
 
 ## MULTIREGRESSOR
 
@@ -276,7 +306,8 @@ The MultiRegressor is a combination of many regression estimators, each of which
 
 from MultiTrain import MultiRegressor
 train = MultiRegressor(
-    n_jobs=-1,          # Use all available CPU cores
+    n_jobs=1,           # Give each model one CPU thread
+    model_workers=4,    # Train up to four different models at the same time
     random_state=42,    # Ensure reproducibility
     max_iter=1000,      # Maximum number of iterations for models that require it
     custom_models=['LinearRegression', 'GradientBoostingRegressor']  # Leave this as None to train every available regressor.
@@ -362,7 +393,7 @@ best_model = train.fit(
 
 # DEPLOYMENT
 
-The release files are built from `pyproject.toml`, so there is only one source of package metadata. The commands below use Python 3.10, which is also the runtime used to verify this release.
+The release files are built from `pyproject.toml`, so there is only one source of package metadata. The commands below use Python 3.10 for the release build, while CI tests Python 3.8 through Python 3.13.
 
 Start by creating a clean development environment:
 
@@ -370,7 +401,9 @@ Start by creating a clean development environment:
 python3.10 -m venv .venv
 ```
 
-Activate it with `.venv\\Scripts\\activate` on Windows or `source .venv/bin/activate` on Ubuntu and macOS. Then install the development and notebook tools:
+Activate it with `.venv\\Scripts\\activate` on Windows or `source .venv/bin/activate` on Ubuntu and macOS. On macOS, install the OpenMP runtime shown in the [installation instructions](#installation) before continuing.
+
+Then install the development and notebook tools:
 
 ```commandline
 python -m pip install --upgrade pip
