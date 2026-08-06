@@ -34,6 +34,7 @@ ENV/
 .env
 .venv
 .venv310/
+.venv-docs/
 MultiTrainVenv/
 
 # PyInstaller
@@ -83,6 +84,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/auto_examples/
+docs/sg_execution_times.rst
 
 # PyBuilder
 target/

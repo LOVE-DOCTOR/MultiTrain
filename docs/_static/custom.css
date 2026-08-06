@@ -1,0 +1,42 @@
+:root {
+  --multitrain-blue: #2563eb;
+  --multitrain-indigo: #4f46e5;
+  --multitrain-ink: #172033;
+}
+
+.bd-header {
+  border-bottom: 1px solid var(--pst-color-border);
+}
+
+.multitrain-hero {
+  padding: 2.5rem 0 1.25rem;
+}
+
+.multitrain-hero h1 {
+  color: var(--multitrain-ink);
+  font-size: clamp(2.5rem, 7vw, 4.75rem);
+  letter-spacing: -0.04em;
+  margin-bottom: 0.5rem;
+}
+
+html[data-theme="dark"] .multitrain-hero h1 {
+  color: #f8fafc;
+}
+
+.multitrain-tagline {
+  font-size: 1.25rem;
+  max-width: 48rem;
+}
+
+.sd-card {
+  border-radius: 0.75rem;
+}
+
+.sd-card-title {
+  color: var(--multitrain-indigo);
+  font-weight: 700;
+}
+
+table.docutils {
+  width: 100%;
+}

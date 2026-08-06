@@ -5,7 +5,7 @@ and execution live in ``MultiTrain.utils`` so classification and regression use
 the same rules without duplicating expensive work.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Real
 import platform
 from typing import Dict, Optional, Union
@@ -35,6 +35,7 @@ from MultiTrain.utils.utils import (
     _validate_supervised_dataset,
 )
 from MultiTrain.utils.execution import (
+    build_run_artifacts,
     prepare_tabular_features,
     prepare_text_features,
     run_models,
@@ -65,17 +66,29 @@ class MultiClassifier:
 
     ``n_jobs`` controls threads inside an estimator, while ``model_workers``
     controls how many different estimators run at once. Text mode shares one
-    vectorizer; tabular mode can share a scaler and PCA transform.
+    vectorizer; tabular mode can share a scaler and PCA transform. Built-in
+    models can be selected with a list of names, or ``custom_models`` can map
+    user-chosen names to estimator objects. ``model_params`` applies validated
+    overrides after that selection. A completed fit retains its estimators,
+    predictions, probabilities, warnings, and failures on attributes ending in
+    an underscore.
     """
 
     n_jobs: int = 1
     random_state: int = 42
-    custom_models: Optional[list] = None
+    custom_models: Optional[Union[list, dict]] = None
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
     text: bool = False
     model_workers: Optional[int] = None
+    model_params: Optional[dict] = None
+    results_: Optional[pd.DataFrame] = field(init=False, default=None, repr=False)
+    models_: dict = field(init=False, default_factory=dict, repr=False)
+    predictions_: dict = field(init=False, default_factory=dict, repr=False)
+    probabilities_: dict = field(init=False, default_factory=dict, repr=False)
+    warnings_: pd.DataFrame = field(init=False, default_factory=pd.DataFrame, repr=False)
+    failures_: pd.DataFrame = field(init=False, default_factory=pd.DataFrame, repr=False)
     
     def __post_init__(self):
         """Validate configuration before any dataset or model is allocated."""
@@ -103,15 +116,27 @@ class MultiClassifier:
                     f'got {type(param_value).__name__}. Please provide a {expected_type.__name__} value.'
                 )
                 
-        if not isinstance(self.custom_models, (list, type(None))):
+        if not isinstance(self.custom_models, (list, dict, type(None))):
             raise MultiTrainTypeError(
-                f'Invalid type for custom_models: expected a list of custom models or None, '
-                f'got {type(self.custom_models).__name__}. Please provide a list or None.'
+                f'Invalid type for custom_models: expected a list, dictionary, or None, '
+                f'got {type(self.custom_models).__name__}.'
             )
-        if self.custom_models is not None and not all(
+        if isinstance(self.custom_models, list) and not all(
             isinstance(model, str) for model in self.custom_models
         ):
             raise MultiTrainTypeError("Every custom model name must be a string")
+        if self.model_params is not None and not isinstance(self.model_params, dict):
+            raise MultiTrainTypeError("model_params must be a dictionary or None")
+        if isinstance(self.model_params, dict):
+            for model_name, parameters in self.model_params.items():
+                if not isinstance(model_name, str) or not model_name:
+                    raise MultiTrainTypeError(
+                        "Every model_params key must be a non-empty string"
+                    )
+                if not isinstance(parameters, dict):
+                    raise MultiTrainTypeError(
+                        f"Parameters for {model_name} must be provided as a dictionary"
+                    )
         if self.n_jobs == 0:
             raise MultiTrainTypeError("n_jobs cannot be zero")
         if self.model_workers is not None and (
@@ -132,6 +157,27 @@ class MultiClassifier:
             logger.warning('GPU acceleration is not supported on macOS')
             
         logger.debug('MultiTrain classifier initialized')
+
+    def _reset_fit_artifacts(self):
+        """Clear outputs from the previous run before validating a new one."""
+        self.results_ = None
+        self.models_ = {}
+        self.predictions_ = {"test": {}, "train": {}}
+        self.probabilities_ = {"test": {}, "train": {}}
+        self.warnings_ = pd.DataFrame(columns=["Model", "Category", "Message"])
+        self.failures_ = pd.DataFrame(
+            columns=["Model", "Stage", "Exception", "Message"]
+        )
+
+    def _store_fit_artifacts(self, completed, final_dataframe):
+        """Expose the estimators and cached outputs created by one fit call."""
+        artifacts = build_run_artifacts(completed)
+        self.results_ = final_dataframe
+        self.models_ = artifacts["models"]
+        self.predictions_ = artifacts["predictions"]
+        self.probabilities_ = artifacts["probabilities"]
+        self.warnings_ = artifacts["warnings"]
+        self.failures_ = artifacts["failures"]
             
     def split(
         self,
@@ -146,29 +192,46 @@ class MultiClassifier:
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
         drop: list = None,  # List of columns to drop, e.g., ['column1', 'column2']
     ):
-        """
-        Splits the dataset into training and testing sets after performing optional preprocessing steps.
+        """Create stratified training and test partitions.
 
-        How this connects to the rest of MultiTrain:
-        1. This method validates the complete source dataset.
-        2. ``train_test_split`` creates stratified train and test partitions.
-        3. ``_prepare_train_test`` learns missing-value fallbacks and category
-           mappings from the training partition only.
-        4. The returned tuple is accepted directly by ``fit`` or can be replaced
-           with an equivalent tuple created by scikit-learn.
+        The source data is validated before it is split. Missing-value rules and
+        categorical encoders are then learned from the training partition and
+        applied to the test partition, which prevents test data from influencing
+        preprocessing.
 
-        Parameters:
-        - data (Union[pd.DataFrame, str]): The input dataset or a file path to the dataset.
-        - target (str): The name of the target column.
-        - random_state (int, optional): Random state for reproducibility. Default is 42.
-        - test_size (float, optional): Proportion of the dataset to include in the test split. Default is 0.2.
-        - auto_cat_encode (bool, optional): If True, automatically encode all categorical columns. Default is False.
-        - manual_encode (dict, optional): Dictionary specifying manual encoding for columns. Default is None.
-        - fix_nan_custom (Optional[Dict], optional): Custom NaN handling instructions. Default is False.
-        - drop (list, optional): List of columns to drop from the dataset. Default is None.
+        Parameters
+        ----------
+        data : pandas.DataFrame or str
+            Source dataframe or path to a CSV file.
+        target : str
+            Name of the classification target column.
+        random_state : int, default=42
+            Seed passed to scikit-learn's train/test splitter.
+        test_size : float, default=0.2
+            Fraction of rows assigned to the test partition. It must be between
+            zero and one.
+        auto_cat_encode : bool, default=False
+            Automatically label-encode every categorical feature when true.
+        manual_encode : dict or None, default=None
+            Explicit encoding instructions. Supported keys are ``"label"`` and
+            ``"onehot"``; each value is a list of feature names.
+        fix_nan_custom : dict, False, or None, default=False
+            Per-column missing-value strategies such as
+            ``{"age": "median", "city": "mode"}``.
+        drop : list or None, default=None
+            Feature columns to remove before the split.
 
-        Returns:
-        - tuple: A tuple containing the training and testing data splits (X_train, X_test, y_train, y_test).
+        Returns
+        -------
+        tuple
+            ``(X_train, X_test, y_train, y_test)``. Classification targets are
+            stratified so each partition retains the class distribution when the
+            data contains enough samples.
+
+        Notes
+        -----
+        The returned tuple can be passed directly to :meth:`fit`. An equivalent
+        four-item tuple created with scikit-learn is also accepted by ``fit``.
         """
 
         if not isinstance(target, str) or not target:
@@ -288,33 +351,49 @@ class MultiClassifier:
         n_components: Optional[Union[int, float]] = None,
         max_dense_bytes: Optional[int] = 1024 ** 3,
     ):
+        """Fit and measure every selected classification model.
+
+        MultiTrain validates the split, prepares one shared feature representation,
+        trains each estimator on the complete training partition, and calculates
+        every result from cached predictions. Fitted models and intermediate
+        outputs remain available through the post-fit attributes.
+
+        Parameters
+        ----------
+        datasplits : tuple
+            Four items ordered as ``X_train, X_test, y_train, y_test``.
+        custom_metric : str or None, default=None
+            Name of an additional supported scalar scikit-learn metric.
+        show_train_score : bool, default=False
+            Include measurements calculated on the training partition.
+        imbalanced : bool, default=False
+            Use micro averaging for precision, recall, and F1 measurements.
+        sort : str or None, default=None
+            Result column used to order the returned dataframe.
+        pca : str or False, default=False
+            Name of the scaler applied before a shared PCA transformation. Pass
+            ``False`` to leave tabular features unchanged.
+        vectorizer : {"count", "tfidf"} or None, default=None
+            Vectorizer used when this classifier was created with ``text=True``.
+        pipeline_dict : dict or None, default=None
+            Keyword arguments forwarded to the selected text vectorizer.
+        return_best_model : str or None, default=None
+            Return only the row with the strongest value for this measurement.
+        n_components : int, float, or None, default=None
+            Number of PCA components, or an explained-variance fraction between
+            zero and one. This option is unavailable for text classification.
+        max_dense_bytes : int or None, default=1073741824
+            Maximum estimated allocation allowed when a sparse text matrix must
+            be converted to a dense matrix. ``None`` disables the guard.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Measurements for the selected models. The same dataframe is stored in
+            :attr:`results_`; fitted estimators, predictions, probabilities,
+            warnings, and failures are stored in the other post-fit attributes.
         """
-        Fits multiple models to the provided training data and evaluates them using specified metrics.
-
-        Execution flow:
-        1. ``_validate_datasplits`` rejects corrupt manual or package splits.
-        2. ``prepare_tabular_features`` or ``prepare_text_features`` creates one
-           shared representation for all selected models.
-        3. ``run_models`` fits every model and caches predictions/probabilities.
-        4. Metric helpers score those cached outputs and ``_display_table`` sorts
-           or reduces the final dataframe.
-
-        Parameters:
-        - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
-        - custom_metric (str, optional): A supported scalar scikit-learn metric name.
-        - show_train_score (bool, optional): If True, also calculates and displays training scores.
-        - imbalanced (bool, optional): If True, uses 'micro' average for precision, recall, and f1 metrics.
-        - sort (str, optional): Metric name to sort the final results. Examples include 'accuracy', 'precision', etc.
-        - pca (bool or str, optional): Scaler to apply before the shared PCA transformation.
-        - vectorizer (str, optional): Text vectorizer name, either 'count' or 'tfidf'.
-        - pipeline_dict (dict, optional): Configuration passed to the text vectorizer.
-        - return_best_model (str, optional): The metric to return the best model by, e.g., 'accuracy'.
-        - n_components (int or float, optional): Component count or explained-variance target for PCA.
-        - max_dense_bytes (int or None, optional): Maximum dense text allocation. None removes the limit.
-
-        Returns:
-        - final_dataframe: A DataFrame containing measurements for every selected model.
-        """
+        self._reset_fit_artifacts()
         if custom_metric is not None and not isinstance(custom_metric, str):
             raise MultiTrainTypeError("custom_metric must be a string or None")
         if not isinstance(show_train_score, bool):
@@ -368,7 +447,7 @@ class MultiClassifier:
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
             self.custom_models, "classification", self.max_iter,
-            gpu_enabled, self.device,
+            gpu_enabled, self.device, self.model_params,
         )
 
         # Vectorizers consume a one-dimensional sequence of documents. Unwrap
@@ -532,6 +611,7 @@ class MultiClassifier:
                 return_best_model=return_best_model,
                 task="classification",
             )
+        self._store_fit_artifacts(completed, final_dataframe)
         return final_dataframe
     
 
@@ -540,7 +620,17 @@ class MultiClassifier:
 class subMultiClassifier(MultiClassifier):
     """Backward-compatible classifier alias retained for existing users."""
 
-    def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+    def __init__(
+        self,
+        n_jobs: int = 1,
+        random_state: int = 42,
+        custom_models: Optional[Union[list, dict]] = None,
+        max_iter: int = 1000,
+        use_gpu: bool = False,
+        device: str = '0',
+        model_workers: Optional[int] = None,
+        model_params: Optional[dict] = None,
+    ):
         """Forward legacy constructor arguments to ``MultiClassifier``."""
 
         super().__init__(
@@ -551,6 +641,7 @@ class subMultiClassifier(MultiClassifier):
             use_gpu=use_gpu,
             device=device,
             model_workers=model_workers,
+            model_params=model_params,
         )
         
     def __post_init__(self):

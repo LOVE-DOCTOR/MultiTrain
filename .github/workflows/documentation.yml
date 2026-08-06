@@ -1,0 +1,69 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, v2-test]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Install MultiTrain and documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs,notebook]" -c requirements.txt
+
+      - name: Execute example notebooks
+        run: |
+          jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 classification.ipynb
+          jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 regression.ipynb
+
+      - name: Build HTML with warnings treated as errors
+        run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+
+      - name: Upload documentation artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/_build/html
+
+  deploy:
+    name: Publish documentation
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

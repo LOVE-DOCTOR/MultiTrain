@@ -770,13 +770,18 @@ def test_classifier_fit_covers_gpu_conversion_and_failed_train_prediction(monkey
                 name="fake",
                 test_prediction=np.array([0, 1]),
                 train_prediction=np.full(4, np.nan),
-                    test_roc_auc=np.nan,
-                    train_roc_auc=np.nan,
-                    test_probability=None,
-                    train_probability=None,
-                    model_classes=np.array([0, 1]),
-                    elapsed="1ms",
-                )
+                test_roc_auc=np.nan,
+                train_roc_auc=np.nan,
+                test_probability=None,
+                train_probability=None,
+                model_classes=np.array([0, 1]),
+                elapsed="1ms",
+                estimator=None,
+                warnings=(),
+                error="failed training prediction",
+                error_stage="prediction",
+                error_type="ValueError",
+            )
         ],
     )
     results = classifier.fit((X_train, X_test, y_train, y_test), show_train_score=True)
@@ -809,7 +814,14 @@ def test_regressor_fit_handles_failed_train_prediction(monkeypatch):
                 name="fake",
                 test_prediction=np.array([4.0, 5.0]),
                 train_prediction=np.full(4, np.nan),
+                test_probability=None,
+                train_probability=None,
                 elapsed="1ms",
+                estimator=None,
+                warnings=(),
+                error="failed training prediction",
+                error_stage="prediction",
+                error_type="ValueError",
             )
         ],
     )

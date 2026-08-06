@@ -15,6 +15,7 @@
 If you wish to make small changes to the codebase, your pull requests are welcome. However, for major changes or ideas on how to improve the library, please create an issue.
 # LINKS
 - [MultiTrain](#multitrain)
+- [Complete documentation](https://love-doctor.github.io/MultiTrain/)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Deployment](#deployment)
@@ -26,6 +27,7 @@ If you wish to make small changes to the codebase, your pull requests are welcom
         1. [Classifier Model Names](#classifier-model-names)
         2. [Split](#split-classifier)
         3. [Fit](#fit-classifier)
+        4. [Configuring and reusing models](#configuring-and-reusing-models)
     - [MultiRegressor](#multiregressor)
         1. [Regression Model Names](#regression-model-names)
         2. [Split](#split-regression)
@@ -305,6 +307,81 @@ results = train.fit(datasplits=split, show_train_score=True)
 ```
 
 Leave `model_workers=None` if you want MultiTrain to choose a conservative process count. Setting `model_workers=-1` allows one worker per available CPU allocation, so watch memory use on large datasets. If you intentionally set `n_jobs=-1`, models run one after another to avoid nested parallelism. GPU-backed CatBoost and XGBoost models also run one at a time so they do not compete for the same device.
+
+#### Configuring and reusing models
+
+You can change parameters on MultiTrain's built-in models without constructing them yourself. Each key in `model_params` must match one of the model names in `custom_models`. This spelling check is intentional because a parameter meant for a model that was not selected is usually a typo.
+
+```python
+from MultiTrain import MultiClassifier
+
+train = MultiClassifier(
+    custom_models=['LogisticRegression', 'RandomForestClassifier'],
+    model_params={
+        'LogisticRegression': {'C': 0.5},
+        'RandomForestClassifier': {
+            'n_estimators': 300,
+            'max_depth': 12,
+        },
+    },
+)
+
+results = train.fit(datasplits=split)
+```
+
+You can also bring estimator objects from scikit-learn or another library with the same `fit` and `predict` interface. Use a dictionary so that you choose the name shown in the results table. MultiTrain fits a copy of each estimator, leaving the original object untouched.
+
+```python
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from MultiTrain import MultiClassifier
+
+train = MultiClassifier(
+    custom_models={
+        'scaled support vector machine': make_pipeline(
+            StandardScaler(),
+            SVC(probability=True, random_state=42),
+        ),
+        'histogram gradient boosting': HistGradientBoostingClassifier(
+            max_iter=300,
+            random_state=42,
+        ),
+    },
+)
+
+results = train.fit(datasplits=split, show_train_score=True)
+```
+
+The dataframe returned by `fit` has not changed. After training, the same dataframe and the fitted outputs are also kept on the `MultiClassifier` or `MultiRegressor` instance:
+
+```python
+# The actual fitted estimator, including any preprocessing pipeline.
+fitted_model = train.models_['scaled support vector machine']
+
+# Cached predictions are separated by the data partition they came from.
+test_predictions = train.predictions_['test']['scaled support vector machine']
+train_predictions = train.predictions_['train']['scaled support vector machine']
+
+# Classification probabilities are available only when the estimator supports them.
+test_probabilities = train.probabilities_['test']['scaled support vector machine']
+
+# This is the same dataframe returned by fit.
+results_again = train.results_
+```
+
+Training warnings and failures are kept separately so a problem with one model does not hide the successful results from the others. `warnings_` contains the model name, warning category, and message. `failures_` contains the model name, the stage that failed, the exception type, and its message.
+
+```python
+if not train.warnings_.empty:
+    print(train.warnings_)
+
+if not train.failures_.empty:
+    print(train.failures_)
+```
+
+Train predictions are stored only when `show_train_score=True`, and regressors leave `probabilities_` empty because regression models do not produce class probabilities.
 
 ## MULTIREGRESSOR
 
