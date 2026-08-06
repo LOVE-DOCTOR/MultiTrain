@@ -1,116 +1,153 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+"""Public regression workflow for splitting data, training models, and scoring them.
 
-from sklearn import logger
+User-facing validation stays here, while shared preprocessing and model
+execution are delegated to the same utility modules used by classification.
+"""
+
+from dataclasses import dataclass
+from numbers import Real
+import platform
+from typing import Dict, List, Optional, Union
+import numpy as np
+from sklearn.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    StandardScaler,
+)
 
 from MultiTrain.utils.utils import (
-    _calculate_metric,
     _cat_encoder,
-    _check_custom_models,
-    _display_table,
-    _fit_pred,
-    _handle_missing_values,
-    _init_metrics,
-    _manual_encoder,
-    _models_regressor,
     _metrics,
+    _calculate_metric,
+    _display_table,
+    _handle_missing_values,
+    _manual_encoder,
     _non_auto_cat_encode_error,
-    _fit_pred_text,
     _prep_model_names_list,
+    _prepare_train_test,
+    _validate_datasplits,
+    _validate_supervised_dataset,
 )
+from MultiTrain.utils.execution import prepare_tabular_features, run_models
 
-import time
-import numpy as np
 import pandas as pd
-import plotly.express as px
-import seaborn as sns
-from tqdm.notebook import trange, tqdm
-from IPython.display import display
-from catboost import CatBoostClassifier
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-from matplotlib import pyplot as plt
-from numpy.random import randint
-from pandas import DataFrame
-from sklearn.decomposition import PCA
-from sklearn.experimental import enable_halving_search_cv  # noqa
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-
-
-from sklearn.metrics import (
-    precision_score,
-    recall_score,
-    balanced_accuracy_score,
-    accuracy_score,
-    make_scorer,
-    f1_score,
-    roc_auc_score,
-)
-
-from sklearn.model_selection import (
-    HalvingGridSearchCV,
-    HalvingRandomSearchCV,
-    train_test_split,
-    GridSearchCV,
-    RandomizedSearchCV,
-    cross_validate,
-)
-
-from sklearn.pipeline import make_pipeline
-
-from sklearn.preprocessing import (
-    FunctionTransformer,
-    Normalizer,
-    StandardScaler,
-    RobustScaler,
-    MinMaxScaler,
-)
-
+from sklearn.model_selection import train_test_split
 from MultiTrain.errors.errors import *
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.NullHandler())
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-console_handler.setFormatter(formatter)
-
-logger.addHandler(console_handler)
+# Keep the accepted scaler names in one place so validation and pipeline setup agree.
+SUPPORTED_SCALERS = {
+    'StandardScaler': StandardScaler(),
+    'MinMaxScaler': MinMaxScaler(),
+    'MaxAbsScaler': MaxAbsScaler(), 
+    'RobustScaler': RobustScaler(),
+    'Normalizer': Normalizer(),
+    'QuantileTransformer': QuantileTransformer(),
+    'PowerTransformer': PowerTransformer()
+}
 
 @dataclass
 class MultiRegressor:
-    n_jobs: int = -1
-    random_state: int = 42
-    custom_models: list = None
-    overfit_tolerance: float = 0.2
-    max_iter: int = 1000
+    """Configure and compare MultiTrain's regression estimators.
 
-    logger.warn('Version 1.0.0 introduces new syntax and you might experience errors if using old syntax, visit the documentation in the GitHub Repo.')
+    ``n_jobs`` limits threads inside each estimator. ``model_workers`` controls
+    process-level parallelism across estimators so models do not all claim every
+    CPU at the same time.
+    """
+
+    n_jobs: int = 1
+    random_state: int = 42
+    custom_models: Optional[list] = None
+    max_iter: int = 1000
+    use_gpu: bool = False
+    device: str = '0'
+    model_workers: Optional[int] = None
     
-    @staticmethod
+    def __post_init__(self):
+        """Validate configuration before loading data or constructing models."""
+
+        # Python treats bool as an int, so integer configuration values need a
+        # separate guard against True and False.
+        type_validations = {
+            'n_jobs': (self.n_jobs, int),
+            'random_state': (self.random_state, int),
+            'max_iter': (self.max_iter, int),
+            'use_gpu': (self.use_gpu, bool),
+            'device': (self.device, str)
+        }
+        
+        for param_name, (param_value, expected_type) in type_validations.items():
+            invalid_int = expected_type is int and (
+                not isinstance(param_value, int) or isinstance(param_value, bool)
+            )
+            if invalid_int or (
+                expected_type is not int and not isinstance(param_value, expected_type)
+            ):
+                raise MultiTrainTypeError(
+                    f'Invalid type for {param_name}: expected {expected_type.__name__}, '
+                    f'got {type(param_value).__name__}. Please provide a {expected_type.__name__} value.'
+                )
+                
+        if not isinstance(self.custom_models, (list, type(None))):
+            raise MultiTrainTypeError(
+                f'Invalid type for custom_models: expected a list of custom models or None, '
+                f'got {type(self.custom_models).__name__}. Please provide a list or None.'
+            )
+        if self.custom_models is not None and not all(
+            isinstance(model, str) for model in self.custom_models
+        ):
+            raise MultiTrainTypeError("Every custom model name must be a string")
+        if self.n_jobs == 0:
+            raise MultiTrainTypeError("n_jobs cannot be zero")
+        if self.model_workers is not None and (
+            not isinstance(self.model_workers, int)
+            or isinstance(self.model_workers, bool)
+            or self.model_workers == 0
+            or self.model_workers < -1
+        ):
+            raise MultiTrainTypeError(
+                "model_workers must be None, -1, or a positive integer"
+            )
+        if self.max_iter <= 0:
+            raise MultiTrainTypeError("max_iter must be positive")
+        if not self.device:
+            raise MultiTrainTypeError("device cannot be empty")
+
+        logger.debug('MultiTrain regressor initialized')
+            
     def split(
-        data: pd.DataFrame,
-        target: str,  # Target column name
-        random_state: int = 42,  # Default random state for reproducibility
-        test_size: float = 0.2,  # Default test size for train-test split (80/20 split)
-        auto_cat_encode: bool = False,  # If True, automatically encode all categorical columns
+        self,
+        data: Union[pd.DataFrame, str],
+        target: str,  # Name of the target column
+        random_state: int = 42,  # Random state for reproducibility
+        test_size: float = 0.2,  # Proportion of the dataset for the test split
+        auto_cat_encode: bool = False,  # Automatically encode all categorical columns if True
         manual_encode: dict = None,  # Manual encoding dictionary, e.g., {'label': ['column1'], 'onehot': ['column2']}
         fix_nan_custom: Optional[
             Dict
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
-        drop: list = None,
-    ):  # List of columns to drop, e.g., ['column1', 'column2']
+        drop: list = None, # List of columns to drop, e.g., ['column1', 'column2']
+    ):  
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
+        How this connects to the rest of MultiTrain:
+        1. The complete source dataset is checked for invalid targets and values.
+        2. Train and test partitions are created before preprocessing.
+        3. ``_prepare_train_test`` learns encoding and missing-value behavior from
+           training rows only.
+        4. The returned tuple is consumed by ``fit`` and validated again there,
+           which also protects manually created scikit-learn splits.
+
         Parameters:
-        - data (pd.DataFrame): The input dataset.
+        - data (Union[pd.DataFrame, str]): The input dataset or a filepath to a dataset.
         - target (str): The name of the target column.
         - random_state (int, optional): Random state for reproducibility. Default is 42.
         - test_size (float, optional): Proportion of the dataset to include in the test split. Default is 0.2.
@@ -123,186 +160,277 @@ class MultiRegressor:
         - tuple: A tuple containing the training and testing data splits (X_train, X_test, y_train, y_test).
         """
 
-        # Create a copy of the dataset to avoid modifying the original data
-        dataset = data.copy()
+        if not isinstance(target, str) or not target:
+            raise MultiTrainTypeError("target must be a non-empty string")
+        if not isinstance(random_state, int) or isinstance(random_state, bool):
+            raise MultiTrainTypeError("random_state must be an integer")
+        if not isinstance(test_size, Real) or isinstance(test_size, bool):
+            raise MultiTrainTypeError("test_size must be numeric")
+        if not 0 < test_size < 1:
+            raise MultiTrainSplitError("test_size must be between 0 and 1")
+        if not isinstance(auto_cat_encode, bool):
+            raise MultiTrainTypeError("auto_cat_encode must be a boolean")
+
+        # Normalize file paths and dataframes into the same in-memory representation.
+        if isinstance(data, pd.DataFrame):
+            dataset = data.copy()
+        elif isinstance(data, str):
+            dataset = pd.read_csv(data)
+        else:
+            raise MultiTrainDatasetTypeError('You must either pass in a dataframe or a filepath')
+
+        # Fail before modifying the dataset when preprocessing instructions are malformed.
+        if manual_encode is not None and not isinstance(manual_encode, dict):
+            raise MultiTrainTypeError(
+                f"manual_encode must be a dictionary or None. Got {type(manual_encode)}"
+            )
+        if (
+            fix_nan_custom is not False
+            and fix_nan_custom is not None
+            and not isinstance(fix_nan_custom, dict)
+        ):
+            raise MultiTrainTypeError(
+                f"fix_nan_custom must be a dictionary. Got {type(fix_nan_custom)}"
+            )
+
+        # A column needs one unambiguous encoding strategy.
         if manual_encode:
-            keys = list(manual_encode.keys())
-            if 1 < len(keys) < 3:
-                if len(keys) != len(set(keys)):
-                    raise MultiTrainError('You cannot have duplicates of either "label" or "onehot" in your dictionary.')
-                if any(item in manual_encode[keys[0]] for item in manual_encode[keys[1]]):
-                    raise MultiTrainError('You cannot not have a column specified for different types of encoding i.e column1 present for label and column2 present for onehot')
-                if fix_nan_custom:
-                    fix_keys = list(fix_nan_custom.keys())
-                    if len(fix_keys) != len(set(fix_keys)):
-                            raise MultiTrainError('You cannot specify a column as a key more than once')
-            if list(keys) > 2:
-                raise MultiTrainError('You cannot have more than two keys i.e label, onehot')
-        
-        # Drop specified columns if 'drop' parameter is provided
+            invalid_keys = set(manual_encode) - {"label", "onehot"}
+            if invalid_keys:
+                raise MultiTrainEncodingError(
+                    f"Unsupported encoding types: {sorted(invalid_keys)}"
+                )
+            for encoding_type, columns in manual_encode.items():
+                if not isinstance(columns, (list, tuple)):
+                    raise MultiTrainTypeError(
+                        f"Columns for {encoding_type} must be a list or tuple"
+                    )
+            overlap = set(manual_encode.get("label", [])) & set(
+                manual_encode.get("onehot", [])
+            )
+            if overlap:
+                raise MultiTrainEncodingError(
+                    f"Columns cannot use multiple encodings: {sorted(overlap)}"
+                )
+
+        if auto_cat_encode and manual_encode:
+            raise MultiTrainEncodingError("Cannot use both auto_cat_encode and manual_encode")
+        if manual_encode and target in manual_encode.get("onehot", []):
+            raise MultiTrainEncodingError("The target column cannot be one-hot encoded")
+
+        # Remove ignored features before checking the columns used for training.
+        if drop is not None and not isinstance(drop, list):
+            raise MultiTrainTypeError(f"Drop parameter must be a list. Got {type(drop)}")
         if drop:
-            if type(drop) != list:
-                raise MultiTrainTypeError(
-                    f"You need to pass in a list of columns to drop. Got {type(drop)}"
+            missing_drop_columns = [column for column in drop if column not in dataset]
+            if missing_drop_columns:
+                raise MultiTrainColumnMissingError(
+                    f"Columns to drop were not found: {missing_drop_columns}"
                 )
             dataset.drop(drop, axis=1, inplace=True)
 
-        # Ensure the dataset is a pandas DataFrame
-        if type(dataset) != pd.DataFrame:
-            raise MultiTrainDatasetTypeError(
-                f"You need to pass in a Dataset of type {pd.DataFrame}. Got {type(dataset)}"
-            )
-
-        # Check if the target column exists in the dataset
+        # The target must still exist after optional columns have been dropped.
         if target not in dataset.columns:
-            raise MultiTrainColumnMissingError(
-                f"Target column {target} not found in list of columns. Please pass in a target column."
-            )
+            raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
-        # Check for categorical columns and raise an error if necessary
-        _non_auto_cat_encode_error(
-            dataset=dataset,
-            auto_cat_encode=auto_cat_encode,
-            manual_encode=manual_encode,
-        )
+        _validate_supervised_dataset(dataset, target, "regression")
 
-        # Handle missing values in the dataset using custom instructions
-        filled_dataset = _handle_missing_values(
-            dataset=dataset, fix_nan_custom=fix_nan_custom
-        )
-
-        # Encode categorical columns if 'auto_cat_encode' is True
-        if auto_cat_encode:
-            cat_encoded_dataset = _cat_encoder(filled_dataset, auto_cat_encode)
-            if manual_encode:
-                raise MultiTrainEncodingError(
-                    f"You cannot pass in a manual encoding dictionary if auto_cat_encode is set to True."
-                )
-            complete_dataset = cat_encoded_dataset.copy()
-
-        # Encode columns as specified in 'manual_encode' dictionary
-        if manual_encode:
-            manual_encode_dataset = _manual_encoder(manual_encode, filled_dataset)
-            if auto_cat_encode:
-                raise MultiTrainEncodingError(
-                    f"You cannot pass in a auto_cat_encode if a manual encoding dictionary is passed in."
-                )
-            complete_dataset = manual_encode_dataset.copy()
-
-        # Separate features and target from the complete dataset
-        data_features = complete_dataset.drop(target, axis=1)
-        data_target = complete_dataset[target]
-
-        # Split the dataset into training and testing sets
+        _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
+        # Split first so encoders and missing-value rules cannot learn from held-out rows.
         try:
-            X_train, X_test, y_train, y_test = train_test_split(
-                data_features,
-                data_target,
+            train_dataset, test_dataset = train_test_split(
+                dataset,
                 test_size=test_size,
-                random_state=random_state,
+                random_state=random_state
             )
         except ValueError as e:
-            raise MultiTrainEncodingError(
-                f"Ensure that the target column is encoded before splitting the dataset. \nOriginal error: {e}"
-            )
+            raise MultiTrainSplitError(f"Unable to split the dataset: {e}") from e
 
-        return (X_train, X_test, y_train, y_test)
+        train_dataset, test_dataset = _prepare_train_test(
+            train_dataset,
+            test_dataset,
+            auto_cat_encode=auto_cat_encode,
+            manual_encode=manual_encode,
+            fix_nan_custom=fix_nan_custom,
+        )
+        X_train = train_dataset.drop(target, axis=1)
+        X_test = test_dataset.drop(target, axis=1)
+        y_train = train_dataset[target]
+        y_test = test_dataset[target]
+
+        # GPU libraries consume contiguous array-like values efficiently. CPU
+        # users keep pandas objects, including useful column names and indices.
+        if self.use_gpu:
+            return (
+                np.asarray(X_train),
+                np.asarray(X_test),
+                np.asarray(y_train),
+                np.asarray(y_test),
+            )
+        return X_train, X_test, y_train, y_test
 
     def fit(
         self,
         datasplits: tuple,
-        custom_metric: str = None,  # must be a valid sklearn metric i.e mean_squared_error.
+        custom_metric: str = None,
         show_train_score: bool = False,
         sort: str = None,
-        return_best_model: Optional[str] = None,
-    ):  # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
+        pca: Union[bool, str] = False,
+        return_best_model: Optional[str] = None, # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
+        n_components: Optional[Union[int, float]] = None,
+    ):  
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
 
+        Execution flow:
+        1. ``_validate_datasplits`` checks the schema and regression targets.
+        2. ``prepare_tabular_features`` performs shared optional scaling and PCA.
+        3. ``run_models`` fits every selected estimator and caches predictions.
+        4. Metric helpers score those predictions, then ``_display_table`` applies
+           the requested ordering or returns one best-score row.
+
         Parameters:
         - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
-        - custom_metric (str, optional): A custom metric to evaluate the models. Must be a valid sklearn metric.
+        - custom_metric (str, optional): A supported scalar scikit-learn metric name.
         - show_train_score (bool, optional): If True, also calculates and displays training scores.
         - sort (str, optional): Metric name to sort the final results. Examples include 'mean_squared_error', 'r2_score', etc.
+        - pca (bool or str, optional): Scaler to apply before the shared PCA transformation.
         - return_best_model (str, optional): The metric to return the best model by, e.g., 'mean_squared_error'.
+        - n_components (int or float, optional): Component count or explained-variance target for PCA.
 
         Returns:
-        - final_dataframe: A DataFrame containing the evaluation results of the models.
+        - final_dataframe: A DataFrame containing measurements for every selected model.
         """
-
-        model_names, model_list, X_train, X_test, y_train, y_test = (
-            _prep_model_names_list(
-                datasplits,
-                custom_metric,
-                self.random_state,
-                self.n_jobs,
-                self.custom_models,
-                "regression",
-                self.max_iter,
+        
+        if custom_metric is not None and not isinstance(custom_metric, str):
+            raise MultiTrainTypeError("custom_metric must be a string or None")
+        if not isinstance(show_train_score, bool):
+            raise MultiTrainTypeError("show_train_score must be a boolean")
+        if sort is not None and not isinstance(sort, str):
+            raise MultiTrainTypeError("sort must be a string or None")
+        if pca is not False and not isinstance(pca, str):
+            raise MultiTrainPCAError(
+                "pca must be False or the name of a supported scaler"
             )
+        if return_best_model is not None and not isinstance(return_best_model, str):
+            raise MultiTrainTypeError("return_best_model must be a string or None")
+
+        _validate_datasplits(datasplits, "regression")
+
+        # ``pca`` names the scaler fitted before PCA for compatibility with the
+        # original API. Both transforms are shared across every selected model.
+        if pca:
+            if pca not in SUPPORTED_SCALERS:
+                raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
+            pca_scaler = SUPPORTED_SCALERS[pca]
+        else:
+            pca_scaler = False
+        
+        # The model factory receives this flag and configures only libraries with
+        # an explicit supported GPU API on the current platform.
+        gpu_enabled = self.use_gpu and platform.system() != "Darwin"
+        model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
+            datasplits, custom_metric, self.random_state, self.n_jobs,
+            self.custom_models, "regression", self.max_iter,
+            gpu_enabled, self.device,
         )
 
-        # Initialize progress bar for model training
-        bar = trange(
-            len(model_list),
-            desc="Training Models",
-            leave=False,
-            bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        prepared_train, prepared_test = prepare_tabular_features(
+            X_train, X_test, pca_scaler, n_components
+        )
+        # Every estimator sees the full prepared training matrix. Parallelism
+        # changes scheduling, not which rows a model receives.
+        completed = run_models(
+            model_names,
+            model_list,
+            prepared_train,
+            y_train,
+            prepared_test,
+            y_test,
+            show_train_score,
+            "regression",
+            self.model_workers,
+            self.n_jobs,
+            use_gpu=gpu_enabled,
         )
 
+        # Predictions are cached by the execution layer, so all measurements
+        # below describe the exact same output from each fitted estimator.
         results = {}
-        for idx in bar:
-            # Update the postfix with the current model's name
-            bar.set_postfix_str(f"Model: {model_names[idx]}")
-            current_model = model_list[idx]
-
-            # Fit the model and make predictions
-            current_model, current_prediction, end = _fit_pred(
-                current_model, model_names, idx, X_train, y_train, X_test
-            )
-
+        for completed_model in completed:
             metric_results = {}
-            # Wrap metrics in tqdm for additional progress tracking
-            for metric_name, metric_func in tqdm(
-                _metrics(custom_metric, 'regression').items(),
-                desc=f"Evaluating {model_names[idx]}",
-                leave=False,
-            ):
-                try:
-                    if show_train_score:
-                        # Calculate and store training metric
-                        metric_results[f"{metric_name}_train"] = _calculate_metric(
-                            metric_func,
-                            y_train,
-                            current_model.predict(X_train),
-                        )
-
-                    # Calculate and store test metric
-                    metric_results[metric_name] = _calculate_metric(
+            for metric_name, metric_func in _metrics(
+                custom_metric, "regression"
+            ).items():
+                if show_train_score:
+                    metric_results[f"{metric_name}_train"] = _calculate_metric(
                         metric_func,
-                        y_test,
-                        current_prediction,
+                        y_train,
+                        completed_model.train_prediction,
                     )
+                metric_results[metric_name] = _calculate_metric(
+                    metric_func,
+                    y_test,
+                    completed_model.test_prediction,
+                )
 
-                except ValueError as e:
-                    logger.error(
-                        f"Error calculating {metric_name} for {model_names[idx]}: {e}"
-                    )
-
-            # Store results for the current model
-            results[model_names[idx]] = metric_results
-            results[model_names[idx]].update({"Time(s)": end})
-
-        # Display the results in a sorted DataFrame
+            if show_train_score:
+                # RMSE is derived from the exact MSE already stored above, which
+                # avoids another pass through the target and prediction arrays.
+                metric_results["root_mean_squared_error_train"] = np.sqrt(
+                    metric_results["mean_squared_error_train"]
+                )
+            metric_results["root_mean_squared_error"] = np.sqrt(
+                metric_results["mean_squared_error"]
+            )
+            results[completed_model.name] = {
+                **metric_results,
+                "Time": completed_model.elapsed,
+            }
+    
+        # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
             final_dataframe = _display_table(
                 results=results,
                 sort=sort,
                 custom_metric=custom_metric,
                 return_best_model=return_best_model,
+                task='regression'
             )
         else:
             final_dataframe = _display_table(
-                results=results, sort=sort, return_best_model=return_best_model
+                results=results, 
+                sort=sort, 
+                return_best_model=return_best_model,
+                task='regression'
             )
         return final_dataframe
+    
+
+@dataclass
+class subMultiRegressor(MultiRegressor):
+    """Backward-compatible regressor alias retained for existing users."""
+
+    def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+        """Forward legacy constructor arguments to ``MultiRegressor``."""
+
+        super().__init__(
+            n_jobs=n_jobs,
+            random_state=random_state,
+            custom_models=custom_models,
+            max_iter=max_iter,
+            use_gpu=use_gpu,
+            device=device,
+            model_workers=model_workers,
+        )
+        
+    def __post_init__(self):
+        """Keep legacy validation messages before running the parent checks."""
+
+        if not isinstance(self.use_gpu, bool):
+            raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
+        
+        if not isinstance(self.device, str):
+            raise MultiTrainTypeError(f'Invalid type for device: expected str, got {type(self.device).__name__}. Please provide a string value.')
+        
+        super().__post_init__()

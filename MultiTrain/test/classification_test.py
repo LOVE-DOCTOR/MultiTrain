@@ -1,24 +1,31 @@
+"""Public classification API tests for normal use and invalid input handling."""
+
 import pytest
 import pandas as pd
+import numpy as np
 from MultiTrain.classification.classification_models import MultiClassifier
 from MultiTrain.errors.errors import (
     MultiTrainDatasetTypeError,
     MultiTrainColumnMissingError,
     MultiTrainEncodingError,
+    MultiTrainError,
     MultiTrainTypeError,
     MultiTrainNaNError,
     MultiTrainMetricError,
     MultiTrainSplitError,
+    MultiTrainPCAError,
+    MultiTrainTextError,
 )
+import logging
 
 
 @pytest.fixture
 def sample_data():
     data = pd.DataFrame(
         {
-            "feature1": [1, 2, 3, 4, 5],
-            "feature2": ["A", "B", "A", "B", "A"],
-            "target": [0, 1, 0, 1, 0],
+            "feature1": list(range(1, 11)),
+            "feature2": ["A", "B"] * 5,
+            "target": [0, 1] * 5,
         }
     )
     target = "target"
@@ -31,10 +38,10 @@ def test_split_normal(sample_data):
     X_train, X_test, y_train, y_test = classifier.split(
         data=data, target=target, auto_cat_encode=True
     )
-    assert len(X_train) == 4
-    assert len(X_test) == 1
-    assert len(y_train) == 4
-    assert len(y_test) == 1
+    assert len(X_train) == 8
+    assert len(X_test) == 2
+    assert len(y_train) == 8
+    assert len(y_test) == 2
 
 
 def test_split_with_drop(sample_data):
@@ -136,3 +143,71 @@ def test_fit_with_custom_models(sample_data):
     assert isinstance(results, pd.DataFrame)
     assert "RandomForestClassifier" in results.index
     assert "LogisticRegression" in results.index
+
+
+def test_fit_with_pca(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, pca='StandardScaler')
+    assert isinstance(results, pd.DataFrame)
+
+
+def test_fit_with_invalid_pca_scaler(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    with pytest.raises(MultiTrainPCAError):
+        classifier.fit(datasplits, pca='InvalidScaler')
+
+
+def test_text_processing_missing_params(sample_data):
+    data, target, classifier = sample_data
+    classifier.text = True
+    datasplits = classifier.split(data, target)
+    with pytest.raises(MultiTrainTextError):
+        classifier.fit(datasplits)
+
+
+def test_return_best_model(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, return_best_model='accuracy')
+    assert isinstance(results, pd.DataFrame)
+
+
+def test_show_train_score(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    results = classifier.fit(datasplits, show_train_score=True)
+    assert 'accuracy_train' in results.columns
+
+def test_invalid_device_type():
+    with pytest.raises(MultiTrainTypeError):
+        MultiClassifier(device=123)  # device should be string
+
+def test_pipeline_dict_without_text(sample_data):
+    data, target, classifier = sample_data
+    datasplits = classifier.split(data, target, auto_cat_encode=True)
+    pipeline_dict = {
+        'ngram_range': (1, 2),
+        'encoding': 'utf-8'
+    }
+    with pytest.raises(MultiTrainTextError):
+        classifier.fit(datasplits, pipeline_dict=pipeline_dict)
+
+
+def test_multiclass_metrics_are_calculated():
+    data = pd.DataFrame(
+        {
+            "feature1": range(30),
+            "feature2": [value % 5 for value in range(30)],
+            "target": [value % 3 for value in range(30)],
+        }
+    )
+    classifier = MultiClassifier(custom_models=["LogisticRegression"])
+    datasplits = classifier.split(data, "target", test_size=0.3)
+
+    results = classifier.fit(datasplits)
+
+    assert not np.isnan(results.loc["LogisticRegression", "precision"])
+    assert not np.isnan(results.loc["LogisticRegression", "recall"])
+    assert not np.isnan(results.loc["LogisticRegression", "f1"])

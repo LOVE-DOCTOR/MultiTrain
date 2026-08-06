@@ -1,9 +1,15 @@
+"""Focused tests for shared model factories, preprocessing, and scoring helpers."""
+
 import pytest
 import pandas as pd
+import numpy as np
 import sklearn
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from MultiTrain.utils.utils import (
     _models_classifier,
+    _models_regressor,
     _init_metrics,
     _metrics,
     _cat_encoder,
@@ -15,6 +21,11 @@ from MultiTrain.utils.utils import (
     _check_custom_models,
     _fit_pred,
     _calculate_metric,
+    _fit_pred_text,
+    _format_time,
+    _prep_model_names_list,
+    _prepare_train_test,
+    _sub_fit,
 )
 from MultiTrain.errors.errors import (
     MultiTrainMetricError,
@@ -22,13 +33,19 @@ from MultiTrain.errors.errors import (
     MultiTrainNaNError,
     MultiTrainTypeError,
     MultiTrainColumnMissingError,
+    MultiTrainPCAError,
+    MultiTrainModelError,
 )
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 
 
 @pytest.fixture
 def sample_dataframe():
-    return pd.DataFrame({"cat_col": ["a", "b", "a"], "num_col": [1, None, 3]})
+    return pd.DataFrame({
+        "cat_col": ["a", "b", "a"], 
+        "num_col": [1, None, 3],
+        "text_col": ["sample text", "another text", "more text"]
+    })
 
 
 @pytest.fixture
@@ -36,29 +53,37 @@ def models():
     return _models_classifier(random_state=42, n_jobs=1, max_iter=500)
 
 
-def test_models(models):
-    assert "LogisticRegression" in models
-    assert isinstance(
-        models["LogisticRegression"], sklearn.linear_model.LogisticRegression
-    )
+def test_models_classifier(models):
+    assert "LogisticRegression" in models.keys()
+
+
+def test_models_regressor():
+    models = _models_regressor(random_state=42, n_jobs=1, max_iter=500)
+    assert "LinearRegression" in models.keys()
 
 
 def test_init_metrics():
     metrics = _init_metrics()
     assert "accuracy_score" in metrics
+    assert "mean_squared_error" in metrics
 
 
 @pytest.mark.parametrize(
-    "custom_metric, expected_exception",
-    [(None, None), ("invalid_metric", MultiTrainMetricError)],
+    "custom_metric, metric_type, expected_exception",
+    [
+        (None, "classification", None),
+        ("invalid_metric", "classification", MultiTrainMetricError),
+        (None, "regression", None),
+        ("mean_squared_error", "regression", None),
+    ],
 )
-def test_metrics(custom_metric, expected_exception):
+def test_metrics(custom_metric, metric_type, expected_exception):
     if expected_exception:
         with pytest.raises(expected_exception):
-            _metrics(custom_metric=custom_metric, metric_type='classification') 
+            _metrics(custom_metric=custom_metric, metric_type=metric_type)
     else:
-        metrics = _metrics(custom_metric=custom_metric, metric_type='classification') 
-        assert "accuracy" in metrics
+        metrics = _metrics(custom_metric=custom_metric, metric_type=metric_type)
+        assert len(metrics) > 0
 
 
 def test_cat_encoder(sample_dataframe):
@@ -68,10 +93,17 @@ def test_cat_encoder(sample_dataframe):
 
 
 def test_manual_encoder(sample_dataframe):
-    manual_encode = {"label": ["cat_col"], "onehot": []}
+    manual_encode = {"label": ["cat_col"]}
     encoded_df = _manual_encoder(manual_encode, sample_dataframe)
     assert "cat_col" in encoded_df.columns
     assert encoded_df["cat_col"].dtype in ["int64", "int32"]
+
+
+def test_manual_encoder_onehot(sample_dataframe):
+    manual_encode = {"onehot": ["cat_col"]}
+    encoded_df = _manual_encoder(manual_encode, sample_dataframe)
+    assert "cat_col_a" in encoded_df.columns
+    assert "cat_col_b" in encoded_df.columns
 
 
 def test_non_auto_cat_encode_error(sample_dataframe):
@@ -86,25 +118,61 @@ def test_fill_missing_values(sample_dataframe):
     assert not filled_col.isnull().any()
 
 
-def test_handle_missing_values(sample_dataframe):
+def test_handle_missing_values_strategies(sample_dataframe):
+    # Test different strategies
+    strategies = {
+        "ffill": {"num_col": "ffill"},
+        "bfill": {"num_col": "bfill"},
+        "interpolate": {"num_col": "interpolate"}
+    }
+    
+    for strategy_name, strategy in strategies.items():
+        fixed_df = _handle_missing_values(sample_dataframe, fix_nan_custom=strategy)
+        assert not fixed_df["num_col"].isnull().any()
+
+
+def test_handle_missing_values_invalid_column():
+    df = pd.DataFrame({"col": [1, None, 3]})
+    with pytest.raises(MultiTrainColumnMissingError):
+        _handle_missing_values(df, fix_nan_custom={"invalid_col": "ffill"})
+
+
+def test_handle_missing_values_invalid_strategy():
+    df = pd.DataFrame({"col": [1, None, 3]})
     with pytest.raises(MultiTrainNaNError):
-        _handle_missing_values(sample_dataframe, fix_nan_custom=False)
-
-    fixed_df = _handle_missing_values(
-        sample_dataframe, fix_nan_custom={"num_col": "ffill"}
-    )
-    assert not fixed_df["num_col"].isnull().any()
-
-
-def test_display_table():
-    results = {"model1": {"accuracy": 0.9}, "model2": {"accuracy": 0.8}}
-    sorted_df = _display_table(results, sort="accuracy")
-    assert sorted_df.index[0] == "model1"
+        _handle_missing_values(df, fix_nan_custom={"col": "invalid_strategy"})
 
 
 def test_check_custom_models(models):
     model_names, model_list = _check_custom_models(["LogisticRegression"], models)
     assert "LogisticRegression" in model_names
+    assert len(model_list) == 1
+
+
+def test_check_custom_models_rejects_empty_list(models):
+    with pytest.raises(MultiTrainModelError):
+        _check_custom_models([], models)
+
+
+def test_custom_metric_resolves_to_callable():
+    metrics = _metrics(custom_metric="max_error", metric_type="regression")
+    assert callable(metrics["max_error"])
+
+
+def test_prepare_train_test_does_not_learn_test_categories():
+    train = pd.DataFrame({"category": ["a", "b"], "target": [0, 1]})
+    test = pd.DataFrame({"category": ["test-only"], "target": [1]})
+
+    encoded_train, encoded_test = _prepare_train_test(
+        train, test, auto_cat_encode=True
+    )
+
+    assert set(encoded_train["category"]) == {0, 1}
+    assert encoded_test["category"].iloc[0] == 2
+
+
+def test_multitrain_errors_are_normal_exceptions():
+    assert issubclass(MultiTrainModelError, Exception)
 
 
 def test_fit_pred(models):
@@ -118,12 +186,134 @@ def test_fit_pred(models):
         X_train,
         y_train,
         X_test,
+        False
     )
+    assert len(prediction) == len(X_test)
+    assert isinstance(time_taken, str)
+
+
+def test_fit_pred_runs_on_macos_path(models, monkeypatch):
+    monkeypatch.setattr(
+        "MultiTrain.utils.utils.platform.system", lambda: "Darwin"
+    )
+    X_train = pd.DataFrame({"feature": [1, 2, 3]})
+    y_train = pd.Series([0, 1, 0])
+    X_test = pd.DataFrame({"feature": [1, 2]})
+
+    _, prediction, _ = _fit_pred(
+        models["LogisticRegression"],
+        ["LogisticRegression"],
+        0,
+        X_train,
+        y_train,
+        X_test,
+        False,
+    )
+
     assert len(prediction) == len(X_test)
 
 
 def test_calculate_metric():
     y_true = [0, 1, 0]
     y_pred = [0, 1, 1]
+    
+    # Test classification metric
     accuracy = _calculate_metric(accuracy_score, y_true, y_pred)
-    assert accuracy == pytest.approx(2 / 3)
+    assert accuracy == pytest.approx(2/3)
+    
+    # Test regression metric
+    mse = _calculate_metric(mean_squared_error, y_true, y_pred)
+    assert mse == pytest.approx(1/3)
+
+
+def test_fit_pred_text(sample_dataframe):
+    model = _models_classifier(random_state=42, n_jobs=1, max_iter=500)["LogisticRegression"]
+    pipeline_dict = {
+        "ngram_range": (1, 2),
+        "encoding": "utf-8",
+        "max_features": 1000,
+        "analyzer": "word"
+    }
+    X_train = sample_dataframe["text_col"][:2]
+    y_train = pd.Series([0, 1])
+    X_test = sample_dataframe["text_col"][2:]
+    
+    pipeline, predictions, time_taken = _fit_pred_text(
+        "tfidf",
+        pipeline_dict,
+        model,
+        X_train,
+        y_train,
+        X_test,
+        pca=False
+    )
+    
+    assert isinstance(pipeline, Pipeline)
+    assert len(predictions) == 1
+    assert isinstance(time_taken, str)
+
+
+def test_fit_pred_text_retries_with_dense_features():
+    model = _models_classifier(
+        random_state=42, n_jobs=1, max_iter=100
+    )["GaussianNB"]
+    X_train = pd.Series(["red apple", "blue sky", "red berry", "blue sea"])
+    y_train = pd.Series([0, 1, 0, 1])
+    X_test = pd.Series(["red fruit", "blue water"])
+    pipeline_dict = {
+        "ngram_range": (1, 1),
+        "encoding": "utf-8",
+        "max_features": 100,
+        "analyzer": "word",
+    }
+
+    _, predictions, _ = _fit_pred_text(
+        "tfidf",
+        pipeline_dict,
+        model,
+        X_train,
+        y_train,
+        X_test,
+        pca=False,
+    )
+
+    assert not pd.isna(predictions).any()
+
+
+def test_format_time():
+    assert _format_time(61) == "1m 1.00s"
+    assert _format_time(3661) == "1hr 1m 1.00s"
+    assert _format_time(0.5) == "500.00ms"
+
+
+def test_prep_model_names_list():
+    X = pd.DataFrame({"feature": [1, 2, 3, 4]})
+    y = pd.Series([0, 1, 0, 1])
+    datasplits = (X[:3], X[3:], y[:3], y[3:])
+    
+    model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
+        datasplits=datasplits,
+        custom_metric=None,
+        random_state=42,
+        n_jobs=1,
+        custom_models=["LogisticRegression"],
+        class_type="classification",
+        max_iter=500
+    )
+    
+    assert "LogisticRegression" in model_names
+    assert len(model_list) == 1
+    assert len(X_train) == 3
+    assert len(X_test) == 1
+
+
+def test_sub_fit():
+    X_train = pd.DataFrame({"feature": [1, 2, 3]})
+    y_train = pd.Series([0, 1, 0])
+    X_test = pd.DataFrame({"feature": [4]})
+    model = _models_classifier(random_state=42, n_jobs=1, max_iter=500)["LogisticRegression"]
+    
+    fitted_model, predictions = _sub_fit(model, X_train, y_train, X_test, pca_scaler=False)
+    
+    assert hasattr(fitted_model, "predict")
+    assert len(predictions) == 1

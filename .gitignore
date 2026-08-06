@@ -27,6 +27,14 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+.venv310/
+MultiTrainVenv/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -45,12 +53,14 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+.vscode/
 nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
 .pytest_cache/
+
 
 settings.json
 .setup.py
@@ -133,7 +143,7 @@ dmypy.json
 
 # Anaconda
 .idea
-
+/examples/datasets/synthetic_beverage_sales_data.csv
 catboost_info/
 /Plotting
 

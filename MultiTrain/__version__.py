@@ -1,3 +1,3 @@
-"""version information"""
+"""Single package version read by Python and the build configuration."""
 
-__version__ = "v1.0.0"
+__version__ = "1.2.0"
