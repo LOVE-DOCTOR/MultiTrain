@@ -198,7 +198,13 @@ def _models_classifier(
         RidgeClassifier.__name__: RidgeClassifier(max_iter=max_iter if max_iter is not None else 1000),
         RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 1000),
-        LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        # ``dual='auto'`` is supported by our sklearn 1.3 minimum and avoids the
+        # transitional FutureWarning emitted by that release's default value.
+        LinearSVC.__name__: LinearSVC(
+            random_state=random_state,
+            max_iter=max_iter if max_iter is not None else 1000,
+            dual="auto",
+        ),
         # Libsvm uses -1 for no hard iteration limit. A shared cap can stop a
         # healthy fit early, especially before feature scaling is applied.
         NuSVC.__name__: NuSVC(random_state=random_state, max_iter=-1),

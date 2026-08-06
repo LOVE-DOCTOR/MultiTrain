@@ -77,6 +77,7 @@ def test_model_factories_apply_defaults_and_requested_values():
 
     assert classifiers["LogisticRegression"].max_iter == 11
     assert classifiers["RandomForestClassifier"].n_jobs == 2
+    assert classifiers["LinearSVC"].dual == "auto"
     assert classifiers["CatBoostClassifier"].get_param("task_type") is None
     assert classifiers["CatBoostClassifier"].get_param("random_seed") == 7
     assert classifiers["XGBClassifier"].get_params()["tree_method"] is None

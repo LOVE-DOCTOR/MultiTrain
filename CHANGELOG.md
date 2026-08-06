@@ -27,6 +27,7 @@
 - Added model-local non-negative feature and positive-target transforms for estimators with stricter mathematical domains.
 - Adapted cross-validation folds and neighbor counts to the available training data on small datasets.
 - Converted invalid text-vectorization failures into actionable MultiTrain errors.
+- Set `LinearSVC(dual="auto")` explicitly to avoid scikit-learn 1.3 warning failures.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression
