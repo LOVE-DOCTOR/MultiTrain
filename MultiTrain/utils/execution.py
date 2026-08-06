@@ -1,10 +1,16 @@
-"""Shared feature preparation and model execution for MultiTrain fits."""
-
 """Memory-aware preprocessing and model execution shared by both public APIs.
 
-This module prepares one reusable feature representation, adapts estimators to
-their documented input domains, and schedules complete model fits without
-oversubscribing the machine.
+The public ``fit`` methods call this module in the following order:
+
+1. ``prepare_tabular_features`` or ``prepare_text_features`` creates one shared
+   representation of the train and test data.
+2. ``run_models`` assigns that complete representation to every selected model.
+3. ``_fit_model`` wraps, fits, predicts, and returns a ``ModelRunResult``.
+4. The public class passes those cached outputs to metric helpers in ``utils.py``.
+
+Keeping these stages here means expensive preprocessing happens once rather
+than once per estimator, while model-specific transformations remain isolated
+inside each estimator pipeline.
 """
 
 from dataclasses import dataclass
@@ -134,7 +140,13 @@ NEIGHBOR_MODEL_NAMES = {
 
 @dataclass
 class ModelRunResult:
-    """The predictions and timings needed to score one completed model run."""
+    """Cached outputs returned by ``_fit_model`` and consumed by public ``fit``.
+
+    Label predictions feed ordinary metrics. Probability arrays feed log loss,
+    Brier score, and ROC AUC. A failed estimator still returns this structure,
+    but its predictions are NaN and ``error`` explains the original failure.
+    This lets other selected models finish instead of losing the entire table.
+    """
 
     name: str
     test_prediction: np.ndarray
@@ -149,7 +161,12 @@ class ModelRunResult:
 
 
 def _as_shared_array(values):
-    """Expose tabular values as arrays that joblib can memory-map between workers."""
+    """Normalize features without making an unnecessary full-data copy.
+
+    ``prepare_tabular_features`` calls this before ``run_models``. Pandas values
+    use ``copy=False`` where possible, and sparse matrices remain sparse, which
+    allows joblib to share or memory-map the result between worker processes.
+    """
     if hasattr(values, "tocsr"):
         return values.tocsr()
     if isinstance(values, (pd.DataFrame, pd.Series)):
@@ -158,7 +175,13 @@ def _as_shared_array(values):
 
 
 def prepare_tabular_features(X_train, X_test, scaler=False, n_components=None):
-    """Apply an optional scaler and PCA once, before any models are trained."""
+    """Prepare the shared tabular matrices used by every selected estimator.
+
+    When PCA is enabled, the scaler and PCA are fitted only on ``X_train`` and
+    then used to transform ``X_test``. The public classifier and regressor call
+    this immediately before ``run_models``, preventing test-data leakage and
+    avoiding a repeated PCA fit for every model.
+    """
     train = _as_shared_array(X_train)
     test = _as_shared_array(X_test)
 
@@ -170,6 +193,8 @@ def prepare_tabular_features(X_train, X_test, scaler=False, n_components=None):
     if train.ndim != 2:
         raise MultiTrainPCAError("PCA requires a two-dimensional feature matrix")
 
+    # PCA cannot produce more components than either the number of training
+    # rows or the number of input features.
     max_components = min(train.shape[0], train.shape[1])
     if n_components is None:
         component_count = max_components
@@ -190,6 +215,8 @@ def prepare_tabular_features(X_train, X_test, scaler=False, n_components=None):
 
     fitted_scaler = clone(scaler)
     if isinstance(fitted_scaler, QuantileTransformer):
+        # QuantileTransformer cannot estimate more quantiles than training rows.
+        # Cloning keeps the shared scaler constant untouched for later fit calls.
         fitted_scaler.set_params(
             n_quantiles=min(fitted_scaler.n_quantiles, train.shape[0])
         )
@@ -201,6 +228,12 @@ def prepare_tabular_features(X_train, X_test, scaler=False, n_components=None):
 
 
 def _validate_text_pipeline(vectorizer, pipeline_dict):
+    """Validate text options and return the requested sklearn vectorizer class.
+
+    ``prepare_text_features`` uses the returned class only after every required
+    option is present, so malformed text configuration fails before allocating
+    a potentially large vocabulary matrix.
+    """
     vectorizers = {"count": CountVectorizer, "tfidf": TfidfVectorizer}
     if vectorizer not in vectorizers:
         raise MultiTrainTextError('vectorizer must be either "count" or "tfidf"')
@@ -217,7 +250,12 @@ def _validate_text_pipeline(vectorizer, pipeline_dict):
 
 
 def _supports_sparse_input(model):
-    """Read sparse support from sklearn, with a fallback for sklearn 1.3."""
+    """Tell ``prepare_text_features`` whether a model needs dense text data.
+
+    Scikit-learn 1.6 introduced the public tag helper. MultiTrain also supports
+    older releases, where the maintained ``DENSE_ONLY_MODEL_NAMES`` set supplies
+    the same decision.
+    """
     if _get_estimator_tags is not None:
         return _get_estimator_tags(model).input_tags.sparse
     return model.__class__.__name__ not in DENSE_ONLY_MODEL_NAMES
@@ -231,7 +269,13 @@ def prepare_text_features(
     models,
     max_dense_bytes,
 ):
-    """Vectorize text once and prepare one dense copy only when a model needs it."""
+    """Create the shared sparse text matrices and an optional guarded dense copy.
+
+    The classifier's ``fit`` method passes both representations to
+    ``run_models``. Sparse-compatible estimators use the sparse matrices;
+    dense-only estimators are routed to the one dense copy by model name.
+    ``max_dense_bytes`` prevents that conversion from exhausting memory.
+    """
     vectorizer_class = _validate_text_pipeline(vectorizer, pipeline_dict)
     transformer = vectorizer_class(
         ngram_range=pipeline_dict["ngram_range"],
@@ -271,6 +315,8 @@ def prepare_text_features(
             raise MultiTrainTypeError(
                 "max_dense_bytes must be a positive integer or None"
             )
+        # Dense storage uses one value for every row/feature combination. Both
+        # train and test matrices exist at once, hence the summed row count.
         required_bytes = (
             sparse_train.shape[0] + sparse_test.shape[0]
         ) * sparse_train.shape[1] * sparse_train.dtype.itemsize
@@ -294,7 +340,14 @@ def prepare_text_features(
 
 
 def resolve_model_workers(model_workers, model_threads, model_count):
-    """Choose a bounded process count without oversubscribing estimator threads."""
+    """Balance process-level and estimator-level parallelism.
+
+    ``run_models`` calls this with ``model_workers`` from the public constructor
+    and ``model_threads`` from ``n_jobs``. Available CPUs are divided by threads
+    per estimator, then bounded by the number of models. Negative ``n_jobs``
+    already means an estimator may use every CPU, so model processes must remain
+    sequential in that case.
+    """
     if model_count <= 0:
         return 1
     if model_workers is not None and (
@@ -315,6 +368,8 @@ def resolve_model_workers(model_workers, model_threads, model_count):
             )
         return 1
 
+    # Integer division reserves the requested thread budget for each process.
+    # Both max calls guarantee a usable value on unusual or constrained hosts.
     available_workers = max(1, available_cpus // max(1, model_threads))
     requested = min(4, available_workers) if model_workers is None else model_workers
     if requested == -1:
@@ -332,6 +387,14 @@ def _fit_model(
     show_train_score,
     task,
 ):
+    """Fit one estimator and cache everything later scoring can require.
+
+    ``run_models`` invokes this function directly or in a joblib worker. Model
+    wrappers are created by ``_prepare_training_estimator`` before fitting.
+    Failures are converted to a ``ModelRunResult`` containing NaNs so one broken
+    estimator does not cancel unrelated model runs; ``run_models`` logs the
+    stored error after restoring result order.
+    """
     start = time.perf_counter()
     try:
         training_estimator = _prepare_training_estimator(
@@ -357,6 +420,9 @@ def _fit_model(
                 if show_train_score
                 else None
             )
+            # Pipelines normally forward ``classes_`` from their final model.
+            # The fallback keeps class order available for compatible custom
+            # estimators that do not expose that attribute explicitly.
             model_classes = np.asarray(
                 getattr(training_estimator, "classes_", np.unique(y_train))
             )
@@ -410,7 +476,13 @@ def _fit_model(
 
 
 def _classification_probabilities(model, X):
-    """Return class probabilities when an estimator exposes them."""
+    """Read probabilities for metrics that cannot use predicted class labels.
+
+    ``_fit_model`` calls this once per requested split. Returning ``None`` is
+    intentional for estimators such as LinearSVC; the probability metric helper
+    later turns that unavailable measurement into NaN without affecting the
+    model's label-based scores.
+    """
     if not hasattr(model, "predict_proba"):
         return None
     try:
@@ -420,7 +492,14 @@ def _classification_probabilities(model, X):
 
 
 def _prepare_training_estimator(name, model, X_train, task, y_train=None):
-    """Build leakage-safe scaling around estimators that require it."""
+    """Wrap one estimator for the current dataset without changing its output unit.
+
+    This function is called only from ``_fit_model``. It adjusts CV/neighbors for
+    small training sets, adds feature scaling for convergence-sensitive models,
+    makes negative features usable by count-based Naive Bayes, and applies
+    reversible target scaling where a regressor requires it. Every fitted value
+    comes from training data; the returned pipeline later transforms test data.
+    """
     estimator = model
     # Five-fold CV and five-neighbor defaults are invalid on small datasets.
     # Bound them using training data only, without consulting held-out rows.
@@ -443,12 +522,16 @@ def _prepare_training_estimator(name, model, X_train, task, y_train=None):
 
     if name in STANDARD_SCALE_MODEL_NAMES:
         sparse_input = hasattr(X_train, "tocsr")
+        # Centering a sparse matrix would fill its implicit zeros and destroy its
+        # memory advantage, so sparse inputs are scaled without mean subtraction.
         estimator = make_pipeline(
             StandardScaler(with_mean=not sparse_input),
             estimator,
         )
 
     if name in NONNEGATIVE_MODEL_NAMES:
+        # Sparse matrices store only non-zero entries in ``data``. Inspecting
+        # that array avoids converting the whole matrix merely to find its minimum.
         values = X_train.data if hasattr(X_train, "tocsr") else np.asarray(X_train)
         if values.size and np.min(values) < 0:
             steps = []
@@ -481,7 +564,7 @@ def _prepare_training_estimator(name, model, X_train, task, y_train=None):
 
 
 def _dense_array(values):
-    """Convert sparse values for transformers that require a dense matrix."""
+    """Convert values inside a model pipeline when a scaler cannot accept sparse input."""
     return values.toarray() if hasattr(values, "toarray") else np.asarray(values)
 
 
@@ -501,12 +584,20 @@ def run_models(
     dense_test=None,
     dense_model_names=None,
 ):
-    """Train every selected model on the full training set and return cached outputs."""
+    """Schedule every selected model and return results in selection order.
+
+    Public ``fit`` methods call this after shared preprocessing. CPU models may
+    run in separate processes, while GPU models run sequentially to avoid device
+    contention. ``generator_unordered`` updates progress as soon as models finish;
+    the final name lookup restores the user's original order before scoring.
+    """
     y_train = np.asarray(y_train)
     y_test = np.asarray(y_test)
     dense_model_names = dense_model_names or set()
     jobs = []
     for name, model in zip(model_names, models):
+        # Text preprocessing may provide both sparse and dense matrices. Each
+        # job records the representation accepted by its estimator.
         use_dense = name in dense_model_names
         jobs.append(
             (
@@ -540,6 +631,8 @@ def run_models(
             )
             progress.update()
     elif cpu_jobs:
+        # Loky uses processes, and inner_max_num_threads prevents each child
+        # estimator from silently multiplying the requested CPU usage.
         with parallel_config(
             backend="loky",
             n_jobs=workers,
@@ -581,6 +674,8 @@ def run_models(
         progress.update()
     progress.close()
 
+    # Parallel completion order is nondeterministic. Reindexing by model name
+    # makes repeated result tables stable and matches ``custom_models`` order.
     by_name = {result.name: result for result in results}
     ordered = [by_name[name] for name in model_names]
     for result in ordered:

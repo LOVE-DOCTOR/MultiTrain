@@ -138,6 +138,14 @@ class MultiRegressor:
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
+        How this connects to the rest of MultiTrain:
+        1. The complete source dataset is checked for invalid targets and values.
+        2. Train and test partitions are created before preprocessing.
+        3. ``_prepare_train_test`` learns encoding and missing-value behavior from
+           training rows only.
+        4. The returned tuple is consumed by ``fit`` and validated again there,
+           which also protects manually created scikit-learn splits.
+
         Parameters:
         - data (Union[pd.DataFrame, str]): The input dataset or a filepath to a dataset.
         - target (str): The name of the target column.
@@ -250,7 +258,16 @@ class MultiRegressor:
         y_train = train_dataset[target]
         y_test = test_dataset[target]
 
-        return (np.array(X_train), np.array(X_test), np.array(y_train), np.array(y_test)) if self.use_gpu else (X_train, X_test, y_train, y_test)
+        # GPU libraries consume contiguous array-like values efficiently. CPU
+        # users keep pandas objects, including useful column names and indices.
+        if self.use_gpu:
+            return (
+                np.asarray(X_train),
+                np.asarray(X_test),
+                np.asarray(y_train),
+                np.asarray(y_test),
+            )
+        return X_train, X_test, y_train, y_test
 
     def fit(
         self,
@@ -264,6 +281,13 @@ class MultiRegressor:
     ):  
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
+
+        Execution flow:
+        1. ``_validate_datasplits`` checks the schema and regression targets.
+        2. ``prepare_tabular_features`` performs shared optional scaling and PCA.
+        3. ``run_models`` fits every selected estimator and caches predictions.
+        4. Metric helpers score those predictions, then ``_display_table`` applies
+           the requested ordering or returns one best-score row.
 
         Parameters:
         - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
@@ -302,6 +326,8 @@ class MultiRegressor:
         else:
             pca_scaler = False
         
+        # The model factory receives this flag and configures only libraries with
+        # an explicit supported GPU API on the current platform.
         gpu_enabled = self.use_gpu and platform.system() != "Darwin"
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
@@ -349,6 +375,8 @@ class MultiRegressor:
                 )
 
             if show_train_score:
+                # RMSE is derived from the exact MSE already stored above, which
+                # avoids another pass through the target and prediction arrays.
                 metric_results["root_mean_squared_error_train"] = np.sqrt(
                     metric_results["mean_squared_error_train"]
                 )
@@ -384,6 +412,8 @@ class subMultiRegressor(MultiRegressor):
     """Backward-compatible regressor alias retained for existing users."""
 
     def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+        """Forward legacy constructor arguments to ``MultiRegressor``."""
+
         super().__init__(
             n_jobs=n_jobs,
             random_state=random_state,
@@ -395,6 +425,8 @@ class subMultiRegressor(MultiRegressor):
         )
         
     def __post_init__(self):
+        """Keep legacy validation messages before running the parent checks."""
+
         if not isinstance(self.use_gpu, bool):
             raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
         

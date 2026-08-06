@@ -115,7 +115,12 @@ logger.addHandler(logging.NullHandler())
 # Pandas has several string-like extension dtypes. A single helper keeps every
 # encoding path consistent about which columns are categorical.
 def _is_categorical_dtype(dtype):
-    """Recognize pandas object, string, and categorical extension dtypes."""
+    """Recognize every pandas dtype handled by MultiTrain's encoders.
+
+    ``_categorical_columns``, missing-value handling, and both encoding paths use
+    this helper so pandas ``object``, ``string``, and ``category`` columns receive
+    the same treatment.
+    """
     return (
         pd.api.types.is_object_dtype(dtype)
         or pd.api.types.is_string_dtype(dtype)
@@ -124,7 +129,11 @@ def _is_categorical_dtype(dtype):
 
 
 def _categorical_columns(dataset):
-    """Return columns that need categorical encoding without relying on pandas defaults."""
+    """Return columns that ``split`` must encode before model training.
+
+    This wraps ``_is_categorical_dtype`` and is used by automatic encoding and
+    the guard that reports forgotten manual encodings.
+    """
     return [
         column
         for column in dataset.columns
@@ -143,6 +152,8 @@ def _models_classifier(
     Generate a dictionary of classifier models from various libraries.
 
     Each entry in the dictionary maps a classifier's name to an instance of the classifier.
+    ``_prep_model_names_list`` calls this during ``MultiClassifier.fit`` and then
+    passes the chosen names and instances to ``execution.run_models``.
 
     Args:
         random_state (int, optional): Seed for the random number generator. Defaults to None.
@@ -261,6 +272,8 @@ def _models_regressor(
     Generate a dictionary of regressor models from various libraries.
 
     Each entry in the dictionary maps a regressor's name to an instance of the regressor.
+    ``_prep_model_names_list`` calls this during ``MultiRegressor.fit`` and then
+    passes the selected entries to ``execution.run_models``.
 
     Args:
         random_state (int, optional): Seed for the random number generator. Defaults to None.
@@ -392,6 +405,10 @@ def _cat_encoder(cat_data, auto_cat_encode):
     """
     Encode categorical columns in the dataset using Label Encoding.
 
+    This compatibility helper operates on one dataframe. The public ``split``
+    workflow uses ``_prepare_train_test`` instead because that newer helper fits
+    category mappings on training data only.
+
     Args:
         cat_data (pd.DataFrame): The dataset containing categorical data.
         auto_cat_encode (bool): If True, automatically encodes all categorical columns.
@@ -417,6 +434,9 @@ def _cat_encoder(cat_data, auto_cat_encode):
 def _init_metrics():
     """
     Initialize a list of default metric names.
+
+    ``_prep_model_names_list`` uses these sklearn-style names to stop callers
+    from requesting a built-in measurement again as a custom metric.
 
     Returns:
         list: A list of metric names.
@@ -467,6 +487,9 @@ def _metrics(custom_metric: str, metric_type: str):
     Retrieve a dictionary of metric functions from sklearn.
 
     Each entry in the dictionary maps a metric's name to its function.
+    The public ``fit`` loops call this after ``execution.run_models`` has cached
+    predictions. The allowlists deliberately contain scalar results only so each
+    value can occupy one dataframe cell.
 
     Args:
         custom_metric (str): Name of a custom metric to include.
@@ -524,6 +547,10 @@ def _manual_encoder(manual_encode, dataset):
     """
     Manually encode specified columns in the dataset using specified encoding types.
 
+    This remains available for compatibility and focused use. Public ``split``
+    calls ``_prepare_train_test`` so one-hot columns and label mappings are fitted
+    against training rows and aligned onto test rows.
+
     Args:
         manual_encode (dict): Dictionary specifying encoding types and columns.
         dataset (pd.DataFrame): The dataset to encode.
@@ -578,6 +605,9 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
     """
     Check for non-encoded categorical columns and raise an error if found.
 
+    Both public ``split`` methods call this before creating model features. It
+    reports only columns not covered by automatic or manual encoding.
+
     Args:
         dataset (pd.DataFrame): The dataset to check.
         auto_cat_encode (bool): Indicates if automatic encoding is enabled.
@@ -607,7 +637,12 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
 
 
 def _validate_supervised_dataset(dataset, target, task):
-    """Reject invalid data before failures are hidden inside individual models."""
+    """Validate the complete source dataframe before ``split`` partitions it.
+
+    This catches structural and target problems that would otherwise make every
+    estimator fail independently. ``fit`` performs a separate validation through
+    ``_validate_datasplits`` because callers may provide their own partitions.
+    """
     if len(dataset) < 2:
         raise MultiTrainSplitError("Unable to split a dataset with fewer than two rows")
     duplicate_columns = dataset.columns[dataset.columns.duplicated()].unique().tolist()
@@ -671,6 +706,9 @@ def _fill_missing_values(dataset, column):
     """
     Fill missing values in a specified column of the dataset.
 
+    ``_handle_missing_values`` calls this as a final fallback after forward fill,
+    backward fill, or interpolation leaves an edge value unresolved.
+
     Args:
         dataset (pd.DataFrame): The dataset containing missing values.
         column (str): The column to fill missing values in.
@@ -693,6 +731,10 @@ def _handle_missing_values(
 ) -> pd.DataFrame:
     """
     Handle missing values in the dataset using specified strategies.
+
+    This compatibility helper handles one dataframe. The public ``split`` path
+    uses ``_prepare_train_test`` to ensure fallback values are derived without
+    allowing held-out rows to influence training preprocessing.
 
     Args:
         dataset (pd.DataFrame): The dataset to handle missing values in.
@@ -768,7 +810,13 @@ def _prepare_train_test(
     manual_encode: Optional[Dict] = None,
     fix_nan_custom: Optional[Dict] = False,
 ):
-    """Preprocess a split without learning categories or fill values from test data."""
+    """Apply missing-value and categorical rules to an existing train/test split.
+
+    Both public ``split`` methods call this immediately after scikit-learn creates
+    the partitions. Training data defines category mappings, fallback values, and
+    one-hot columns. The test dataframe is transformed to match that learned
+    schema, including reserved codes for unseen categories.
+    """
     if not isinstance(train_dataset, pd.DataFrame) or not isinstance(
         test_dataset, pd.DataFrame
     ):
@@ -791,6 +839,8 @@ def _prepare_train_test(
     # Learned mappings and fallback values come from training data. The test
     # copy is aligned to that schema but never contributes fitted state.
     train_copy = train_dataset.copy()
+    # Reindexing does two things: it restores the exact training-column order
+    # and makes any schema mismatch visible before encoding begins.
     test_copy = test_dataset.reindex(columns=train_dataset.columns).copy()
 
     invalid_encoder_types = set((manual_encode or {})) - {"label", "onehot"}
@@ -890,6 +940,8 @@ def _prepare_train_test(
         test_dummies = pd.get_dummies(
             test_copy[column], prefix=column, dtype=int
         ).reindex(columns=train_dummies.columns, fill_value=0)
+        # Reindexing removes test-only dummy columns and adds any missing
+        # training columns as zero, leaving identical train/test feature schemas.
         train_copy = pd.concat(
             [train_copy.drop(columns=[column]), train_dummies], axis=1
         )
@@ -903,6 +955,10 @@ def _prepare_train_test(
 def _check_custom_models(custom_models, models):
     """
     Check and retrieve custom models from the provided models dictionary.
+
+    ``_prep_model_names_list`` calls this after building the complete estimator
+    catalogue. It preserves the user's selection order, which ``run_models`` and
+    the final dataframe also preserve.
 
     Args:
         custom_models (list): List of custom model names.
@@ -943,7 +999,13 @@ def _validate_datasplits(
     allow_1d_features=False,
     allow_non_numeric_features=False,
 ):
-    """Validate manually supplied splits before starting any model runs."""
+    """Validate the tuple consumed by either public ``fit`` method.
+
+    Package-created and manually-created splits follow this same path. It checks
+    row counts, shapes, pandas index/column alignment, numeric feature domains,
+    target shape/type, and classification class coverage before ``run_models``
+    can turn a shared input problem into many model-specific failures.
+    """
     if not isinstance(datasplits, tuple) or len(datasplits) != 4:
         raise MultiTrainSplitError(
             'The "datasplits" parameter must be a tuple containing '
@@ -996,7 +1058,9 @@ def _validate_datasplits(
 
     feature_shapes = []
     for name, values in (("X_train", X_train), ("X_test", X_test)):
-        shape = getattr(values, "shape", np.asarray(values).shape)
+        # Pandas, numpy, and scipy already expose shape. The fallback supports
+        # ordinary nested sequences supplied by users of sklearn's split helper.
+        shape = values.shape if hasattr(values, "shape") else np.asarray(values).shape
         valid_dimensions = {1, 2} if allow_1d_features else {2}
         if len(shape) not in valid_dimensions:
             expected = "one or two" if allow_1d_features else "two"
@@ -1008,12 +1072,16 @@ def _validate_datasplits(
         feature_shapes.append(shape)
 
         if hasattr(values, "tocsr"):
+            # Only stored sparse entries need finite-value validation; implicit
+            # entries are zeros by definition.
             numeric_values = values.data
         elif isinstance(values, pd.DataFrame):
             if values.isna().values.any():
                 raise MultiTrainDatasetValueError(
                     f"{name} cannot contain missing feature values"
                 )
+            # Selecting numeric columns separately lets the following difference
+            # report exactly which features still require categorical encoding.
             numeric_frame = values.select_dtypes(include=[np.number, "bool"])
             non_numeric_columns = [
                 column for column in values.columns if column not in numeric_frame.columns
@@ -1074,6 +1142,8 @@ def _validate_datasplits(
         raise MultiTrainNaNError("Training and test targets cannot contain missing values")
     train_target_dtype = getattr(y_train, "dtype", train_target.dtype)
     test_target_dtype = getattr(y_test, "dtype", test_target.dtype)
+    # Classification may legitimately use strings; regression may not. This
+    # flag chooses finite numeric checks without prematurely rejecting classes.
     numeric_targets = pd.api.types.is_numeric_dtype(
         train_target_dtype
     ) and pd.api.types.is_numeric_dtype(test_target_dtype)
@@ -1099,6 +1169,8 @@ def _validate_datasplits(
     if not numeric_targets:
         combined_target = np.concatenate([train_target, test_target])
     if task == "classification":
+        # Combining partitions identifies the task shape consistently, while
+        # the checks below still require every test class to exist in training.
         target_kind = type_of_target(combined_target)
         if target_kind not in {"binary", "multiclass"}:
             raise MultiTrainDatasetTypeError(
@@ -1135,6 +1207,11 @@ def _prep_model_names_list(
 ) -> tuple:
     """
     Prepare model names and lists based on provided data splits and parameters.
+
+    The public ``fit`` methods use this as the bridge between validated user
+    configuration and execution: it constructs the correct task catalogue,
+    applies ``custom_models`` through ``_check_custom_models``, and returns the
+    selected models alongside the unchanged four data partitions.
 
     Args:
         datasplits (tuple): A tuple containing training and testing data splits.
@@ -1200,6 +1277,7 @@ def _format_time(seconds):
     """
     Convert a duration (in seconds) into a human-readable string.
     The output will include hours, minutes, seconds, milliseconds, or microseconds.
+    ``execution._fit_model`` uses this for the ``Time`` column in the result table.
     
     Examples:
       5400.1234 -> "1 hr 30 m 0.12 s"
@@ -1244,7 +1322,12 @@ def _sub_fit(
     pca_scaler,
     raise_on_error=False,
 ):
-    """Fit one model pipeline and return predictions for the test data."""
+    """Fit the legacy single-model pipeline used by compatibility helpers.
+
+    ``_fit_pred`` and ``_fit_pred_text`` call this function. The current public
+    multi-model workflow uses ``execution._fit_model``, which additionally caches
+    train predictions, probabilities, ROC AUC, timing, and errors.
+    """
     if not hasattr(X_train, "shape"):
         raise MultiTrainTypeError("X_train must be an array-like object with a shape")
 
@@ -1294,6 +1377,9 @@ def _fit_pred(
     """
     Fit a model and predict on the test set, measuring the time taken.
 
+    This is retained for compatibility with earlier internal consumers. New
+    public fits are routed through ``execution.run_models`` instead.
+
     Args:
         current_model: The model to fit.
         model_names (list): List of model names.
@@ -1330,6 +1416,10 @@ def _calculate_metric(
 ):
     """
     Calculate a metric using the provided metric function.
+
+    Classification and regression ``fit`` loops call this for label predictions
+    and numeric predictions. Probability-only measurements are intentionally
+    handled by ``_calculate_probability_metric`` instead.
 
     Args:
         metric_func (callable): The metric function to use for calculation.
@@ -1369,7 +1459,13 @@ def _calculate_probability_metric(
     probabilities,
     model_classes,
 ):
-    """Calculate supported metrics that require probabilities instead of labels."""
+    """Score log loss or Brier loss from probabilities cached by ``_fit_model``.
+
+    ``MultiClassifier.fit`` routes only probability-based metrics here. Binary
+    Brier score uses the probability column matching the fitted positive class;
+    multiclass Brier score compares the full probability row with a one-hot
+    representation built in the same ``model_classes`` order.
+    """
     if probabilities is None or model_classes is None:
         return np.nan
     try:
@@ -1381,12 +1477,16 @@ def _calculate_probability_metric(
             if scores.ndim != 2 or scores.shape[1] != len(classes):
                 return np.nan
             if len(classes) == 2:
+                # Column 1 corresponds to classes[1] according to sklearn's
+                # documented ``classes_``/``predict_proba`` ordering.
                 return brier_score_loss(
                     y_true,
                     scores[:, 1],
                     pos_label=classes[1],
                 )
             observed = np.asarray(y_true)
+            # Broadcasting compares each observed label with every fitted class,
+            # producing one row such as [0, 1, 0] for a three-class target.
             one_hot_targets = (observed[:, np.newaxis] == classes).astype(float)
             return np.mean(np.sum((one_hot_targets - scores) ** 2, axis=1))
     except Exception:
@@ -1395,7 +1495,12 @@ def _calculate_probability_metric(
 
 
 def _classification_roc_auc(model, X, y_true, probabilities=None):
-    """Calculate ROC AUC from scores, never from predicted class labels."""
+    """Calculate ROC AUC for ``execution._fit_model`` from confidence scores.
+
+    Probability output is preferred and may be supplied from the existing cache.
+    Binary estimators without ``predict_proba`` may use ``decision_function``.
+    Unsupported score shapes return NaN so other measurements remain available.
+    """
     try:
         observed_classes = np.unique(y_true)
         model_classes = np.asarray(
@@ -1411,6 +1516,8 @@ def _classification_roc_auc(model, X, y_true, probabilities=None):
                 else model.predict_proba(X)
             )
             if len(model_classes) == 2:
+                # Binary ROC AUC expects a one-dimensional confidence score for
+                # the positive class rather than both probability columns.
                 scores = scores[:, 1]
                 return roc_auc_score(y_true, scores)
             return roc_auc_score(
@@ -1438,6 +1545,10 @@ def _fit_pred_text(
 ):
     """
     Fit a text processing pipeline and predict on the test set, measuring the time taken.
+
+    This compatibility helper builds a vectorizer per model. The current public
+    text workflow uses ``execution.prepare_text_features`` once and then shares
+    its sparse/dense representations through ``execution.run_models``.
 
     Args:
         vectorizer (str): The type of vectorizer to use ('count' or 'tfidf').
@@ -1530,6 +1641,11 @@ def _display_table(
     """
     Displays a sorted table of results.
 
+    Both public ``fit`` methods call this after all metric dictionaries have been
+    assembled. It knows which measurements increase with quality and which are
+    losses, moves an explicitly sorted column to the front, and implements
+    ``return_best_model`` using the same direction rules.
+
     Args:
         results (dict): The results to display.
         sort (str, optional): The metric to sort by.
@@ -1556,8 +1672,9 @@ def _display_table(
     # index and turns every measurement into a sortable column.
     results_df = pd.DataFrame(results).T
     
-    # Define the default sorting mapping for each task.
-    # Metrics that should be sorted in descending order (higher is better)
+    # Higher-is-better measurements place the largest value first. Losses and
+    # errors below use the opposite direction. These same lists drive both
+    # explicit sorting and ``return_best_model``.
     descending_metrics = [
         "accuracy", "precision", "recall", "f1", "roc_auc",
         "balanced_accuracy", "r2_score", "explained_variance_score",
@@ -1572,10 +1689,14 @@ def _display_table(
         "completeness_score", "v_measure_score", "fowlkes_mallows_score",
     ]
 
-    # Metrics that should be sorted in ascending order (lower is better) 
-    ascending_metrics = ["mean_squared_error", "root_mean_squared_error", "mean_absolute_error", "median_absolute_error", "mean_squared_log_error", "max_error",
-                         "mean_poisson_deviance", "mean_gamma_deviance", "mean_tweedie_deviance", "mean_pinball_loss", "mean_absolute_percentage_error",
-                         "hamming_loss", "zero_one_loss", "hinge_loss", "log_loss", "brier_score_loss"]
+    ascending_metrics = [
+        "mean_squared_error", "root_mean_squared_error", "mean_absolute_error",
+        "median_absolute_error", "mean_squared_log_error", "max_error",
+        "mean_poisson_deviance", "mean_gamma_deviance",
+        "mean_tweedie_deviance", "mean_pinball_loss",
+        "mean_absolute_percentage_error", "hamming_loss", "zero_one_loss",
+        "hinge_loss", "log_loss", "brier_score_loss",
+    ]
 
     sorted_ = {
         "classification": {
@@ -1597,11 +1718,13 @@ def _display_table(
         },
     }
 
-    # If a custom metric is provided, add it to the sorted_ dictionary for the specified task.
+    # A validated custom metric becomes sortable for this call without changing
+    # the module-level defaults used by later calls.
     if custom_metric and task:
         sorted_[task][custom_metric] = custom_metric
 
-    # If a sorting metric is requested
+    # ``sort`` returns all models in order; ``return_best_model`` later returns
+    # one row. Accepting both would make the requested result ambiguous.
     if sort is not None:
         if not isinstance(sort, str) or not sort:
             raise MultiTrainMetricError("sort must be a non-empty metric name or None")

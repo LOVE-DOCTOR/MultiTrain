@@ -149,6 +149,14 @@ class MultiClassifier:
         """
         Splits the dataset into training and testing sets after performing optional preprocessing steps.
 
+        How this connects to the rest of MultiTrain:
+        1. This method validates the complete source dataset.
+        2. ``train_test_split`` creates stratified train and test partitions.
+        3. ``_prepare_train_test`` learns missing-value fallbacks and category
+           mappings from the training partition only.
+        4. The returned tuple is accepted directly by ``fit`` or can be replaced
+           with an equivalent tuple created by scikit-learn.
+
         Parameters:
         - data (Union[pd.DataFrame, str]): The input dataset or a file path to the dataset.
         - target (str): The name of the target column.
@@ -240,6 +248,7 @@ class MultiClassifier:
 
         if not self.text:
             _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
+
         # Split first so encoders and missing-value rules cannot learn from held-out rows.
         try:
             train_dataset, test_dataset = train_test_split(
@@ -281,6 +290,14 @@ class MultiClassifier:
     ):
         """
         Fits multiple models to the provided training data and evaluates them using specified metrics.
+
+        Execution flow:
+        1. ``_validate_datasplits`` rejects corrupt manual or package splits.
+        2. ``prepare_tabular_features`` or ``prepare_text_features`` creates one
+           shared representation for all selected models.
+        3. ``run_models`` fits every model and caches predictions/probabilities.
+        4. Metric helpers score those cached outputs and ``_display_table`` sorts
+           or reduces the final dataframe.
 
         Parameters:
         - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
@@ -345,6 +362,8 @@ class MultiClassifier:
         else:
             pca_scaler = False
         
+        # GPU models are configured only on supported platforms. The model
+        # factory uses this flag when it creates CatBoost and XGBoost instances.
         gpu_enabled = self.use_gpu and platform.system() != "Darwin"
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
@@ -421,6 +440,8 @@ class MultiClassifier:
         # Score cached predictions so every measurement uses the same fitted
         # output without repeating expensive predict calls.
         results = {}
+        # Averaging depends on whether the task is binary or multiclass. This is
+        # scoring metadata only and is evaluated after every model has finished.
         all_targets = np.concatenate([np.asarray(y_train), np.asarray(y_test)])
         multiclass = len(np.unique(all_targets)) > 2
         for completed_model in completed:
@@ -429,6 +450,8 @@ class MultiClassifier:
                 custom_metric, "classification"
             ).items():
                 if metric_name == "roc_auc":
+                    # ROC AUC was calculated in ``_fit_model`` from probabilities
+                    # or decision scores, never from hard class predictions.
                     if show_train_score:
                         metric_results[f"{metric_name}_train"] = (
                             completed_model.train_roc_auc
@@ -437,6 +460,8 @@ class MultiClassifier:
                     continue
 
                 if metric_name in {"log_loss", "brier_score_loss"}:
+                    # These measurements describe confidence, so passing the
+                    # predicted labels here would produce a plausible but wrong score.
                     if show_train_score:
                         metric_results[f"{metric_name}_train"] = (
                             _calculate_probability_metric(
@@ -456,9 +481,15 @@ class MultiClassifier:
 
                 average_type = None
                 if metric_name in {"precision", "recall", "f1", "jaccard_score"}:
+                    # Micro averaging is the explicit imbalanced-data option.
+                    # Otherwise multiclass results are weighted by class size,
+                    # while binary results retain their positive-class meaning.
                     average_type = (
                         "micro" if imbalanced else ("weighted" if multiclass else "binary")
                     )
+                # Scikit-learn orders ``classes_`` consistently with probability
+                # columns. Using the final class also supports strings and labels
+                # other than the integer 1.
                 positive_label = (
                     completed_model.model_classes[-1]
                     if average_type == "binary"
@@ -510,6 +541,8 @@ class subMultiClassifier(MultiClassifier):
     """Backward-compatible classifier alias retained for existing users."""
 
     def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+        """Forward legacy constructor arguments to ``MultiClassifier``."""
+
         super().__init__(
             n_jobs=n_jobs,
             random_state=random_state,
@@ -521,6 +554,8 @@ class subMultiClassifier(MultiClassifier):
         )
         
     def __post_init__(self):
+        """Keep legacy validation messages before running the parent checks."""
+
         if not isinstance(self.use_gpu, bool):
             raise MultiTrainTypeError(f'Invalid type for use_gpu: expected bool, got {type(self.use_gpu).__name__}. Please provide a boolean value (True or False).')
         
