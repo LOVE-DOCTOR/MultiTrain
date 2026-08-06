@@ -214,6 +214,8 @@ fit = train.fit(
 )
 ```
 
+The supported classification values for `custom_metric` are `brier_score_loss`, `cohen_kappa_score`, `hamming_loss`, `jaccard_score`, `log_loss`, `matthews_corrcoef`, and `zero_one_loss`. MultiTrain gives `log_loss` and `brier_score_loss` class probabilities instead of predicted labels. Models without `predict_proba` show `NaN` for those two measurements while their other measurements remain available.
+
 #### If you used the split method provided by the MultiClassifier
 ```python
 import pandas as pd
@@ -369,6 +371,8 @@ fit = train.fit(
 # mean_squared_error, root_mean_squared_error, r2_score, mean_absolute_error,
 # median_absolute_error, mean_squared_log_error, and explained_variance_score.
 ```
+
+The supported regression values for `custom_metric` are `d2_absolute_error_score`, `d2_pinball_score`, `d2_tweedie_score`, `max_error`, `mean_absolute_percentage_error`, `mean_gamma_deviance`, `mean_pinball_loss`, `mean_poisson_deviance`, and `mean_tweedie_deviance`.
 
 When you provide your own split, MultiTrain checks row counts, feature order, pandas index alignment, missing or infinite values, and target types before training. This prevents a malformed split from appearing as a table of failed models.
 #### If you used the split method provided by the MultiRegressor

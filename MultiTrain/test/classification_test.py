@@ -1,3 +1,5 @@
+"""Public classification API tests for normal use and invalid input handling."""
+
 import pytest
 import pandas as pd
 import numpy as np

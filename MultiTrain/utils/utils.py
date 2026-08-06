@@ -1,4 +1,10 @@
-import inspect
+"""Shared model catalogues, validation, encoding, metrics, and result formatting.
+
+The helpers here reject bad data before expensive fits, construct fresh model
+instances, calculate measurements from cached predictions, and build the final
+comparison dataframe.
+"""
+
 import logging
 import platform
 import time
@@ -6,7 +12,6 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.base import clone
 from sklearn.decomposition import PCA
 from MultiTrain.errors.errors import *
@@ -61,16 +66,32 @@ from sklearn.linear_model import (
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
+    brier_score_loss,
+    cohen_kappa_score,
+    d2_absolute_error_score,
+    d2_pinball_score,
+    d2_tweedie_score,
     explained_variance_score,
     f1_score,
+    hamming_loss,
+    jaccard_score,
+    log_loss,
+    matthews_corrcoef,
+    max_error,
     mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_gamma_deviance,
+    mean_pinball_loss,
+    mean_poisson_deviance,
     mean_squared_error,
     mean_squared_log_error,
+    mean_tweedie_deviance,
     median_absolute_error,
     precision_score,
     r2_score,
     recall_score,
     roc_auc_score,
+    zero_one_loss,
 )
 from sklearn.naive_bayes import BernoulliNB, ComplementNB, GaussianNB, MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
@@ -91,6 +112,8 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+# Pandas has several string-like extension dtypes. A single helper keeps every
+# encoding path consistent about which columns are categorical.
 def _is_categorical_dtype(dtype):
     """Recognize pandas object, string, and categorical extension dtypes."""
     return (
@@ -146,6 +169,8 @@ def _models_classifier(
     if not isinstance(device, str) or not device:
         raise MultiTrainTypeError("device must be a non-empty string")
 
+    # Each call returns fresh estimators. Fitted state and dataset-specific
+    # parameter adjustments therefore cannot leak into a later fit call.
     models_dict = {
         LogisticRegression.__name__: LogisticRegression(
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 100
@@ -263,6 +288,8 @@ def _models_regressor(
     if not isinstance(device, str) or not device:
         raise MultiTrainTypeError("device must be a non-empty string")
 
+    # Regression models are also rebuilt for every fit so wrappers and adjusted
+    # cross-validation settings belong only to the current dataset.
     models_dict = {
         LinearRegression.__name__: LinearRegression(n_jobs=n_jobs if n_jobs is not None else 1),
         Ridge.__name__: Ridge(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
@@ -409,6 +436,32 @@ def _init_metrics():
         "explained_variance_score"
     ]
 
+
+# Only scalar measurements with unambiguous label or probability routing are
+# exposed. Reports and curves cannot be represented by one dataframe value.
+CLASSIFICATION_CUSTOM_METRICS = {
+    "brier_score_loss": brier_score_loss,
+    "cohen_kappa_score": cohen_kappa_score,
+    "hamming_loss": hamming_loss,
+    "jaccard_score": jaccard_score,
+    "log_loss": log_loss,
+    "matthews_corrcoef": matthews_corrcoef,
+    "zero_one_loss": zero_one_loss,
+}
+
+REGRESSION_CUSTOM_METRICS = {
+    "d2_absolute_error_score": d2_absolute_error_score,
+    "d2_pinball_score": d2_pinball_score,
+    "d2_tweedie_score": d2_tweedie_score,
+    "max_error": max_error,
+    "mean_absolute_percentage_error": mean_absolute_percentage_error,
+    "mean_gamma_deviance": mean_gamma_deviance,
+    "mean_pinball_loss": mean_pinball_loss,
+    "mean_poisson_deviance": mean_poisson_deviance,
+    "mean_tweedie_deviance": mean_tweedie_deviance,
+}
+
+
 def _metrics(custom_metric: str, metric_type: str):
     """
     Retrieve a dictionary of metric functions from sklearn.
@@ -449,18 +502,20 @@ def _metrics(custom_metric: str, metric_type: str):
         raise MultiTrainTypeError("custom_metric must be a string or None")
 
     if custom_metric:
-        # Check if the custom metric is a valid sklearn metric
-        valid_sklearn_metrics = [
-            name
-            for name, obj in inspect.getmembers(sklearn.metrics, inspect.isfunction)
-        ]
-        if custom_metric not in valid_sklearn_metrics:
+        metrics = valid_metrics[metric_type].copy()
+        if custom_metric in metrics:
+            return metrics
+        custom_metrics = (
+            CLASSIFICATION_CUSTOM_METRICS
+            if metric_type == "classification"
+            else REGRESSION_CUSTOM_METRICS
+        )
+        if custom_metric not in custom_metrics:
             raise MultiTrainMetricError(
-                f"Custom metric ({custom_metric}) is not a valid metric. Please check the sklearn documentation for a valid list of metrics."
+                f"Custom metric {custom_metric!r} is not a supported scalar "
+                f"{metric_type} metric. Choose one of {sorted(custom_metrics)}."
             )
-        # Add the custom metric to the appropriate metric type
-        metrics = valid_metrics.get(metric_type, {}).copy()
-        metrics[custom_metric] = getattr(sklearn.metrics, custom_metric)
+        metrics[custom_metric] = custom_metrics[custom_metric]
         return metrics
 
     return valid_metrics.get(metric_type, {})
@@ -733,6 +788,8 @@ def _prepare_train_test(
     ):
         raise MultiTrainTypeError("fix_nan_custom must be a dictionary or False")
 
+    # Learned mappings and fallback values come from training data. The test
+    # copy is aligned to that schema but never contributes fitted state.
     train_copy = train_dataset.copy()
     test_copy = test_dataset.reindex(columns=train_dataset.columns).copy()
 
@@ -1263,7 +1320,14 @@ def _fit_pred(
     return current_model, current_prediction, time_
 
 
-def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
+def _calculate_metric(
+    metric_func,
+    y_true,
+    y_pred,
+    average=None,
+    task=None,
+    pos_label=None,
+):
     """
     Calculate a metric using the provided metric function.
 
@@ -1275,6 +1339,7 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
             Common options include 'micro', 'macro', 'samples', 'weighted', and 'binary'.
         task (str, optional): The task type, e.g., 'classification' or 'regression'. 
             This parameter is currently not used in the function.
+        pos_label: The class treated as positive by binary classification metrics.
 
     Returns:
         float: The calculated metric value. Returns NaN if an error occurs during calculation.
@@ -1284,17 +1349,52 @@ def _calculate_metric(metric_func, y_true, y_pred, average=None, task=None):
             return np.nan
             
         metric_kwargs = {}
-        if metric_func in {precision_score, recall_score, f1_score}:
+        if metric_func in {precision_score, recall_score, f1_score, jaccard_score}:
             metric_kwargs["zero_division"] = 0
         if average:
             metric_kwargs["average"] = average
+        if average == "binary" and pos_label is not None:
+            metric_kwargs["pos_label"] = pos_label
         val = metric_func(y_true, y_pred, **metric_kwargs)
-    except Exception as e:
+        if not np.isscalar(val):
+            return np.nan
+    except Exception:
         val = np.nan
     return val
 
 
-def _classification_roc_auc(model, X, y_true):
+def _calculate_probability_metric(
+    metric_name,
+    y_true,
+    probabilities,
+    model_classes,
+):
+    """Calculate supported metrics that require probabilities instead of labels."""
+    if probabilities is None or model_classes is None:
+        return np.nan
+    try:
+        classes = np.asarray(model_classes)
+        scores = np.asarray(probabilities)
+        if metric_name == "log_loss":
+            return log_loss(y_true, scores, labels=classes)
+        if metric_name == "brier_score_loss":
+            if scores.ndim != 2 or scores.shape[1] != len(classes):
+                return np.nan
+            if len(classes) == 2:
+                return brier_score_loss(
+                    y_true,
+                    scores[:, 1],
+                    pos_label=classes[1],
+                )
+            observed = np.asarray(y_true)
+            one_hot_targets = (observed[:, np.newaxis] == classes).astype(float)
+            return np.mean(np.sum((one_hot_targets - scores) ** 2, axis=1))
+    except Exception:
+        return np.nan
+    return np.nan
+
+
+def _classification_roc_auc(model, X, y_true, probabilities=None):
     """Calculate ROC AUC from scores, never from predicted class labels."""
     try:
         observed_classes = np.unique(y_true)
@@ -1304,8 +1404,12 @@ def _classification_roc_auc(model, X, y_true):
         if len(observed_classes) < 2:
             return np.nan
 
-        if hasattr(model, "predict_proba"):
-            scores = model.predict_proba(X)
+        if probabilities is not None or hasattr(model, "predict_proba"):
+            scores = (
+                np.asarray(probabilities)
+                if probabilities is not None
+                else model.predict_proba(X)
+            )
             if len(model_classes) == 2:
                 scores = scores[:, 1]
                 return roc_auc_score(y_true, scores)
@@ -1448,21 +1552,30 @@ def _display_table(
     if not isinstance(results, dict) or not results:
         raise MultiTrainTypeError("results must be a non-empty dictionary")
 
-    # Convert the results dictionary to a DataFrame and transpose it.
+    # Model names are dictionary keys, so transposing makes them the dataframe
+    # index and turns every measurement into a sortable column.
     results_df = pd.DataFrame(results).T
     
     # Define the default sorting mapping for each task.
     # Metrics that should be sorted in descending order (higher is better)
-    descending_metrics = ["accuracy", "precision", "recall", "f1", "roc_auc", "balanced_accuracy", "r2_score", "explained_variance_score", 
-                          "precision_micro", "precision_macro", "precision_weighted", "recall_micro", "recall_macro", "recall_weighted", 
-                          "f1_micro", "f1_macro", "f1_weighted", "roc_auc_ovr", "roc_auc_ovo", "jaccard", "matthews_corrcoef", "top_k_accuracy", 
-                          "average_precision", "neg_log_loss", "adjusted_rand_score", "adjusted_mutual_info_score", "normalized_mutual_info_score", 
-                          "homogeneity_score", "completeness_score", "v_measure_score", "fowlkes_mallows_score"]
+    descending_metrics = [
+        "accuracy", "precision", "recall", "f1", "roc_auc",
+        "balanced_accuracy", "r2_score", "explained_variance_score",
+        "d2_absolute_error_score", "d2_pinball_score", "d2_tweedie_score",
+        "precision_micro", "precision_macro", "precision_weighted",
+        "recall_micro", "recall_macro", "recall_weighted", "f1_micro",
+        "f1_macro", "f1_weighted", "roc_auc_ovr", "roc_auc_ovo",
+        "jaccard", "jaccard_score", "cohen_kappa_score",
+        "matthews_corrcoef", "top_k_accuracy", "average_precision",
+        "neg_log_loss", "adjusted_rand_score", "adjusted_mutual_info_score",
+        "normalized_mutual_info_score", "homogeneity_score",
+        "completeness_score", "v_measure_score", "fowlkes_mallows_score",
+    ]
 
     # Metrics that should be sorted in ascending order (lower is better) 
     ascending_metrics = ["mean_squared_error", "root_mean_squared_error", "mean_absolute_error", "median_absolute_error", "mean_squared_log_error", "max_error",
-                         "mean_poisson_deviance", "mean_gamma_deviance", "mean_absolute_percentage_error", "d2_absolute_error_score", 
-                         "d2_pinball_score", "d2_tweedie_score", "hamming_loss", "zero_one_loss", "hinge_loss", "log_loss", "brier_score_loss"]
+                         "mean_poisson_deviance", "mean_gamma_deviance", "mean_tweedie_deviance", "mean_pinball_loss", "mean_absolute_percentage_error",
+                         "hamming_loss", "zero_one_loss", "hinge_loss", "log_loss", "brier_score_loss"]
 
     sorted_ = {
         "classification": {
@@ -1530,24 +1643,19 @@ def _display_table(
                     f"Metric {return_best_model!r} is not present in the results. "
                     f"Choose one of {list(results_df.columns)}."
                 )
-            if task == "classification":
-                if return_best_model not in descending_metrics:
-                    raise MultiTrainMetricError(
-                        f"The preferred ranking direction for {return_best_model!r} is unknown."
-                    )
-                results_df = results_df.sort_values(by=return_best_model, ascending=False).head(1)
-                
-            elif task == "regression":
-                if return_best_model in ascending_metrics:
-                    ascending_order = True
-                elif return_best_model in descending_metrics:
-                    ascending_order = False
-                else:
-                    raise MultiTrainMetricError(
-                        f"The preferred ranking direction for {return_best_model!r} is unknown."
-                    )
-                
-                results_df = results_df.sort_values(by=return_best_model, ascending=ascending_order).head(1)
+            if return_best_model in ascending_metrics:
+                ascending_order = True
+            elif return_best_model in descending_metrics:
+                ascending_order = False
+            else:
+                raise MultiTrainMetricError(
+                    f"The preferred ranking direction for {return_best_model!r} is unknown."
+                )
+
+            results_df = results_df.sort_values(
+                by=return_best_model,
+                ascending=ascending_order,
+            ).head(1)
                 
             return results_df
         else:

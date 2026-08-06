@@ -1,3 +1,5 @@
+"""Convenient public imports for the MultiTrain package."""
+
 from MultiTrain.classification.classification_models import MultiClassifier
 from MultiTrain.classification.classification_models import subMultiClassifier
 from MultiTrain.regression.regression_models import MultiRegressor

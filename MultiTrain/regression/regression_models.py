@@ -1,3 +1,9 @@
+"""Public regression workflow for splitting data, training models, and scoring them.
+
+User-facing validation stays here, while shared preprocessing and model
+execution are delegated to the same utility modules used by classification.
+"""
+
 from dataclasses import dataclass
 from numbers import Real
 import platform
@@ -49,6 +55,13 @@ SUPPORTED_SCALERS = {
 
 @dataclass
 class MultiRegressor:
+    """Configure and compare MultiTrain's regression estimators.
+
+    ``n_jobs`` limits threads inside each estimator. ``model_workers`` controls
+    process-level parallelism across estimators so models do not all claim every
+    CPU at the same time.
+    """
+
     n_jobs: int = 1
     random_state: int = 42
     custom_models: Optional[list] = None
@@ -58,6 +71,10 @@ class MultiRegressor:
     model_workers: Optional[int] = None
     
     def __post_init__(self):
+        """Validate configuration before loading data or constructing models."""
+
+        # Python treats bool as an int, so integer configuration values need a
+        # separate guard against True and False.
         type_validations = {
             'n_jobs': (self.n_jobs, int),
             'random_state': (self.random_state, int),
@@ -238,7 +255,7 @@ class MultiRegressor:
     def fit(
         self,
         datasplits: tuple,
-        custom_metric: str = None,  # must be a valid sklearn metric i.e mean_squared_error.
+        custom_metric: str = None,
         show_train_score: bool = False,
         sort: str = None,
         pca: Union[bool, str] = False,
@@ -250,7 +267,7 @@ class MultiRegressor:
 
         Parameters:
         - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
-        - custom_metric (str, optional): A custom metric to evaluate the models. Must be a valid sklearn metric.
+        - custom_metric (str, optional): A supported scalar scikit-learn metric name.
         - show_train_score (bool, optional): If True, also calculates and displays training scores.
         - sort (str, optional): Metric name to sort the final results. Examples include 'mean_squared_error', 'r2_score', etc.
         - pca (bool or str, optional): Scaler to apply before the shared PCA transformation.
@@ -276,7 +293,8 @@ class MultiRegressor:
 
         _validate_datasplits(datasplits, "regression")
 
-        # The historical pca argument selects the scaler used before PCA.
+        # ``pca`` names the scaler fitted before PCA for compatibility with the
+        # original API. Both transforms are shared across every selected model.
         if pca:
             if pca not in SUPPORTED_SCALERS:
                 raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
@@ -294,6 +312,8 @@ class MultiRegressor:
         prepared_train, prepared_test = prepare_tabular_features(
             X_train, X_test, pca_scaler, n_components
         )
+        # Every estimator sees the full prepared training matrix. Parallelism
+        # changes scheduling, not which rows a model receives.
         completed = run_models(
             model_names,
             model_list,
@@ -308,6 +328,8 @@ class MultiRegressor:
             use_gpu=gpu_enabled,
         )
 
+        # Predictions are cached by the execution layer, so all measurements
+        # below describe the exact same output from each fitted estimator.
         results = {}
         for completed_model in completed:
             metric_results = {}
@@ -359,6 +381,8 @@ class MultiRegressor:
 
 @dataclass
 class subMultiRegressor(MultiRegressor):
+    """Backward-compatible regressor alias retained for existing users."""
+
     def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
         super().__init__(
             n_jobs=n_jobs,

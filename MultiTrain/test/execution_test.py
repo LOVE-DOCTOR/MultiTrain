@@ -1,3 +1,5 @@
+"""Adversarial tests for preprocessing, model execution, metrics, and datasets."""
+
 from pathlib import Path
 from types import SimpleNamespace
 import warnings
@@ -12,22 +14,40 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
+    brier_score_loss,
+    cohen_kappa_score,
+    d2_absolute_error_score,
+    d2_pinball_score,
+    d2_tweedie_score,
     f1_score,
+    hamming_loss,
+    jaccard_score,
+    log_loss,
+    matthews_corrcoef,
+    max_error,
     mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_gamma_deviance,
+    mean_pinball_loss,
+    mean_poisson_deviance,
     mean_squared_error,
+    mean_tweedie_deviance,
     precision_score,
     r2_score,
     recall_score,
     roc_auc_score,
+    zero_one_loss,
 )
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
 from MultiTrain.classification.classification_models import MultiClassifier
 from MultiTrain.errors.errors import (
     MultiTrainDatasetTypeError,
     MultiTrainDatasetValueError,
+    MultiTrainMetricError,
     MultiTrainNaNError,
     MultiTrainPCAError,
     MultiTrainSplitError,
@@ -135,8 +155,126 @@ def test_text_is_vectorized_once_for_multiple_models(monkeypatch):
 
     assert calls == {"fit_transform": 1, "transform": 1}
     assert prepared[0].shape[0] == len(train)
+    assert np.issubdtype(prepared[0].dtype, np.floating)
     assert prepared[2] is not None
     assert prepared[4] == {"GaussianNB"}
+
+
+def test_count_vectorized_text_is_compatible_with_lightgbm():
+    rows = []
+    class_phrases = [
+        "ocean penguin flipper ice",
+        "forest bird feather tree",
+        "desert lizard scale sand",
+    ]
+    for index in range(90):
+        label = index % len(class_phrases)
+        rows.append(
+            {
+                "text": f"{class_phrases[label]} shared sample{index % 5}",
+                "target": label,
+            }
+        )
+
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        text=True,
+        custom_models=["LGBMClassifier"],
+    )
+    split = classifier.split(pd.DataFrame(rows), "target", test_size=0.25)
+    result = classifier.fit(
+        split,
+        vectorizer="count",
+        pipeline_dict=TEXT_OPTIONS,
+    )
+
+    assert result.loc["LGBMClassifier", "accuracy"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("pca", [False, "StandardScaler"])
+def test_nonnegative_naive_bayes_models_support_negative_features(pca):
+    rng = np.random.default_rng(404)
+    values = rng.normal(size=(120, 5))
+    frame = pd.DataFrame(values, columns=[f"feature_{index}" for index in range(5)])
+    frame["target"] = (values[:, 0] + values[:, 1] > 0).astype(int)
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        custom_models=["MultinomialNB", "ComplementNB"],
+    )
+
+    result = classifier.fit(
+        classifier.split(frame, "target", test_size=0.25),
+        pca=pca,
+        n_components=3 if pca else None,
+    )
+
+    assert np.isfinite(result["accuracy"].astype(float)).all()
+
+
+def test_positive_target_regressors_support_targets_in_original_units():
+    rng = np.random.default_rng(505)
+    values = rng.normal(size=(120, 5))
+    frame = pd.DataFrame(values, columns=[f"feature_{index}" for index in range(5)])
+    frame["target"] = values @ np.array([2.0, -3.0, 0.5, 1.0, -2.0]) - 5.0
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=500,
+        custom_models=["PoissonRegressor", "GammaRegressor"],
+    )
+
+    result = regressor.fit(regressor.split(frame, "target", test_size=0.25))
+
+    assert np.isfinite(result["mean_squared_error"].astype(float)).all()
+    assert (result["mean_squared_error"].astype(float) < 100).all()
+
+
+def test_cross_validation_and_neighbors_adapt_to_tiny_training_splits():
+    classification = pd.DataFrame(
+        {
+            "first": np.arange(8, dtype=float),
+            "second": [0, 1] * 4,
+            "target": [0, 1] * 4,
+        }
+    )
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=200,
+        custom_models=[
+            "LogisticRegressionCV",
+            "RidgeClassifierCV",
+            "KNeighborsClassifier",
+        ],
+    )
+    classification_result = classifier.fit(
+        classifier.split(classification, "target", test_size=0.25)
+    )
+    assert np.isfinite(classification_result["accuracy"].astype(float)).all()
+
+    regression_values = np.array([-2.0, -0.7, 0.1, 1.3, 2.8, 4.2])
+    regression = pd.DataFrame({"feature": regression_values})
+    regression["target"] = 1.7 * regression_values + 0.4
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=200,
+        custom_models=[
+            "RidgeCV",
+            "LassoCV",
+            "ElasticNetCV",
+            "LarsCV",
+            "KNeighborsRegressor",
+        ],
+    )
+    regression_result = regressor.fit(
+        regressor.split(regression, "target", test_size=0.33)
+    )
+    assert np.isfinite(
+        regression_result["mean_squared_error"].astype(float)
+    ).all()
 
 
 def test_sparse_support_falls_back_for_scikit_learn_1_3(monkeypatch):
@@ -433,6 +571,319 @@ def test_wine_metrics_and_rmse_match_independent_sklearn_calculations():
     )
 
 
+def test_probability_and_multiclass_custom_metrics_use_the_correct_predictions():
+    penguins = pd.read_csv(
+        Path(__file__).parents[2] / "examples" / "datasets" / "penguins.csv"
+    )
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=42,
+        custom_models=["LogisticRegression"],
+    )
+    split = classifier.split(
+        penguins,
+        "species",
+        test_size=0.25,
+        auto_cat_encode=True,
+        fix_nan_custom={
+            "bill_length_mm": "interpolate",
+            "bill_depth_mm": "interpolate",
+            "flipper_length_mm": "interpolate",
+            "body_mass_g": "interpolate",
+            "sex": "ffill",
+        },
+    )
+    X_train, X_test, y_train, y_test = split
+    estimator = execution._prepare_training_estimator(
+        "LogisticRegression",
+        _models_classifier(random_state=42, n_jobs=1, max_iter=1000)[
+            "LogisticRegression"
+        ],
+        X_train,
+        "classification",
+    )
+    estimator.fit(X_train, y_train)
+
+    loss_result = classifier.fit(
+        split,
+        custom_metric="log_loss",
+        sort="log_loss",
+    )
+    assert float(loss_result.loc["LogisticRegression", "log_loss"]) == pytest.approx(
+        log_loss(
+            y_test,
+            estimator.predict_proba(X_test),
+            labels=estimator.classes_,
+        )
+    )
+
+    brier_result = classifier.fit(
+        split,
+        custom_metric="brier_score_loss",
+        sort="brier_score_loss",
+    )
+    assert float(
+        brier_result.loc["LogisticRegression", "brier_score_loss"]
+    ) == pytest.approx(
+        brier_score_loss(
+            y_test,
+            estimator.predict_proba(X_test),
+            labels=estimator.classes_,
+        )
+    )
+
+    jaccard_result = classifier.fit(
+        split,
+        custom_metric="jaccard_score",
+        sort="jaccard_score",
+    )
+    assert float(
+        jaccard_result.loc["LogisticRegression", "jaccard_score"]
+    ) == pytest.approx(
+        jaccard_score(
+            y_test,
+            estimator.predict(X_test),
+            average="weighted",
+            zero_division=0,
+        )
+    )
+
+    ranking_classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=42,
+        custom_models=["LogisticRegression", "DecisionTreeClassifier"],
+    )
+    ranked = ranking_classifier.fit(
+        split,
+        custom_metric="log_loss",
+        sort="log_loss",
+    )
+    best = ranking_classifier.fit(
+        split,
+        custom_metric="log_loss",
+        return_best_model="log_loss",
+    )
+    assert best.index[0] == ranked.index[0]
+    assert float(best.iloc[0]["log_loss"]) == pytest.approx(
+        ranked["log_loss"].astype(float).min()
+    )
+
+
+def test_binary_brier_score_uses_positive_class_probabilities():
+    data = pd.DataFrame(
+        {
+            "first": np.linspace(-3, 3, 120),
+            "second": np.tile([0.0, 1.0, 2.0], 40),
+        }
+    )
+    data["target"] = (data["first"] + data["second"] > 0).astype(int)
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=7,
+        custom_models=["LogisticRegression"],
+    )
+    split = classifier.split(data, "target", random_state=7, test_size=0.25)
+    result = classifier.fit(split, custom_metric="brier_score_loss")
+
+    X_train, X_test, y_train, y_test = split
+    estimator = execution._prepare_training_estimator(
+        "LogisticRegression",
+        _models_classifier(random_state=7, n_jobs=1, max_iter=1000)[
+            "LogisticRegression"
+        ],
+        X_train,
+        "classification",
+    )
+    estimator.fit(X_train, y_train)
+    expected = brier_score_loss(
+        y_test,
+        estimator.predict_proba(X_test)[:, 1],
+        pos_label=estimator.classes_[1],
+    )
+    assert float(
+        result.loc["LogisticRegression", "brier_score_loss"]
+    ) == pytest.approx(expected)
+
+
+def test_binary_metrics_support_non_numeric_class_labels():
+    values = np.arange(120)
+    features = pd.DataFrame(
+        {
+            "first": values,
+            "second": values % 7,
+        }
+    )
+    target = np.where(values % 3 == 0, "approved", "rejected")
+    split = tuple(
+        train_test_split(
+            features,
+            target,
+            test_size=0.25,
+            random_state=12,
+            stratify=target,
+        )
+    )
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=12,
+        custom_models=["LogisticRegression"],
+    )
+    result = classifier.fit(split, custom_metric="jaccard_score")
+
+    X_train, X_test, y_train, y_test = split
+    estimator = execution._prepare_training_estimator(
+        "LogisticRegression",
+        _models_classifier(random_state=12, n_jobs=1, max_iter=1000)[
+            "LogisticRegression"
+        ],
+        X_train,
+        "classification",
+    )
+    estimator.fit(X_train, y_train)
+    predictions = estimator.predict(X_test)
+    positive_label = estimator.classes_[-1]
+
+    for metric_name, metric_func in {
+        "precision": precision_score,
+        "recall": recall_score,
+        "f1": f1_score,
+        "jaccard_score": jaccard_score,
+    }.items():
+        assert float(result.loc["LogisticRegression", metric_name]) == pytest.approx(
+            metric_func(
+                y_test,
+                predictions,
+                pos_label=positive_label,
+                zero_division=0,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "metric",
+    ["confusion_matrix", "classification_report", "roc_curve"],
+)
+def test_non_scalar_or_curve_functions_are_rejected_as_custom_metrics(metric):
+    data = pd.DataFrame({"feature": np.arange(40), "target": [0, 1] * 20})
+    classifier = MultiClassifier(custom_models=["LogisticRegression"])
+    split = classifier.split(data, "target")
+
+    with pytest.raises(MultiTrainMetricError, match="supported scalar"):
+        classifier.fit(split, custom_metric=metric)
+
+
+def test_custom_regression_metrics_sort_in_their_documented_direction():
+    wine = pd.read_csv(
+        Path(__file__).parents[2] / "examples" / "datasets" / "winequality-red.csv",
+        sep=";",
+    )
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        custom_models=["LinearRegression", "DecisionTreeRegressor"],
+    )
+    split = regressor.split(wine, "quality", test_size=0.25)
+
+    d2_result = regressor.fit(
+        split,
+        custom_metric="d2_absolute_error_score",
+        sort="d2_absolute_error_score",
+    )
+    assert d2_result["d2_absolute_error_score"].astype(float).is_monotonic_decreasing
+
+    pinball_result = regressor.fit(
+        split,
+        custom_metric="mean_pinball_loss",
+        sort="mean_pinball_loss",
+    )
+    assert pinball_result["mean_pinball_loss"].astype(float).is_monotonic_increasing
+
+
+@pytest.mark.parametrize(
+    "metric_name,metric_func",
+    [
+        ("cohen_kappa_score", cohen_kappa_score),
+        ("hamming_loss", hamming_loss),
+        ("matthews_corrcoef", matthews_corrcoef),
+        ("zero_one_loss", zero_one_loss),
+    ],
+)
+def test_each_label_based_custom_classification_metric_matches_sklearn(
+    metric_name,
+    metric_func,
+):
+    rng = np.random.default_rng(606)
+    values = rng.normal(size=(120, 4))
+    frame = pd.DataFrame(values, columns=[f"feature_{index}" for index in range(4)])
+    frame["target"] = (values[:, 0] - 0.5 * values[:, 1] > 0).astype(int)
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=18,
+        custom_models=["LogisticRegression"],
+    )
+    split = classifier.split(frame, "target", random_state=18, test_size=0.25)
+    result = classifier.fit(split, custom_metric=metric_name)
+
+    X_train, X_test, y_train, y_test = split
+    estimator = execution._prepare_training_estimator(
+        "LogisticRegression",
+        _models_classifier(random_state=18, n_jobs=1, max_iter=1000)[
+            "LogisticRegression"
+        ],
+        X_train,
+        "classification",
+    )
+    estimator.fit(X_train, y_train)
+    expected = metric_func(y_test, estimator.predict(X_test))
+    assert float(result.loc["LogisticRegression", metric_name]) == pytest.approx(
+        expected
+    )
+
+
+@pytest.mark.parametrize(
+    "metric_name,metric_func",
+    [
+        ("d2_absolute_error_score", d2_absolute_error_score),
+        ("d2_pinball_score", d2_pinball_score),
+        ("d2_tweedie_score", d2_tweedie_score),
+        ("max_error", max_error),
+        ("mean_absolute_percentage_error", mean_absolute_percentage_error),
+        ("mean_gamma_deviance", mean_gamma_deviance),
+        ("mean_pinball_loss", mean_pinball_loss),
+        ("mean_poisson_deviance", mean_poisson_deviance),
+        ("mean_tweedie_deviance", mean_tweedie_deviance),
+    ],
+)
+def test_each_custom_regression_metric_matches_sklearn(metric_name, metric_func):
+    rng = np.random.default_rng(707)
+    values = rng.uniform(0.2, 3.0, size=(120, 4))
+    frame = pd.DataFrame(values, columns=[f"feature_{index}" for index in range(4)])
+    frame["target"] = 5.0 + values @ np.array([1.2, 0.4, 2.1, 0.7])
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        random_state=19,
+        custom_models=["DecisionTreeRegressor"],
+    )
+    split = regressor.split(frame, "target", random_state=19, test_size=0.25)
+    result = regressor.fit(split, custom_metric=metric_name)
+
+    X_train, X_test, y_train, y_test = split
+    estimator = _models_regressor(random_state=19, n_jobs=1, max_iter=1000)[
+        "DecisionTreeRegressor"
+    ]
+    estimator.fit(X_train, y_train)
+    expected = metric_func(y_test, estimator.predict(X_test))
+    assert float(
+        result.loc["DecisionTreeRegressor", metric_name]
+    ) == pytest.approx(expected)
+
+
 def test_split_rejects_dataset_states_that_would_fail_every_model():
     classifier = MultiClassifier(custom_models=["LogisticRegression"])
 
@@ -600,6 +1051,30 @@ def test_dense_text_allocation_stops_before_exceeding_the_limit():
         )
 
 
+@pytest.mark.parametrize(
+    "texts,pipeline_override,error_fragment",
+    [
+        (["", " ", "", " "], {}, "empty vocabulary"),
+        (["one two", "three four", "five six", "seven eight"], {"ngram_range": (2, 1)}, "lower boundary"),
+    ],
+)
+def test_invalid_text_corpora_raise_multitrain_errors(
+    texts,
+    pipeline_override,
+    error_fragment,
+):
+    options = {**TEXT_OPTIONS, **pipeline_override}
+    with pytest.raises(MultiTrainTextError, match=error_fragment):
+        execution.prepare_text_features(
+            "count",
+            options,
+            texts,
+            ["test document"],
+            [LogisticRegression()],
+            max_dense_bytes=1024,
+        )
+
+
 def test_each_parallel_model_receives_the_complete_training_dataset():
     train = np.arange(36, dtype=float).reshape(12, 3)
     test = np.arange(12, dtype=float).reshape(4, 3)
@@ -662,9 +1137,28 @@ def test_parallel_and_sequential_classification_have_equivalent_scores():
         custom_models=model_names, model_workers=2, random_state=9
     )
     split = sequential.split(frame, "target", random_state=9)
-    sequential_result = sequential.fit(split)
-    parallel_result = parallel.fit(split)
-    metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "roc_auc"]
+    sequential_result = sequential.fit(
+        split,
+        custom_metric="log_loss",
+        show_train_score=True,
+    )
+    parallel_result = parallel.fit(
+        split,
+        custom_metric="log_loss",
+        show_train_score=True,
+    )
+    metrics = [
+        "accuracy",
+        "balanced_accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "roc_auc",
+        "log_loss",
+        "accuracy_train",
+        "roc_auc_train",
+        "log_loss_train",
+    ]
     np.testing.assert_allclose(
         sequential_result.loc[model_names, metrics].astype(float),
         parallel_result.loc[model_names, metrics].astype(float),

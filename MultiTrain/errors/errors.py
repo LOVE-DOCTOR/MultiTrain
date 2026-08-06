@@ -1,46 +1,49 @@
+"""Exception hierarchy used to give callers precise, catchable failures."""
+
+
 class MultiTrainError(Exception):
     """Base class for all errors raised by MultiTrain."""
 
 
 class MultiTrainDatasetTypeError(MultiTrainError):
-    pass
+    """Raised when a dataset or target has an unsupported data type."""
 
 
 class MultiTrainDatasetValueError(MultiTrainError):
-    pass
+    """Raised when dataset values are missing, infinite, duplicated, or invalid."""
 
 
 class MultiTrainColumnMissingError(MultiTrainError):
-    pass
+    """Raised when an operation names a column that is not present."""
 
 
 class MultiTrainModelError(MultiTrainError):
-    pass
+    """Raised when a requested model name or model selection is invalid."""
 
 
 class MultiTrainEncodingError(MultiTrainError):
-    pass
+    """Raised when categorical encoding is missing or configured incorrectly."""
 
 
 class MultiTrainTypeError(MultiTrainError):
-    pass
+    """Raised when a public argument has the wrong Python type."""
 
 
 class MultiTrainNaNError(MultiTrainError):
-    pass
+    """Raised when missing values cannot be accepted or resolved safely."""
 
 
 class MultiTrainMetricError(MultiTrainError):
-    pass
+    """Raised when a metric is unsupported, unavailable, or cannot be ranked."""
 
 
 class MultiTrainSplitError(MultiTrainError):
-    pass
+    """Raised when train and test partitions cannot be created or validated."""
 
 
 class MultiTrainTextError(MultiTrainError):
-    pass
+    """Raised when text input or vectorizer configuration is invalid."""
 
 
 class MultiTrainPCAError(MultiTrainError):
-    pass
+    """Raised when PCA or its scaler/component configuration is invalid."""

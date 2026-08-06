@@ -1,3 +1,10 @@
+"""Public classification workflow for splitting data, training models, and scoring them.
+
+This module owns user-facing validation and orchestration. Shared preprocessing
+and execution live in ``MultiTrain.utils`` so classification and regression use
+the same rules without duplicating expensive work.
+"""
+
 from dataclasses import dataclass
 from numbers import Real
 import platform
@@ -15,6 +22,7 @@ from sklearn.preprocessing import (
 
 from MultiTrain.utils.utils import (
     _cat_encoder,
+    _calculate_probability_metric,
     _metrics,
     _calculate_metric,
     _display_table,
@@ -53,6 +61,13 @@ SUPPORTED_SCALERS = {
 
 @dataclass
 class MultiClassifier:
+    """Configure and compare MultiTrain's classification estimators.
+
+    ``n_jobs`` controls threads inside an estimator, while ``model_workers``
+    controls how many different estimators run at once. Text mode shares one
+    vectorizer; tabular mode can share a scaler and PCA transform.
+    """
+
     n_jobs: int = 1
     random_state: int = 42
     custom_models: Optional[list] = None
@@ -63,6 +78,10 @@ class MultiClassifier:
     model_workers: Optional[int] = None
     
     def __post_init__(self):
+        """Validate configuration before any dataset or model is allocated."""
+
+        # Booleans are subclasses of int in Python, so integer options need an
+        # explicit boolean check to avoid accepting values such as n_jobs=True.
         type_validations = {
             'n_jobs': (self.n_jobs, int),
             'random_state': (self.random_state, int),
@@ -265,7 +284,7 @@ class MultiClassifier:
 
         Parameters:
         - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
-        - custom_metric (str, optional): A custom metric to evaluate the models. Must be a valid sklearn metric.
+        - custom_metric (str, optional): A supported scalar scikit-learn metric name.
         - show_train_score (bool, optional): If True, also calculates and displays training scores.
         - imbalanced (bool, optional): If True, uses 'micro' average for precision, recall, and f1 metrics.
         - sort (str, optional): Metric name to sort the final results. Examples include 'accuracy', 'precision', etc.
@@ -317,7 +336,8 @@ class MultiClassifier:
             allow_non_numeric_features=self.text,
         )
 
-        # The historical pca argument selects the scaler used before PCA.
+        # ``pca`` remains the scaler name for API compatibility. The actual PCA
+        # reduction is performed once after that scaler has been fitted.
         if pca:
             if pca not in SUPPORTED_SCALERS:
                 raise MultiTrainPCAError(f'Supported scalers are {list(SUPPORTED_SCALERS.keys())}, got {pca}')
@@ -332,6 +352,8 @@ class MultiClassifier:
             gpu_enabled, self.device,
         )
 
+        # Vectorizers consume a one-dimensional sequence of documents. Unwrap
+        # the common one-column dataframe shape for the user.
         if self.text:
             if isinstance(X_train, pd.DataFrame):
                 if X_train.shape[1] != 1:
@@ -377,6 +399,8 @@ class MultiClassifier:
             dense_train = dense_test = None
             dense_names = set()
 
+        # Every selected model receives every training row. Worker settings
+        # change scheduling only; they never partition the dataset.
         completed = run_models(
             model_names,
             model_list,
@@ -394,6 +418,8 @@ class MultiClassifier:
             dense_model_names=dense_names,
         )
 
+        # Score cached predictions so every measurement uses the same fitted
+        # output without repeating expensive predict calls.
         results = {}
         all_targets = np.concatenate([np.asarray(y_train), np.asarray(y_test)])
         multiclass = len(np.unique(all_targets)) > 2
@@ -410,23 +436,49 @@ class MultiClassifier:
                     metric_results[metric_name] = completed_model.test_roc_auc
                     continue
 
+                if metric_name in {"log_loss", "brier_score_loss"}:
+                    if show_train_score:
+                        metric_results[f"{metric_name}_train"] = (
+                            _calculate_probability_metric(
+                                metric_name,
+                                y_train,
+                                completed_model.train_probability,
+                                completed_model.model_classes,
+                            )
+                        )
+                    metric_results[metric_name] = _calculate_probability_metric(
+                        metric_name,
+                        y_test,
+                        completed_model.test_probability,
+                        completed_model.model_classes,
+                    )
+                    continue
+
                 average_type = None
-                if metric_name in {"precision", "recall", "f1"}:
+                if metric_name in {"precision", "recall", "f1", "jaccard_score"}:
                     average_type = (
                         "micro" if imbalanced else ("weighted" if multiclass else "binary")
                     )
+                positive_label = (
+                    completed_model.model_classes[-1]
+                    if average_type == "binary"
+                    and completed_model.model_classes is not None
+                    else None
+                )
                 if show_train_score:
                     metric_results[f"{metric_name}_train"] = _calculate_metric(
                         metric_func,
                         y_train,
                         completed_model.train_prediction,
                         average_type,
+                        pos_label=positive_label,
                     )
                 metric_results[metric_name] = _calculate_metric(
                     metric_func,
                     y_test,
                     completed_model.test_prediction,
                     average_type,
+                    pos_label=positive_label,
                 )
             results[completed_model.name] = {
                 **metric_results,
@@ -455,6 +507,8 @@ class MultiClassifier:
 
 @dataclass 
 class subMultiClassifier(MultiClassifier):
+    """Backward-compatible classifier alias retained for existing users."""
+
     def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
         super().__init__(
             n_jobs=n_jobs,

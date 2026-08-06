@@ -1,12 +1,20 @@
 """Shared feature preparation and model execution for MultiTrain fits."""
 
+"""Memory-aware preprocessing and model execution shared by both public APIs.
+
+This module prepares one reusable feature representation, adapts estimators to
+their documented input domains, and schedules complete model fits without
+oversubscribing the machine.
+"""
+
 from dataclasses import dataclass
 import logging
 from numbers import Integral, Real
+import os
 import time
 from typing import Optional
 
-from joblib import Parallel, cpu_count, delayed, parallel_config
+from joblib import Parallel, delayed, parallel_config
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
@@ -14,7 +22,12 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import QuantileTransformer, StandardScaler
+from sklearn.preprocessing import (
+    FunctionTransformer,
+    MinMaxScaler,
+    QuantileTransformer,
+    StandardScaler,
+)
 from tqdm.auto import tqdm
 
 try:
@@ -41,6 +54,8 @@ GPU_MODEL_NAMES = {
     "XGBRegressor",
 }
 
+# These estimators cannot consume scipy sparse matrices. When any are selected
+# for text, they share one guarded dense copy instead of allocating one per model.
 DENSE_ONLY_MODEL_NAMES = {
     "ARDRegression",
     "BayesianRidge",
@@ -86,6 +101,36 @@ TARGET_SCALE_MODEL_NAMES = {
     "SVR",
 }
 
+NONNEGATIVE_MODEL_NAMES = {
+    "ComplementNB",
+    "MultinomialNB",
+}
+
+# Poisson and Gamma regression have a stricter target domain than ordinary
+# regression, so a reversible target transform is added only when necessary.
+POSITIVE_TARGET_MODEL_NAMES = {
+    "GammaRegressor",
+    "PoissonRegressor",
+}
+
+CLASSIFICATION_CV_MODEL_NAMES = {
+    "LogisticRegressionCV",
+    "RidgeClassifierCV",
+}
+
+REGRESSION_CV_MODEL_NAMES = {
+    "ElasticNetCV",
+    "LarsCV",
+    "LassoCV",
+    "OrthogonalMatchingPursuitCV",
+    "RidgeCV",
+}
+
+NEIGHBOR_MODEL_NAMES = {
+    "KNeighborsClassifier",
+    "KNeighborsRegressor",
+}
+
 
 @dataclass
 class ModelRunResult:
@@ -96,6 +141,9 @@ class ModelRunResult:
     train_prediction: Optional[np.ndarray]
     test_roc_auc: float
     train_roc_auc: float
+    test_probability: Optional[np.ndarray]
+    train_probability: Optional[np.ndarray]
+    model_classes: Optional[np.ndarray]
     elapsed: str
     error: Optional[str] = None
 
@@ -190,9 +238,21 @@ def prepare_text_features(
         encoding=pipeline_dict["encoding"],
         max_features=pipeline_dict["max_features"],
         analyzer=pipeline_dict["analyzer"],
+        dtype=np.float64,
     )
-    sparse_train = transformer.fit_transform(X_train)
-    sparse_test = transformer.transform(X_test)
+    try:
+        # Keep one floating-point sparse representation that every selected
+        # estimator can consume without allocating a second full matrix.
+        sparse_train = transformer.fit_transform(X_train).astype(
+            np.float64,
+            copy=False,
+        )
+        sparse_test = transformer.transform(X_test).astype(
+            np.float64,
+            copy=False,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise MultiTrainTextError(f"Unable to vectorize the text data: {exc}") from exc
 
     requires_dense = {
         model.__class__.__name__
@@ -247,7 +307,7 @@ def resolve_model_workers(model_workers, model_threads, model_count):
             "model_workers must be None, -1, or a positive integer"
         )
 
-    available_cpus = cpu_count() or 1
+    available_cpus = os.cpu_count() or 1
     if model_threads < 0:
         if model_workers not in (None, 1):
             raise MultiTrainTypeError(
@@ -275,7 +335,11 @@ def _fit_model(
     start = time.perf_counter()
     try:
         training_estimator = _prepare_training_estimator(
-            name, model, X_train, task
+            name,
+            model,
+            X_train,
+            task,
+            y_train=y_train,
         )
         training_estimator.fit(X_train, y_train)
         test_prediction = np.asarray(training_estimator.predict(X_test))
@@ -285,12 +349,29 @@ def _fit_model(
             else None
         )
         if task == "classification":
+            test_probability = _classification_probabilities(
+                training_estimator, X_test
+            )
+            train_probability = (
+                _classification_probabilities(training_estimator, X_train)
+                if show_train_score
+                else None
+            )
+            model_classes = np.asarray(
+                getattr(training_estimator, "classes_", np.unique(y_train))
+            )
             test_roc_auc = _classification_roc_auc(
-                training_estimator, X_test, y_test
+                training_estimator,
+                X_test,
+                y_test,
+                probabilities=test_probability,
             )
             train_roc_auc = (
                 _classification_roc_auc(
-                    training_estimator, X_train, y_train
+                    training_estimator,
+                    X_train,
+                    y_train,
+                    probabilities=train_probability,
                 )
                 if show_train_score
                 else np.nan
@@ -298,6 +379,9 @@ def _fit_model(
         else:
             test_roc_auc = np.nan
             train_roc_auc = np.nan
+            test_probability = None
+            train_probability = None
+            model_classes = None
         error = None
     except Exception as exc:
         test_prediction = np.full(len(y_test), np.nan)
@@ -306,6 +390,9 @@ def _fit_model(
         )
         test_roc_auc = np.nan
         train_roc_auc = np.nan
+        test_probability = None
+        train_probability = None
+        model_classes = None
         error = str(exc)
 
     return ModelRunResult(
@@ -314,14 +401,46 @@ def _fit_model(
         train_prediction=train_prediction,
         test_roc_auc=test_roc_auc,
         train_roc_auc=train_roc_auc,
+        test_probability=test_probability,
+        train_probability=train_probability,
+        model_classes=model_classes,
         elapsed=_format_time(time.perf_counter() - start),
         error=error,
     )
 
 
-def _prepare_training_estimator(name, model, X_train, task):
+def _classification_probabilities(model, X):
+    """Return class probabilities when an estimator exposes them."""
+    if not hasattr(model, "predict_proba"):
+        return None
+    try:
+        return np.asarray(model.predict_proba(X))
+    except Exception:
+        return None
+
+
+def _prepare_training_estimator(name, model, X_train, task, y_train=None):
     """Build leakage-safe scaling around estimators that require it."""
     estimator = model
+    # Five-fold CV and five-neighbor defaults are invalid on small datasets.
+    # Bound them using training data only, without consulting held-out rows.
+    if y_train is not None:
+        training_rows = len(y_train)
+        if name in CLASSIFICATION_CV_MODEL_NAMES:
+            _, class_counts = np.unique(y_train, return_counts=True)
+            folds = min(5, int(class_counts.min()))
+            if folds >= 2:
+                estimator.set_params(cv=folds)
+        elif name in REGRESSION_CV_MODEL_NAMES:
+            # Regression scorers such as R-squared need at least two rows in
+            # each validation fold to produce a meaningful value.
+            folds = min(5, max(2, training_rows // 2), training_rows)
+            if folds >= 2:
+                estimator.set_params(cv=folds)
+
+        if name in NEIGHBOR_MODEL_NAMES:
+            estimator.set_params(n_neighbors=min(5, training_rows))
+
     if name in STANDARD_SCALE_MODEL_NAMES:
         sparse_input = hasattr(X_train, "tocsr")
         estimator = make_pipeline(
@@ -329,12 +448,41 @@ def _prepare_training_estimator(name, model, X_train, task):
             estimator,
         )
 
-    if task == "regression" and name in TARGET_SCALE_MODEL_NAMES:
-        estimator = TransformedTargetRegressor(
-            regressor=estimator,
-            transformer=StandardScaler(),
-        )
+    if name in NONNEGATIVE_MODEL_NAMES:
+        values = X_train.data if hasattr(X_train, "tocsr") else np.asarray(X_train)
+        if values.size and np.min(values) < 0:
+            steps = []
+            if hasattr(X_train, "tocsr"):
+                steps.append(
+                    FunctionTransformer(
+                        _dense_array,
+                        accept_sparse=True,
+                    )
+                )
+            steps.extend([MinMaxScaler(clip=True), estimator])
+            estimator = make_pipeline(*steps)
+
+    # Target transformers are inverted before prediction, so regression scores
+    # remain in the units supplied by the user.
+    if task == "regression":
+        if name in TARGET_SCALE_MODEL_NAMES:
+            estimator = TransformedTargetRegressor(
+                regressor=estimator,
+                transformer=StandardScaler(),
+            )
+        elif name in POSITIVE_TARGET_MODEL_NAMES and y_train is not None:
+            target = np.asarray(y_train, dtype=float)
+            if target.size and np.min(target) <= 0:
+                estimator = TransformedTargetRegressor(
+                    regressor=estimator,
+                    transformer=MinMaxScaler(feature_range=(1e-6, 1.0)),
+                )
     return estimator
+
+
+def _dense_array(values):
+    """Convert sparse values for transformers that require a dense matrix."""
+    return values.toarray() if hasattr(values, "toarray") else np.asarray(values)
 
 
 def run_models(

@@ -1,3 +1,5 @@
+"""Focused tests for shared model factories, preprocessing, and scoring helpers."""
+
 import pytest
 import pandas as pd
 import numpy as np

@@ -21,6 +21,12 @@
 - Added early dataset and manual-split validation for invalid targets, values, schemas, indices, and class coverage.
 - Stratified classification splits and added sortable train/test root mean squared error results.
 - Expanded mutation testing to cover the shared execution engine and dataset-backed metric oracles.
+- Routed probability-based metrics through `predict_proba`, rejected non-scalar metric APIs, and corrected custom-metric ranking directions.
+- Added multiclass Brier scores and binary scoring for string or otherwise non-integer class labels.
+- Made count-vectorized text floating-point at construction time so LightGBM can consume it without a second full sparse copy.
+- Added model-local non-negative feature and positive-target transforms for estimators with stricter mathematical domains.
+- Adapted cross-validation folds and neighbor counts to the available training data on small datasets.
+- Converted invalid text-vectorization failures into actionable MultiTrain errors.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression
