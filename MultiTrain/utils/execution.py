@@ -57,11 +57,18 @@ DENSE_ONLY_MODEL_NAMES = {
 # These estimators are sensitive to features with very different magnitudes.
 # Scaling is fitted inside each model run so test data never influences it.
 STANDARD_SCALE_MODEL_NAMES = {
+    "LogisticRegression",
+    "LogisticRegressionCV",
+    "SGDClassifier",
+    "PassiveAggressiveClassifier",
+    "Perceptron",
     "LinearSVC",
     "NuSVC",
     "SVC",
     "MLPClassifier",
     "PoissonRegressor",
+    "SGDRegressor",
+    "PassiveAggressiveRegressor",
     "MLPRegressor",
     "LinearSVR",
     "NuSVR",
@@ -71,6 +78,8 @@ STANDARD_SCALE_MODEL_NAMES = {
 # Standardizing large regression targets keeps the default optimization
 # settings meaningful while predictions are converted back to the original unit.
 TARGET_SCALE_MODEL_NAMES = {
+    "SGDRegressor",
+    "PassiveAggressiveRegressor",
     "MLPRegressor",
     "LinearSVR",
     "NuSVR",

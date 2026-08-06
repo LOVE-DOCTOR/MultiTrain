@@ -23,6 +23,8 @@ from MultiTrain.utils.utils import (
     _non_auto_cat_encode_error,
     _prep_model_names_list,
     _prepare_train_test,
+    _validate_datasplits,
+    _validate_supervised_dataset,
 )
 from MultiTrain.utils.execution import (
     prepare_tabular_features,
@@ -215,6 +217,8 @@ class MultiClassifier:
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
+        _validate_supervised_dataset(dataset, target, "classification")
+
         if not self.text:
             _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
         # Split first so encoders and missing-value rules cannot learn from held-out rows.
@@ -222,7 +226,8 @@ class MultiClassifier:
             train_dataset, test_dataset = train_test_split(
                 dataset,
                 test_size=test_size,
-                random_state=random_state
+                random_state=random_state,
+                stratify=dataset[target],
             )
         except ValueError as e:
             raise MultiTrainSplitError(f"Unable to split the dataset: {e}") from e
@@ -304,6 +309,13 @@ class MultiClassifier:
             raise MultiTrainPCAError(
                 "n_components cannot be used for text classification"
             )
+
+        _validate_datasplits(
+            datasplits,
+            "classification",
+            allow_1d_features=self.text,
+            allow_non_numeric_features=self.text,
+        )
 
         # The historical pca argument selects the scaler used before PCA.
         if pca:

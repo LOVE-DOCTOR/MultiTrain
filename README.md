@@ -213,6 +213,7 @@ fit = train.fit(
     imbalanced=True,  # Use micro averaging for precision, recall, and f1.
 )
 ```
+
 #### If you used the split method provided by the MultiClassifier
 ```python
 import pandas as pd
@@ -231,6 +232,9 @@ fit = train.fit(datasplits=split,
                 sort='accuracy',
                 show_train_score=True)     
 ```
+
+`MultiClassifier.split` stratifies by the target so every class is represented in both partitions. It rejects duplicate columns, infinite values, missing targets, continuous targets, and datasets that cannot form a valid stratified split before model training begins.
+
 #### If you're working on an NLP problem
 ```python
 import pandas as pd
@@ -269,7 +273,7 @@ best_model = train.fit(
 #### Scaling features and reducing dimensions before training
 The `pca` argument keeps its original name for API compatibility. It chooses the scaler used before PCA, and that transformation is fitted once on the training data and shared by every model. The supported values are `StandardScaler`, `MinMaxScaler`, `MaxAbsScaler`, `RobustScaler`, `Normalizer`, `QuantileTransformer`, and `PowerTransformer`.
 
-MultiTrain also applies training-only standardization inside scale-sensitive SVM, neural-network, and iterative regression models. Sparse inputs are scaled without centering, and regression predictions are returned in the target column's original unit.
+MultiTrain also applies training-only standardization inside scale-sensitive linear, SVM, neural-network, and iterative regression models. Sparse inputs are scaled without centering, and regression predictions are returned in the target column's original unit.
 
 ```python
 fit = train.fit(
@@ -362,9 +366,11 @@ fit = train.fit(
 )
 
 # The metrics available for sorting are 
-# mean_squared_error, r2_score, mean_absolute_error, median_absolute_error,
-# mean_squared_log_error, and explained_variance_score.
+# mean_squared_error, root_mean_squared_error, r2_score, mean_absolute_error,
+# median_absolute_error, mean_squared_log_error, and explained_variance_score.
 ```
+
+When you provide your own split, MultiTrain checks row counts, feature order, pandas index alignment, missing or infinite values, and target types before training. This prevents a malformed split from appearing as a table of failed models.
 #### If you used the split method provided by the MultiRegressor
 ```python
 import pandas as pd

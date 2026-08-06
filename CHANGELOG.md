@@ -17,6 +17,10 @@
 - Constrained Pyparsing on Python 3.8 and 3.9 to remain compatible with their Matplotlib releases.
 - Added leakage-safe feature and target scaling for convergence-sensitive estimators.
 - Removed premature iteration limits from libsvm estimators and selected stable MLP and LinearSVR convergence settings.
+- Added Penguins and Red Wine Quality datasets to validate multiclass, categorical, missing-value, and regression workflows.
+- Added early dataset and manual-split validation for invalid targets, values, schemas, indices, and class coverage.
+- Stratified classification splits and added sortable train/test root mean squared error results.
+- Expanded mutation testing to cover the shared execution engine and dataset-backed metric oracles.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression

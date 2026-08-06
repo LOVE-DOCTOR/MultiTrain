@@ -9,12 +9,31 @@ from scipy import sparse
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    precision_score,
+    r2_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
 
 from MultiTrain.classification.classification_models import MultiClassifier
-from MultiTrain.errors.errors import MultiTrainPCAError, MultiTrainTextError, MultiTrainTypeError
+from MultiTrain.errors.errors import (
+    MultiTrainDatasetTypeError,
+    MultiTrainDatasetValueError,
+    MultiTrainNaNError,
+    MultiTrainPCAError,
+    MultiTrainSplitError,
+    MultiTrainTextError,
+    MultiTrainTypeError,
+)
 from MultiTrain.regression.regression_models import MultiRegressor
 from MultiTrain.utils import execution
 from MultiTrain.utils.utils import _models_classifier, _models_regressor
@@ -149,7 +168,17 @@ def test_sparse_sensitive_estimators_preserve_sparse_input():
     assert not estimator.named_steps["standardscaler"].with_mean
 
 
-@pytest.mark.parametrize("name", ["MLPRegressor", "LinearSVR", "SVR", "NuSVR"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "SGDRegressor",
+        "PassiveAggressiveRegressor",
+        "MLPRegressor",
+        "LinearSVR",
+        "SVR",
+        "NuSVR",
+    ],
+)
 def test_scale_sensitive_regressors_restore_original_target_units(name):
     model = _models_regressor(random_state=4, n_jobs=1, max_iter=300)[name]
     train = np.arange(60, dtype=float).reshape(20, 3)
@@ -229,6 +258,314 @@ def test_example_datasets_fit_warning_prone_models_without_convergence_warnings(
 
     assert classification_results["accuracy"].notna().all()
     assert regression_results["mean_absolute_error"].notna().all()
+
+
+def test_additional_datasets_fit_gradient_models_without_numerical_failures():
+    datasets = Path(__file__).parents[2] / "examples" / "datasets"
+    penguins = pd.read_csv(datasets / "penguins.csv")
+    assert penguins.shape == (344, 7)
+    assert set(penguins["species"]) == {"Adelie", "Chinstrap", "Gentoo"}
+
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=1000,
+        custom_models=[
+            "LogisticRegression",
+            "LogisticRegressionCV",
+            "SGDClassifier",
+            "PassiveAggressiveClassifier",
+            "Perceptron",
+        ],
+    )
+    classification_split = classifier.split(
+        penguins,
+        "species",
+        test_size=0.25,
+        auto_cat_encode=True,
+        fix_nan_custom={
+            "bill_length_mm": "interpolate",
+            "bill_depth_mm": "interpolate",
+            "flipper_length_mm": "interpolate",
+            "body_mass_g": "interpolate",
+            "sex": "ffill",
+        },
+    )
+
+    wine = pd.read_csv(datasets / "winequality-red.csv", sep=";")
+    assert wine.shape == (1599, 12)
+    assert not wine.isna().values.any()
+
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=1000,
+        custom_models=["SGDRegressor", "PassiveAggressiveRegressor"],
+    )
+    regression_split = regressor.split(wine, "quality", test_size=0.25)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConvergenceWarning)
+        warnings.simplefilter("error", RuntimeWarning)
+        classification_results = classifier.fit(classification_split)
+        regression_results = regressor.fit(regression_split)
+
+    assert classification_results["accuracy"].notna().all()
+    assert regression_results["mean_absolute_error"].notna().all()
+    assert regression_results["mean_absolute_error"].lt(2).all()
+
+
+def test_penguins_metrics_match_independent_sklearn_calculations():
+    penguins = pd.read_csv(
+        Path(__file__).parents[2] / "examples" / "datasets" / "penguins.csv"
+    )
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        random_state=42,
+        custom_models=["LogisticRegression"],
+    )
+    split = classifier.split(
+        penguins,
+        "species",
+        test_size=0.25,
+        auto_cat_encode=True,
+        fix_nan_custom={
+            "bill_length_mm": "interpolate",
+            "bill_depth_mm": "interpolate",
+            "flipper_length_mm": "interpolate",
+            "body_mass_g": "interpolate",
+            "sex": "ffill",
+        },
+    )
+    result = classifier.fit(split, show_train_score=True).loc[
+        "LogisticRegression"
+    ]
+
+    X_train, X_test, y_train, y_test = split
+    model = _models_classifier(random_state=42, n_jobs=1, max_iter=1000)[
+        "LogisticRegression"
+    ]
+    estimator = execution._prepare_training_estimator(
+        "LogisticRegression", model, X_train, "classification"
+    )
+    estimator.fit(X_train, y_train)
+    prediction = estimator.predict(X_test)
+    train_prediction = estimator.predict(X_train)
+    expected = {
+        "accuracy": accuracy_score(y_test, prediction),
+        "balanced_accuracy": balanced_accuracy_score(y_test, prediction),
+        "precision": precision_score(
+            y_test, prediction, average="weighted", zero_division=0
+        ),
+        "recall": recall_score(
+            y_test, prediction, average="weighted", zero_division=0
+        ),
+        "f1": f1_score(y_test, prediction, average="weighted", zero_division=0),
+    }
+
+    for metric, expected_value in expected.items():
+        assert float(result[metric]) == pytest.approx(expected_value)
+
+    assert float(result["accuracy_train"]) == pytest.approx(
+        accuracy_score(y_train, train_prediction)
+    )
+    assert float(result["roc_auc"]) == pytest.approx(
+        roc_auc_score(
+            y_test,
+            estimator.predict_proba(X_test),
+            multi_class="ovr",
+            average="weighted",
+        )
+    )
+    assert float(result["roc_auc_train"]) == pytest.approx(
+        roc_auc_score(
+            y_train,
+            estimator.predict_proba(X_train),
+            multi_class="ovr",
+            average="weighted",
+        )
+    )
+
+
+def test_wine_metrics_and_rmse_match_independent_sklearn_calculations():
+    wine = pd.read_csv(
+        Path(__file__).parents[2] / "examples" / "datasets" / "winequality-red.csv",
+        sep=";",
+    )
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        random_state=42,
+        custom_models=["SGDRegressor"],
+    )
+    split = regressor.split(wine, "quality", test_size=0.25)
+    result = regressor.fit(
+        split,
+        show_train_score=True,
+        sort="root_mean_squared_error",
+    ).loc["SGDRegressor"]
+
+    X_train, X_test, y_train, y_test = split
+    model = _models_regressor(random_state=42, n_jobs=1, max_iter=1000)[
+        "SGDRegressor"
+    ]
+    estimator = execution._prepare_training_estimator(
+        "SGDRegressor", model, X_train, "regression"
+    )
+    estimator.fit(X_train, y_train)
+    test_prediction = estimator.predict(X_test)
+    train_prediction = estimator.predict(X_train)
+    expected_mse = mean_squared_error(y_test, test_prediction)
+
+    assert float(result["mean_absolute_error"]) == pytest.approx(
+        mean_absolute_error(y_test, test_prediction)
+    )
+    assert float(result["mean_squared_error"]) == pytest.approx(expected_mse)
+    assert float(result["root_mean_squared_error"]) == pytest.approx(
+        np.sqrt(expected_mse)
+    )
+    assert float(result["root_mean_squared_error_train"]) == pytest.approx(
+        np.sqrt(mean_squared_error(y_train, train_prediction))
+    )
+    assert float(result["r2_score"]) == pytest.approx(
+        r2_score(y_test, test_prediction)
+    )
+
+
+def test_split_rejects_dataset_states_that_would_fail_every_model():
+    classifier = MultiClassifier(custom_models=["LogisticRegression"])
+
+    infinite = pd.DataFrame({"feature": [0.0, 1.0, np.inf, 3.0], "target": [0, 1, 0, 1]})
+    with pytest.raises(MultiTrainDatasetValueError, match="infinite"):
+        classifier.split(infinite, "target")
+
+    continuous = pd.DataFrame(
+        {"feature": np.arange(20), "target": np.linspace(0.1, 2.0, 20)}
+    )
+    with pytest.raises(MultiTrainDatasetTypeError, match="discrete"):
+        classifier.split(continuous, "target")
+
+    duplicate_columns = pd.DataFrame(
+        np.column_stack([np.arange(20), np.arange(20), [0, 1] * 10]),
+        columns=["feature", "feature", "target"],
+    )
+    with pytest.raises(MultiTrainDatasetValueError, match="unique"):
+        classifier.split(duplicate_columns, "target")
+
+    with pytest.raises(MultiTrainDatasetValueError, match="feature column"):
+        classifier.split(pd.DataFrame({"target": [0, 1] * 10}), "target")
+
+    with pytest.raises(MultiTrainDatasetValueError, match="two classes"):
+        classifier.split(
+            pd.DataFrame({"feature": np.arange(20), "target": np.ones(20)}),
+            "target",
+        )
+
+
+def test_split_rejects_missing_or_semantically_invalid_targets():
+    missing_target = pd.DataFrame(
+        {"feature": np.arange(20), "target": [0, 1] * 9 + [0, np.nan]}
+    )
+    with pytest.raises(MultiTrainNaNError, match="Target column"):
+        MultiClassifier().split(
+            missing_target,
+            "target",
+            fix_nan_custom={"target": "ffill"},
+        )
+
+    categorical_target = pd.DataFrame(
+        {
+            "feature": np.arange(30),
+            "target": ["low", "medium", "high"] * 10,
+        }
+    )
+    with pytest.raises(MultiTrainDatasetTypeError, match="must be numeric"):
+        MultiRegressor().split(
+            categorical_target,
+            "target",
+            auto_cat_encode=True,
+        )
+
+
+def test_fit_rejects_corrupt_manual_datasplits_before_training():
+    X_train = np.arange(12, dtype=float).reshape(6, 2)
+    X_test = np.arange(8, dtype=float).reshape(4, 2)
+    y_train = np.array([0, 1, 0, 1, 0, 1])
+    y_test = np.array([0, 1, 0, 1])
+    classifier = MultiClassifier(custom_models=["LogisticRegression"])
+
+    corrupt_features = X_train.copy()
+    corrupt_features[0, 0] = np.inf
+    with pytest.raises(MultiTrainDatasetValueError, match="X_train"):
+        classifier.fit((corrupt_features, X_test, y_train, y_test))
+
+    with pytest.raises(MultiTrainSplitError, match="row counts"):
+        classifier.fit((X_train[:-1], X_test, y_train, y_test))
+
+    with pytest.raises(MultiTrainDatasetTypeError, match="discrete"):
+        classifier.fit(
+            (X_train, X_test, np.linspace(0.1, 0.6, 6), np.linspace(0.7, 1.0, 4))
+        )
+
+    with pytest.raises(MultiTrainSplitError, match="absent from training"):
+        classifier.fit((X_train, X_test, y_train, np.array([0, 1, 2, 2])))
+
+    frame_train = pd.DataFrame(X_train, columns=["first", "second"])
+    frame_test = pd.DataFrame(X_test, columns=["second", "first"])
+    with pytest.raises(MultiTrainSplitError, match="same order"):
+        classifier.fit(
+            (
+                frame_train,
+                frame_test,
+                pd.Series(y_train, index=frame_train.index),
+                pd.Series(y_test, index=frame_test.index),
+            )
+        )
+
+    misaligned_target = pd.Series(y_train, index=np.arange(10, 16))
+    with pytest.raises(MultiTrainSplitError, match="indices must align"):
+        classifier.fit(
+            (
+                frame_train,
+                pd.DataFrame(X_test, columns=frame_train.columns),
+                misaligned_target,
+                pd.Series(y_test),
+            )
+        )
+
+
+def test_classifier_split_preserves_every_class_in_both_partitions():
+    penguins = pd.read_csv(
+        Path(__file__).parents[2] / "examples" / "datasets" / "penguins.csv"
+    )
+    X_train, X_test, y_train, y_test = MultiClassifier().split(
+        penguins,
+        "species",
+        test_size=0.25,
+        auto_cat_encode=True,
+        fix_nan_custom={
+            "bill_length_mm": "interpolate",
+            "bill_depth_mm": "interpolate",
+            "flipper_length_mm": "interpolate",
+            "body_mass_g": "interpolate",
+            "sex": "ffill",
+        },
+    )
+
+    assert set(y_train.unique()) == set(y_test.unique())
+    assert len(X_train) + len(X_test) == len(penguins)
+
+    rare_class = pd.DataFrame(
+        {"feature": np.arange(21), "target": ["common"] * 20 + ["rare"]}
+    )
+    with pytest.raises(MultiTrainSplitError, match="least populated class"):
+        MultiClassifier().split(
+            rare_class,
+            "target",
+            auto_cat_encode=True,
+            test_size=0.2,
+        )
 
 
 def test_legacy_sparse_fallback_matches_current_estimator_tags(monkeypatch):

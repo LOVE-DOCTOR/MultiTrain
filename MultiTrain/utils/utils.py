@@ -78,6 +78,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import FunctionTransformer, Pipeline, make_pipeline
 from sklearn.preprocessing import LabelEncoder, QuantileTransformer
 from sklearn.svm import LinearSVC, NuSVC, SVC, SVR, LinearSVR, NuSVR
+from sklearn.utils.multiclass import type_of_target
 from sklearn.tree import (
     DecisionTreeClassifier,
     DecisionTreeRegressor,
@@ -550,6 +551,67 @@ def _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode):
         )
 
 
+def _validate_supervised_dataset(dataset, target, task):
+    """Reject invalid data before failures are hidden inside individual models."""
+    if len(dataset) < 2:
+        raise MultiTrainSplitError("Unable to split a dataset with fewer than two rows")
+    duplicate_columns = dataset.columns[dataset.columns.duplicated()].unique().tolist()
+    if duplicate_columns:
+        raise MultiTrainDatasetValueError(
+            f"Column names must be unique. Duplicates: {duplicate_columns}"
+        )
+    if dataset.shape[1] < 2:
+        raise MultiTrainDatasetValueError(
+            "The dataset must contain at least one feature column"
+        )
+
+    target_values = dataset[target]
+    if target_values.isna().any():
+        raise MultiTrainNaNError(
+            f"Target column {target!r} contains missing values. Remove those rows "
+            "or provide valid target values before splitting."
+        )
+
+    numeric_data = dataset.select_dtypes(include=[np.number])
+    if not numeric_data.empty:
+        if any(getattr(dtype, "kind", None) == "c" for dtype in numeric_data.dtypes):
+            raise MultiTrainDatasetTypeError(
+                "Complex numeric values are not supported."
+            )
+        numeric_values = numeric_data.to_numpy(
+            dtype=float,
+            na_value=np.nan,
+            copy=False,
+        )
+        infinite = np.isinf(numeric_values)
+        if infinite.any():
+            invalid_columns = numeric_data.columns[infinite.any(axis=0)].tolist()
+            raise MultiTrainDatasetValueError(
+                "Numeric data cannot contain infinite values. "
+                f"Invalid columns: {invalid_columns}"
+            )
+
+    if task == "classification":
+        target_kind = type_of_target(target_values)
+        if target_kind not in {"binary", "multiclass"}:
+            raise MultiTrainDatasetTypeError(
+                "Classification targets must contain discrete class labels. "
+                f"Detected target type: {target_kind}"
+            )
+        if target_values.nunique() < 2:
+            raise MultiTrainDatasetValueError(
+                "Classification targets must contain at least two classes"
+            )
+    elif task == "regression":
+        if not pd.api.types.is_numeric_dtype(target_values.dtype):
+            raise MultiTrainDatasetTypeError(
+                "Regression targets must be numeric. Encode an ordered target "
+                "explicitly before calling split."
+            )
+    else:
+        raise MultiTrainTypeError("task must be either 'classification' or 'regression'")
+
+
 def _fill_missing_values(dataset, column):
     """
     Fill missing values in a specified column of the dataset.
@@ -816,6 +878,191 @@ def _check_custom_models(custom_models, models):
         )
 
     return model_names, model_list
+
+
+def _validate_datasplits(
+    datasplits,
+    task,
+    allow_1d_features=False,
+    allow_non_numeric_features=False,
+):
+    """Validate manually supplied splits before starting any model runs."""
+    if not isinstance(datasplits, tuple) or len(datasplits) != 4:
+        raise MultiTrainSplitError(
+            'The "datasplits" parameter must be a tuple containing '
+            "X_train, X_test, y_train, and y_test."
+        )
+
+    X_train, X_test, y_train, y_test = datasplits
+    named_values = {
+        "X_train": X_train,
+        "X_test": X_test,
+        "y_train": y_train,
+        "y_test": y_test,
+    }
+    for name, values in named_values.items():
+        try:
+            if len(values) == 0:
+                raise MultiTrainSplitError(f"{name} cannot be empty")
+        except TypeError as exc:
+            raise MultiTrainSplitError(f"{name} must be array-like") from exc
+
+    if len(X_train) != len(y_train) or len(X_test) != len(y_test):
+        raise MultiTrainSplitError(
+            "Feature and target row counts must match within each split"
+        )
+
+    for feature_name, features, target_name, targets in (
+        ("X_train", X_train, "y_train", y_train),
+        ("X_test", X_test, "y_test", y_test),
+    ):
+        if isinstance(features, (pd.DataFrame, pd.Series)) and isinstance(
+            targets, (pd.DataFrame, pd.Series)
+        ):
+            if not features.index.equals(targets.index):
+                raise MultiTrainSplitError(
+                    f"{feature_name} and {target_name} indices must align"
+                )
+
+    if isinstance(X_train, pd.DataFrame) and isinstance(X_test, pd.DataFrame):
+        duplicate_train = X_train.columns[X_train.columns.duplicated()].unique().tolist()
+        duplicate_test = X_test.columns[X_test.columns.duplicated()].unique().tolist()
+        if duplicate_train or duplicate_test:
+            duplicates = sorted(set(duplicate_train + duplicate_test), key=str)
+            raise MultiTrainDatasetValueError(
+                f"Feature column names must be unique. Duplicates: {duplicates}"
+            )
+        if list(X_train.columns) != list(X_test.columns):
+            raise MultiTrainSplitError(
+                "X_train and X_test columns must match in the same order"
+            )
+
+    feature_shapes = []
+    for name, values in (("X_train", X_train), ("X_test", X_test)):
+        shape = getattr(values, "shape", np.asarray(values).shape)
+        valid_dimensions = {1, 2} if allow_1d_features else {2}
+        if len(shape) not in valid_dimensions:
+            expected = "one or two" if allow_1d_features else "two"
+            raise MultiTrainSplitError(
+                f"{name} must have {expected} dimensions; received shape {shape}"
+            )
+        if len(shape) == 2 and shape[1] == 0:
+            raise MultiTrainSplitError(f"{name} must contain at least one feature")
+        feature_shapes.append(shape)
+
+        if hasattr(values, "tocsr"):
+            numeric_values = values.data
+        elif isinstance(values, pd.DataFrame):
+            if values.isna().values.any():
+                raise MultiTrainDatasetValueError(
+                    f"{name} cannot contain missing feature values"
+                )
+            numeric_frame = values.select_dtypes(include=[np.number, "bool"])
+            non_numeric_columns = [
+                column for column in values.columns if column not in numeric_frame.columns
+            ]
+            if non_numeric_columns and not allow_non_numeric_features:
+                raise MultiTrainEncodingError(
+                    f"{name} contains unencoded columns: {non_numeric_columns}"
+                )
+            if any(
+                getattr(dtype, "kind", None) == "c" for dtype in numeric_frame.dtypes
+            ):
+                raise MultiTrainDatasetTypeError(
+                    f"{name} cannot contain complex numeric values"
+                )
+            numeric_values = numeric_frame.to_numpy(
+                dtype=float,
+                na_value=np.nan,
+                copy=False,
+            )
+        else:
+            array = np.asarray(values)
+            if pd.isna(array).any():
+                raise MultiTrainDatasetValueError(
+                    f"{name} cannot contain missing feature values"
+                )
+            if (
+                not np.issubdtype(array.dtype, np.number)
+                and not np.issubdtype(array.dtype, np.bool_)
+                and not allow_non_numeric_features
+            ):
+                raise MultiTrainEncodingError(
+                    f"{name} contains unencoded non-numeric values"
+                )
+            numeric_values = array if np.issubdtype(array.dtype, np.number) else None
+
+        if numeric_values is not None and numeric_values.size:
+            if np.iscomplexobj(numeric_values):
+                raise MultiTrainDatasetTypeError(
+                    f"{name} cannot contain complex numeric values"
+                )
+            if not np.isfinite(numeric_values).all():
+                raise MultiTrainDatasetValueError(
+                    f"{name} cannot contain NaN or infinite numeric values"
+                )
+
+    if len(feature_shapes[0]) != len(feature_shapes[1]):
+        raise MultiTrainSplitError("X_train and X_test must have matching dimensions")
+    if len(feature_shapes[0]) == 2 and feature_shapes[0][1] != feature_shapes[1][1]:
+        raise MultiTrainSplitError(
+            "X_train and X_test must contain the same number of features"
+        )
+
+    train_target = np.asarray(y_train)
+    test_target = np.asarray(y_test)
+    if train_target.ndim != 1 or test_target.ndim != 1:
+        raise MultiTrainSplitError("y_train and y_test must be one-dimensional")
+    if pd.isna(train_target).any() or pd.isna(test_target).any():
+        raise MultiTrainNaNError("Training and test targets cannot contain missing values")
+    train_target_dtype = getattr(y_train, "dtype", train_target.dtype)
+    test_target_dtype = getattr(y_test, "dtype", test_target.dtype)
+    numeric_targets = pd.api.types.is_numeric_dtype(
+        train_target_dtype
+    ) and pd.api.types.is_numeric_dtype(test_target_dtype)
+    if numeric_targets:
+        if (
+            getattr(train_target_dtype, "kind", None) == "c"
+            or getattr(test_target_dtype, "kind", None) == "c"
+        ):
+            raise MultiTrainDatasetTypeError("Targets cannot contain complex values")
+        numeric_train_target = np.asarray(train_target, dtype=float)
+        numeric_test_target = np.asarray(test_target, dtype=float)
+        if (
+            not np.isfinite(numeric_train_target).all()
+            or not np.isfinite(numeric_test_target).all()
+        ):
+            raise MultiTrainDatasetValueError(
+                "Training and test targets must contain only finite values"
+            )
+        combined_target = np.concatenate(
+            [numeric_train_target, numeric_test_target]
+        )
+
+    if not numeric_targets:
+        combined_target = np.concatenate([train_target, test_target])
+    if task == "classification":
+        target_kind = type_of_target(combined_target)
+        if target_kind not in {"binary", "multiclass"}:
+            raise MultiTrainDatasetTypeError(
+                "Classification targets must contain discrete class labels. "
+                f"Detected target type: {target_kind}"
+            )
+        train_classes = set(np.unique(train_target))
+        if len(train_classes) < 2:
+            raise MultiTrainDatasetValueError(
+                "Classification training data must contain at least two classes"
+            )
+        unseen_classes = set(np.unique(test_target)) - train_classes
+        if unseen_classes:
+            raise MultiTrainSplitError(
+                f"Test targets contain classes absent from training data: {sorted(unseen_classes)}"
+            )
+    elif task == "regression":
+        if not numeric_targets:
+            raise MultiTrainDatasetTypeError("Regression targets must be numeric")
+    else:
+        raise MultiTrainTypeError("task must be either 'classification' or 'regression'")
 
 
 def _prep_model_names_list(
@@ -1213,7 +1460,7 @@ def _display_table(
                           "homogeneity_score", "completeness_score", "v_measure_score", "fowlkes_mallows_score"]
 
     # Metrics that should be sorted in ascending order (lower is better) 
-    ascending_metrics = ["mean_squared_error", "mean_absolute_error", "median_absolute_error", "mean_squared_log_error", "max_error", 
+    ascending_metrics = ["mean_squared_error", "root_mean_squared_error", "mean_absolute_error", "median_absolute_error", "mean_squared_log_error", "max_error",
                          "mean_poisson_deviance", "mean_gamma_deviance", "mean_absolute_percentage_error", "d2_absolute_error_score", 
                          "d2_pinball_score", "d2_tweedie_score", "hamming_loss", "zero_one_loss", "hinge_loss", "log_loss", "brier_score_loss"]
 
@@ -1228,6 +1475,7 @@ def _display_table(
         },
         "regression": {
             "mean_squared_error": "mean_squared_error",
+            "root_mean_squared_error": "root_mean_squared_error",
             "r2_score": "r2_score",
             "mean_absolute_error": "mean_absolute_error",
             "median_absolute_error": "median_absolute_error",

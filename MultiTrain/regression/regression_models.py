@@ -23,6 +23,8 @@ from MultiTrain.utils.utils import (
     _non_auto_cat_encode_error,
     _prep_model_names_list,
     _prepare_train_test,
+    _validate_datasplits,
+    _validate_supervised_dataset,
 )
 from MultiTrain.utils.execution import prepare_tabular_features, run_models
 
@@ -206,6 +208,8 @@ class MultiRegressor:
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
+        _validate_supervised_dataset(dataset, target, "regression")
+
         _non_auto_cat_encode_error(dataset, auto_cat_encode, manual_encode)
         # Split first so encoders and missing-value rules cannot learn from held-out rows.
         try:
@@ -270,6 +274,8 @@ class MultiRegressor:
         if return_best_model is not None and not isinstance(return_best_model, str):
             raise MultiTrainTypeError("return_best_model must be a string or None")
 
+        _validate_datasplits(datasplits, "regression")
+
         # The historical pca argument selects the scaler used before PCA.
         if pca:
             if pca not in SUPPORTED_SCALERS:
@@ -320,7 +326,13 @@ class MultiRegressor:
                     completed_model.test_prediction,
                 )
 
-            metric_results['root_mean_squared_error'] = np.sqrt(metric_results['mean_squared_error'])
+            if show_train_score:
+                metric_results["root_mean_squared_error_train"] = np.sqrt(
+                    metric_results["mean_squared_error_train"]
+                )
+            metric_results["root_mean_squared_error"] = np.sqrt(
+                metric_results["mean_squared_error"]
+            )
             results[completed_model.name] = {
                 **metric_results,
                 "Time": completed_model.elapsed,

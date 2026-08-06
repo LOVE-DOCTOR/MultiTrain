@@ -6,6 +6,10 @@ class MultiTrainDatasetTypeError(MultiTrainError):
     pass
 
 
+class MultiTrainDatasetValueError(MultiTrainError):
+    pass
+
+
 class MultiTrainColumnMissingError(MultiTrainError):
     pass
 

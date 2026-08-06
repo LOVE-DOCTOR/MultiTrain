@@ -18,11 +18,13 @@ import tempfile
 
 SOURCE_FILES = (
     Path("MultiTrain/utils/utils.py"),
+    Path("MultiTrain/utils/execution.py"),
     Path("MultiTrain/classification/classification_models.py"),
     Path("MultiTrain/regression/regression_models.py"),
 )
 
 TEST_FILES = (
+    "MultiTrain/test/execution_test.py",
     "MultiTrain/test/exhaustive_test.py",
     "MultiTrain/test/combinatorial_test.py",
 )
@@ -239,6 +241,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="multitrain-mutation-") as temp_dir:
         work_root = Path(temp_dir)
         shutil.copytree(project_root / "MultiTrain", work_root / "MultiTrain")
+        shutil.copytree(project_root / "examples", work_root / "examples")
 
         baseline = run_tests(work_root, args.timeout)
         if baseline.returncode != 0:
