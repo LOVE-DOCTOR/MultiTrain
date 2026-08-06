@@ -10,9 +10,11 @@ from joblib import Parallel, cpu_count, delayed, parallel_config
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.preprocessing import QuantileTransformer
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import QuantileTransformer, StandardScaler
 from tqdm.auto import tqdm
 
 try:
@@ -50,6 +52,29 @@ DENSE_ONLY_MODEL_NAMES = {
     "OrthogonalMatchingPursuit",
     "OrthogonalMatchingPursuitCV",
     "TheilSenRegressor",
+}
+
+# These estimators are sensitive to features with very different magnitudes.
+# Scaling is fitted inside each model run so test data never influences it.
+STANDARD_SCALE_MODEL_NAMES = {
+    "LinearSVC",
+    "NuSVC",
+    "SVC",
+    "MLPClassifier",
+    "PoissonRegressor",
+    "MLPRegressor",
+    "LinearSVR",
+    "NuSVR",
+    "SVR",
+}
+
+# Standardizing large regression targets keeps the default optimization
+# settings meaningful while predictions are converted back to the original unit.
+TARGET_SCALE_MODEL_NAMES = {
+    "MLPRegressor",
+    "LinearSVR",
+    "NuSVR",
+    "SVR",
 }
 
 
@@ -240,15 +265,24 @@ def _fit_model(
 ):
     start = time.perf_counter()
     try:
-        model.fit(X_train, y_train)
-        test_prediction = np.asarray(model.predict(X_test))
+        training_estimator = _prepare_training_estimator(
+            name, model, X_train, task
+        )
+        training_estimator.fit(X_train, y_train)
+        test_prediction = np.asarray(training_estimator.predict(X_test))
         train_prediction = (
-            np.asarray(model.predict(X_train)) if show_train_score else None
+            np.asarray(training_estimator.predict(X_train))
+            if show_train_score
+            else None
         )
         if task == "classification":
-            test_roc_auc = _classification_roc_auc(model, X_test, y_test)
+            test_roc_auc = _classification_roc_auc(
+                training_estimator, X_test, y_test
+            )
             train_roc_auc = (
-                _classification_roc_auc(model, X_train, y_train)
+                _classification_roc_auc(
+                    training_estimator, X_train, y_train
+                )
                 if show_train_score
                 else np.nan
             )
@@ -274,6 +308,24 @@ def _fit_model(
         elapsed=_format_time(time.perf_counter() - start),
         error=error,
     )
+
+
+def _prepare_training_estimator(name, model, X_train, task):
+    """Build leakage-safe scaling around estimators that require it."""
+    estimator = model
+    if name in STANDARD_SCALE_MODEL_NAMES:
+        sparse_input = hasattr(X_train, "tocsr")
+        estimator = make_pipeline(
+            StandardScaler(with_mean=not sparse_input),
+            estimator,
+        )
+
+    if task == "regression" and name in TARGET_SCALE_MODEL_NAMES:
+        estimator = TransformedTargetRegressor(
+            regressor=estimator,
+            transformer=StandardScaler(),
+        )
+    return estimator
 
 
 def run_models(

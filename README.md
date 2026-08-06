@@ -269,6 +269,8 @@ best_model = train.fit(
 #### Scaling features and reducing dimensions before training
 The `pca` argument keeps its original name for API compatibility. It chooses the scaler used before PCA, and that transformation is fitted once on the training data and shared by every model. The supported values are `StandardScaler`, `MinMaxScaler`, `MaxAbsScaler`, `RobustScaler`, `Normalizer`, `QuantileTransformer`, and `PowerTransformer`.
 
+MultiTrain also applies training-only standardization inside scale-sensitive SVM, neural-network, and iterative regression models. Sparse inputs are scaled without centering, and regression predictions are returned in the target column's original unit.
+
 ```python
 fit = train.fit(
     datasplits=split,

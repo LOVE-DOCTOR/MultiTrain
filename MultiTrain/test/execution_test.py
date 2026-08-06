@@ -1,10 +1,17 @@
+from pathlib import Path
 from types import SimpleNamespace
+import warnings
 
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import sparse
+from sklearn.compose import TransformedTargetRegressor
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
 
 from MultiTrain.classification.classification_models import MultiClassifier
 from MultiTrain.errors.errors import MultiTrainPCAError, MultiTrainTextError, MultiTrainTypeError
@@ -117,6 +124,111 @@ def test_sparse_support_falls_back_for_scikit_learn_1_3(monkeypatch):
     monkeypatch.setattr(execution, "_get_estimator_tags", None)
     assert execution._supports_sparse_input(LogisticRegression())
     assert not execution._supports_sparse_input(GaussianNB())
+
+
+def test_scale_sensitive_estimators_fit_the_scaler_on_training_rows_only():
+    train = np.array([[0.0], [2.0], [4.0], [6.0]])
+    estimator = execution._prepare_training_estimator(
+        "SVC", SVC(), train, "classification"
+    )
+    estimator.fit(train, np.array([0, 0, 1, 1]))
+
+    assert isinstance(estimator, Pipeline)
+    np.testing.assert_allclose(
+        estimator.named_steps["standardscaler"].mean_,
+        train.mean(axis=0),
+    )
+
+
+def test_sparse_sensitive_estimators_preserve_sparse_input():
+    train = sparse.csr_matrix([[0.0, 1.0], [1.0, 0.0]])
+    estimator = execution._prepare_training_estimator(
+        "SVC", SVC(), train, "classification"
+    )
+
+    assert not estimator.named_steps["standardscaler"].with_mean
+
+
+@pytest.mark.parametrize("name", ["MLPRegressor", "LinearSVR", "SVR", "NuSVR"])
+def test_scale_sensitive_regressors_restore_original_target_units(name):
+    model = _models_regressor(random_state=4, n_jobs=1, max_iter=300)[name]
+    train = np.arange(60, dtype=float).reshape(20, 3)
+    target = 1_000_000 + train[:, 0] * 50_000
+    estimator = execution._prepare_training_estimator(
+        name, model, train, "regression"
+    )
+    estimator.fit(train, target)
+    predictions = estimator.predict(train[:3])
+    scaled_predictions = estimator.regressor_.predict(train[:3])
+    restored_predictions = estimator.transformer_.inverse_transform(
+        scaled_predictions.reshape(-1, 1)
+    ).ravel()
+
+    assert isinstance(estimator, TransformedTargetRegressor)
+    assert np.isfinite(predictions).all()
+    np.testing.assert_allclose(predictions, restored_predictions)
+
+
+def test_libsvm_models_do_not_use_the_shared_iteration_cap():
+    classifiers = _models_classifier(random_state=4, n_jobs=1, max_iter=3)
+    regressors = _models_regressor(random_state=4, n_jobs=1, max_iter=3)
+
+    assert classifiers["NuSVC"].max_iter == -1
+    assert classifiers["SVC"].max_iter == -1
+    assert regressors["NuSVR"].max_iter == -1
+    assert regressors["SVR"].max_iter == -1
+
+
+def test_iterative_regressors_use_stable_convergence_settings():
+    classifiers = _models_classifier(random_state=4, n_jobs=1, max_iter=300)
+    regressors = _models_regressor(random_state=4, n_jobs=1, max_iter=300)
+
+    assert classifiers["MLPClassifier"].tol == 1e-3
+    assert regressors["MLPRegressor"].tol == 1e-3
+    assert regressors["LinearSVR"].dual is False
+    assert regressors["LinearSVR"].loss == "squared_epsilon_insensitive"
+    assert regressors["LinearSVR"].max_iter == 300
+
+
+def test_example_datasets_fit_warning_prone_models_without_convergence_warnings():
+    datasets = Path(__file__).parents[2] / "examples" / "datasets"
+    classification_data = pd.read_csv(datasets / "train.csv")
+    classifier = MultiClassifier(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=300,
+        custom_models=["LinearSVC", "NuSVC", "SVC", "MLPClassifier"],
+    )
+    classification_split = classifier.split(
+        classification_data,
+        "Survived",
+        auto_cat_encode=True,
+        fix_nan_custom={"Age": "interpolate", "Embarked": "ffill"},
+        drop=["PassengerId", "Name", "Ticket", "Cabin"],
+    )
+
+    regression_data = pd.read_csv(datasets / "Housing.csv")
+    regressor = MultiRegressor(
+        n_jobs=1,
+        model_workers=1,
+        max_iter=300,
+        custom_models=["PoissonRegressor", "MLPRegressor", "LinearSVR"],
+    )
+    regression_split = regressor.split(
+        regression_data,
+        "price",
+        test_size=0.3,
+        auto_cat_encode=True,
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ConvergenceWarning)
+        warnings.simplefilter("error", RuntimeWarning)
+        classification_results = classifier.fit(classification_split)
+        regression_results = regressor.fit(regression_split)
+
+    assert classification_results["accuracy"].notna().all()
+    assert regression_results["mean_absolute_error"].notna().all()
 
 
 def test_legacy_sparse_fallback_matches_current_estimator_tags(monkeypatch):

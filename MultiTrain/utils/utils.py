@@ -162,11 +162,15 @@ def _models_classifier(
         RidgeClassifierCV.__name__: RidgeClassifierCV(cv=5),
         Perceptron.__name__: Perceptron(n_jobs=n_jobs if n_jobs is not None else 1, max_iter=max_iter if max_iter is not None else 1000),
         LinearSVC.__name__: LinearSVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
-        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
-        SVC.__name__: SVC(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
+        # Libsvm uses -1 for no hard iteration limit. A shared cap can stop a
+        # healthy fit early, especially before feature scaling is applied.
+        NuSVC.__name__: NuSVC(random_state=random_state, max_iter=-1),
+        SVC.__name__: SVC(random_state=random_state, max_iter=-1),
         KNeighborsClassifier.__name__: KNeighborsClassifier(n_jobs=n_jobs if n_jobs is not None else 1),
         MLPClassifier.__name__: MLPClassifier(
-            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
+            random_state=random_state,
+            max_iter=max_iter if max_iter is not None else 1000,
+            tol=1e-3,
         ),
         GaussianNB.__name__: GaussianNB(),
         BernoulliNB.__name__: BernoulliNB(),
@@ -315,11 +319,18 @@ def _models_regressor(
             random_state=random_state, n_jobs=n_jobs if n_jobs is not None else 1
         ),
         MLPRegressor.__name__: MLPRegressor(
-            random_state=random_state, max_iter=max_iter if max_iter is not None else 1000
+            random_state=random_state,
+            max_iter=max_iter if max_iter is not None else 1000,
+            tol=1e-3,
         ),
-        SVR.__name__: SVR(max_iter=max_iter if max_iter is not None else -1),
-        LinearSVR.__name__: LinearSVR(random_state=random_state, max_iter=max_iter if max_iter is not None else 1000),
-        NuSVR.__name__: NuSVR(max_iter=max_iter if max_iter is not None else -1),
+        SVR.__name__: SVR(max_iter=-1),
+        LinearSVR.__name__: LinearSVR(
+            random_state=random_state,
+            max_iter=max_iter if max_iter is not None else 1000,
+            dual=False,
+            loss="squared_epsilon_insensitive",
+        ),
+        NuSVR.__name__: NuSVR(max_iter=-1),
         CatBoostRegressor.__name__: CatBoostRegressor(
             random_seed=random_state,
             thread_count=n_jobs if n_jobs is not None else 1,
