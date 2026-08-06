@@ -41,6 +41,7 @@ from sklearn.metrics import (
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelBinarizer
 from sklearn.svm import SVC
 
 from MultiTrain.classification.classification_models import MultiClassifier
@@ -623,15 +624,17 @@ def test_probability_and_multiclass_custom_metrics_use_the_correct_predictions()
         custom_metric="brier_score_loss",
         sort="brier_score_loss",
     )
+    probabilities = estimator.predict_proba(X_test)
+    # Scikit-learn 1.7 added multiclass input to brier_score_loss. Build the
+    # documented one-hot targets with the stable LabelBinarizer API so this
+    # independent expected value also runs on MultiTrain's sklearn 1.3 minimum.
+    one_hot_targets = LabelBinarizer().fit(estimator.classes_).transform(y_test)
+    expected_brier = np.mean(
+        np.sum((one_hot_targets - probabilities) ** 2, axis=1)
+    )
     assert float(
         brier_result.loc["LogisticRegression", "brier_score_loss"]
-    ) == pytest.approx(
-        brier_score_loss(
-            y_test,
-            estimator.predict_proba(X_test),
-            labels=estimator.classes_,
-        )
-    )
+    ) == pytest.approx(expected_brier)
 
     jaccard_result = classifier.fit(
         split,
