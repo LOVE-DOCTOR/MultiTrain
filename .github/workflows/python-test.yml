@@ -74,10 +74,8 @@ jobs:
         run: python -m ruff check .
 
       - name: Run test suite
-        run: >-
-          python -m pytest -q
-          -W error::FutureWarning
-          -W error::DeprecationWarning
+        # Warning behavior is centralized in pyproject.toml so local and CI runs agree.
+        run: python -m pytest -q
 
   package:
     name: Verify distributions

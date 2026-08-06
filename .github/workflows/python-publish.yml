@@ -31,10 +31,8 @@ jobs:
           python -m pip install -e ".[dev]" -c requirements.txt
 
       - name: Run release tests
-        run: >-
-          python -m pytest -q
-          -W error::FutureWarning
-          -W error::DeprecationWarning
+        # Warning behavior is centralized in pyproject.toml so release and CI agree.
+        run: python -m pytest -q
 
       - name: Build and check distributions
         run: |

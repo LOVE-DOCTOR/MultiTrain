@@ -81,6 +81,13 @@ exclude = ["MultiTrain.test*"]
 [tool.pytest.ini_options]
 testpaths = ["MultiTrain/test"]
 addopts = ["-ra"]
+# Compatibility warnings indicate code that must be updated before a supported
+# dependency removes an API. Other warning categories remain visible and non-fatal.
+filterwarnings = [
+    "default",
+    "error::FutureWarning",
+    "error::DeprecationWarning",
+]
 
 [tool.coverage.run]
 branch = true

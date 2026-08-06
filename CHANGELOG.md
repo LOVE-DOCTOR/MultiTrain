@@ -28,6 +28,7 @@
 - Adapted cross-validation folds and neighbor counts to the available training data on small datasets.
 - Converted invalid text-vectorization failures into actionable MultiTrain errors.
 - Set `LinearSVC(dual="auto")` explicitly to avoid scikit-learn 1.3 warning failures.
+- Centralized pytest warning policy: deprecations remain fatal while ordinary, runtime, and convergence warnings remain non-fatal and visible.
 
 # 0.13.11
 - Removed force_finite parameter in r2 score - regression
