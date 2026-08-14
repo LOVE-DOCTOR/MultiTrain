@@ -48,6 +48,20 @@ Install the optional notebook dependencies when you want to run the repository's
 python -m pip install "MultiTrain[notebook]"
 ```
 
+## Documentation tools
+
+The documentation extra belongs to a source checkout because the published
+site is built from the repository's `docs` directory. From the repository root,
+install the compatible Sphinx toolchain with:
+
+```bash
+python -m pip install -e ".[docs]" -c requirements.txt
+```
+
+This command installs Sphinx, MyST-NB, the PyData Sphinx theme,
+Sphinx-Design, Sphinx-Gallery, and the copy button extension. The constraints
+file selects versions compatible with the active Python runtime.
+
 ## Install a development checkout
 
 ```bash
@@ -66,4 +80,5 @@ import MultiTrain
 print(MultiTrain.__version__)
 ```
 
-If importing fails on macOS, start with the [macOS troubleshooting section](../troubleshooting/index.md#macos-openmp-errors).
+If importing fails on macOS, start with the {ref}`macOS troubleshooting section
+<macos-openmp-errors>`.

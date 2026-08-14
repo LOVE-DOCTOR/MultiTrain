@@ -1,4 +1,4 @@
-# Custom estimators and parameters
+# Configure estimators and parameters
 
 ## Override built-in parameters
 

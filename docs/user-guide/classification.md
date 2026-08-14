@@ -1,12 +1,32 @@
-# Classification
+# Compare classification models
 
 {class}`MultiTrain.MultiClassifier` compares estimators that predict discrete labels.
 
-## Create the runner
+The examples on this page use a generated DataFrame, so you can run them in
+order without downloading a dataset:
 
 ```python
+import pandas as pd
+from sklearn.datasets import make_classification
+
 from MultiTrain import MultiClassifier
 
+features, target = make_classification(
+    n_samples=300,
+    n_features=8,
+    n_informative=5,
+    random_state=42,
+)
+frame = pd.DataFrame(
+    features,
+    columns=[f"feature_{number}" for number in range(features.shape[1])],
+)
+frame["label"] = target
+```
+
+## Create a runner
+
+```python
 train = MultiClassifier(
     n_jobs=1,
     model_workers=2,
@@ -18,7 +38,7 @@ train = MultiClassifier(
 
 Leave `custom_models=None` to use the complete classifier catalog. Selecting a focused list makes experimentation faster and reduces peak memory.
 
-## Create a classification split
+## Create a stratified split
 
 ```python
 split = train.split(
@@ -32,7 +52,7 @@ split = train.split(
 
 Classification splits are stratified by the target. MultiTrain rejects continuous targets, a training partition with fewer than two classes, and test labels that do not appear in training.
 
-## Fit and inspect measurements
+## Fit and inspect metrics
 
 ```python
 results = train.fit(
@@ -43,7 +63,7 @@ results = train.fit(
 )
 ```
 
-The default test measurements are:
+The default test metrics are:
 
 - accuracy
 - precision
@@ -52,11 +72,17 @@ The default test measurements are:
 - ROC AUC
 - balanced accuracy
 
-With `show_train_score=True`, corresponding columns ending in `_train` are added. Binary precision, recall, and F1 use the final fitted class as the positive label. Multiclass values use weighted averaging by default. Set `imbalanced=True` to request micro averaging for precision, recall, and F1.
+With `show_train_score=True`, corresponding columns ending in `_train` are
+added. Binary precision, recall, and F1 use the final fitted class as the
+positive label. Multiclass values use weighted averaging by default. Set
+`imbalanced=True` to request micro averaging for precision, recall, and F1.
 
-## Probability-based measurements
+## Interpret probability-based metrics
 
-`roc_auc`, `log_loss`, and `brier_score_loss` use probability or decision outputs rather than hard class predictions. A classifier without the required output can still receive label-based measurements; unavailable probability measurements become `NaN`.
+`roc_auc`, `log_loss`, and `brier_score_loss` use probability or decision outputs
+rather than hard class predictions. A classifier without the required output can
+still receive label-based metrics; unavailable probability metrics become
+`NaN`.
 
 ## Return one result row
 

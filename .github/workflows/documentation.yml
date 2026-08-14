@@ -15,16 +15,20 @@ concurrency:
 
 jobs:
   build:
-    name: Build documentation
+    name: Build documentation on Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
             pyproject.toml
@@ -44,6 +48,7 @@ jobs:
         run: python -m sphinx -W --keep-going -b html docs docs/_build/html
 
       - name: Upload documentation artifact
+        if: matrix.python-version == '3.12'
         uses: actions/upload-pages-artifact@v4
         with:
           path: docs/_build/html

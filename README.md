@@ -74,8 +74,6 @@ If that doesn't fix your bug, create an issue in the issue tracker
 ### MULTICLASSIFIER
 The MultiClassifier is a combination of many classifier estimators, each of which is fitted on the training data and returns assessment metrics such as accuracy, balanced accuracy, f1, precision, recall, and roc auc for each of the models.
 ```python
-# This is a code snippet showing how to import MultiClassifier and set its parameters.
-
 from MultiTrain import MultiClassifier
 train = MultiClassifier(
     n_jobs=1,           # Give each model one CPU thread
@@ -188,7 +186,7 @@ split = train.split(data=df,
 
 fit = train.fit(
     datasplits=split,
-    sort='accuracy',  # Sort the final results by accuracy.
+    sort='accuracy',
 )
 
 # The available metrics to pass into sort are 
@@ -210,7 +208,7 @@ datasplits = (X_train, X_test, y_train, y_test)
 fit = train.fit(
     datasplits=datasplits,
     show_train_score=True,  # Include the training scores so you can spot overfitting.
-    sort='accuracy',  # Sort the resulting dataframe by the best accuracy.
+    sort='accuracy',
     custom_metric='matthews_corrcoef',  # Add another sklearn classification metric to the table.
     imbalanced=True,  # Use micro averaging for precision, recall, and f1.
 )
@@ -284,7 +282,7 @@ fit = train.fit(
     datasplits=split,
     sort='accuracy',
     pca='StandardScaler',
-    n_components=20,  # Keep 20 principal components.
+    n_components=20,
 )
 ```
 
@@ -387,8 +385,6 @@ Train predictions are stored only when `show_train_score=True`, and regressors l
 
 The MultiRegressor is a combination of many regression estimators, each of which is fitted on the training data and returns assessment metrics for each of the models.
 ```python
-# This is a code snippet showing how to import MultiRegressor and set its parameters.
-
 from MultiTrain import MultiRegressor
 train = MultiRegressor(
     n_jobs=1,           # Give each model one CPU thread
@@ -508,7 +504,7 @@ python -m build
 python -m twine check dist/*
 ```
 
-The test workflow repeats these checks on supported Python versions and operating systems. When a GitHub release is created with a tag matching the package version, the publish workflow builds the distributions again and uploads them to PyPI through trusted publishing. Configure the GitHub repository as a trusted publisher in PyPI before the first release; no API token needs to be stored in the repository.
+The test workflow repeats these checks on supported Python versions and operating systems. When a commit is pushed to `main`, or a GitHub release is created with a tag matching the package version, the publish workflow builds the distributions again and uploads them to PyPI through trusted publishing. Configure the GitHub repository as a trusted publisher in PyPI before the first release; no API token needs to be stored in the repository. PyPI does not allow a package version to be uploaded more than once, so update the package version before every publishing push.
 
 To inspect a release locally without publishing it, install the wheel into a fresh environment and import the package:
 

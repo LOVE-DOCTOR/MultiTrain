@@ -8,6 +8,7 @@
 - Add validated per-model parameter overrides for built-in and user-provided estimators.
 - Expand the executable classification and regression notebooks with fitted artifacts, named estimators, parameter overrides, and diagnostic examples.
 - Add a complete Sphinx documentation website with generated API pages, executable examples, strict documentation CI, and GitHub Pages deployment.
+- Support documentation builds on Python 3.10 through Python 3.13 with version-compatible Sphinx tooling.
 
 ## 1.2.0
 

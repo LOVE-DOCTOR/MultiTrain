@@ -10,8 +10,6 @@ html_theme.sidebar_secondary.remove: true
 
 </div>
 
-MultiTrain prepares one training and test split, fits every selected estimator on the complete training data, and returns their measurements in a pandas DataFrame. You decide which measurements matter for your problem; MultiTrain keeps the fitted estimators and their outputs available for further inspection.
-
 ::::{grid} 1 2 2 2
 :gutter: 3
 
@@ -22,11 +20,11 @@ MultiTrain prepares one training and test split, fits every selected estimator o
 Install MultiTrain and run a focused classification or regression comparison.
 :::
 
-:::{grid-item-card} Read the user guide
+:::{grid-item-card} Solve a task
 :link: user-guide/index
 :link-type: doc
 
-Learn splitting, encoding, metrics, custom estimators, artifacts, and parallel execution.
+Follow focused guides for data preparation, model configuration, fitted outputs, and performance.
 :::
 
 :::{grid-item-card} Browse examples
@@ -59,7 +57,10 @@ X, y = make_classification(
     n_informative=5,
     random_state=42,
 )
-data = pd.DataFrame(X, columns=[f"feature_{number}" for number in range(X.shape[1])])
+data = pd.DataFrame(
+    X,
+    columns=[f"feature_{number}" for number in range(X.shape[1])],
+)
 data["target"] = y
 
 train = MultiClassifier(
@@ -79,14 +80,20 @@ The returned `results` table is also available as `train.results_`. Fitted estim
 
 getting-started/installation
 getting-started/quickstart
-getting-started/core-concepts
 ```
 
 ```{toctree}
-:caption: User guide
+:caption: How-to guides
 :hidden:
 
 user-guide/index
+```
+
+```{toctree}
+:caption: Explanation
+:hidden:
+
+getting-started/core-concepts
 ```
 
 ```{toctree}
@@ -102,7 +109,15 @@ examples/notebooks
 :hidden:
 
 api/index
+user-guide/model-catalog
+user-guide/metrics
 troubleshooting/index
+```
+
+```{toctree}
+:caption: Project
+:hidden:
+
 release-notes
 development/index
 ```

@@ -28,10 +28,12 @@ python -m twine check --strict dist/*
 
 ## Build the documentation
 
-Documentation uses Python 3.12 independently of the package's broader runtime matrix:
+Documentation supports Python 3.10 through Python 3.13. Create a separate
+environment so its build tools do not affect the environment used for model
+development:
 
 ```bash
-python3.12 -m venv .venv-docs
+python3.10 -m venv .venv-docs
 source .venv-docs/bin/activate
 python -m pip install -e ".[docs]" -c requirements.txt
 python -m sphinx -W --keep-going -b html docs docs/_build/html
@@ -41,31 +43,30 @@ On Windows, activate with `.venv-docs\Scripts\activate`.
 
 The `-W` option promotes Sphinx warnings to build failures. Fix broken references, malformed directives, missing API imports, and gallery errors rather than suppressing them without a specific reason.
 
-## Documentation writing rules
-
-- Put user goals and expected outcomes before implementation detail.
-- Keep complete examples runnable from a clean checkout.
-- Use public imports in examples.
-- Explain parameter interactions and failure behavior, not only valid types.
-- Add API details to source docstrings so generated reference pages stay synchronized.
-- Add longer workflows to the user guide or example gallery.
-- Preserve the README's introductory tutorial and link deeper explanations to this site.
-
 ## Documentation CI
 
-The documentation workflow runs on pull requests and pushes to `v2-test` and `main`. It executes both repository notebooks and builds the HTML with warnings treated as errors. Only a successful build from `main` is deployed to GitHub Pages.
+The documentation workflow runs on pull requests and pushes to `v2-test` and
+`main`. It installs and builds the documentation on Python 3.10, 3.11, 3.12,
+and 3.13, executes both repository notebooks, and treats HTML build warnings as
+errors. The Python 3.12 build supplies the Pages artifact, and only a successful
+matrix build from `main` is deployed to GitHub Pages.
 
 ## Publish with GitHub Pages
 
-Before the first deployment, open **Settings → Pages** in the GitHub repository
-and select **GitHub Actions** as the publishing source. No branch folder or
-ruleset is required because the workflow uploads the built HTML directly.
+Configure the first deployment as follows:
 
-Push documentation work to `v2-test` first. GitHub Actions will execute the
-notebooks, run the gallery examples, build the complete site, and retain the
-Pages artifact without publishing it. After that check succeeds and the branch
-is merged into `main`, the same workflow deploys the verified artifact to
-`https://love-doctor.github.io/MultiTrain/`.
+1. Open **Settings → Pages** in the GitHub repository.
+2. Select **GitHub Actions** as the publishing source.
+3. Push documentation work to `v2-test` and confirm every documentation matrix
+   job succeeds.
+4. Download the Python 3.12 Pages artifact if you want to inspect the exact site
+   before merging.
+5. Merge the verified branch into `main` to deploy the same build to GitHub
+   Pages.
+
+No branch folder or ruleset is required because the workflow uploads the built
+HTML directly. The published site is available at
+`https://love-doctor.github.io/MultiTrain/` after the `main` deployment finishes.
 
 ## Release checklist
 
@@ -75,7 +76,7 @@ Before publishing a release:
 2. Run tests and documentation builds.
 3. Build and inspect the wheel and source distribution.
 4. Confirm the release tag matches the package version.
-5. Publish the GitHub release to trigger trusted PyPI publishing.
+5. Push the version change to `main` to trigger trusted PyPI publishing. Publishing a GitHub release also triggers it.
 6. Confirm the stable documentation describes the released API.
 
 See the repository's [contribution guidance](https://github.com/LOVE-DOCTOR/MultiTrain#contributing) before opening a large pull request.

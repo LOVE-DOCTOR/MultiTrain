@@ -1,6 +1,11 @@
-# Data preparation
+# Prepare tabular data
 
 MultiTrain can create a split from a pandas DataFrame or accept a four-item split created elsewhere.
+
+The snippets in the first five sections assume that `train` is a
+`MultiClassifier` or `MultiRegressor` instance and `frame` is a pandas DataFrame
+containing the named columns. See the complete, runnable
+{doc}`../getting-started/quickstart` before adapting the snippets to your data.
 
 ## DataFrame or CSV path
 
@@ -52,7 +57,12 @@ split = train.split(
 )
 ```
 
-Supported strategies are `ffill`, `bfill`, and `interpolate`. Name every affected column explicitly. Values that remain missing after the requested operation are rejected before training.
+Supported strategies are `ffill`, `bfill`, and `interpolate`. Name every
+affected column explicitly. If the requested operation leaves an edge value
+missing, MultiTrain uses a fallback learned from the training partition: the
+training mode for a categorical column or zero for a numeric column. A column
+without a configured strategy is rejected if either partition contains a
+missing value.
 
 ## Remove unused columns
 

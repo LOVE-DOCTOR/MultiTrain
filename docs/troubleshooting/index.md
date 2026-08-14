@@ -24,9 +24,13 @@ Use a native Python matching the machine architecture. Python 3.8 and 3.9 on new
 
 ## Convergence warnings
 
-A convergence warning does not automatically make predictions invalid. Inspect the measurements and warning details first. If further optimization is appropriate, increase `max_iter`, scale features, or pass model-specific parameters:
+A convergence warning does not automatically make predictions invalid. Inspect
+the metrics and warning details first. If further optimization is appropriate,
+increase `max_iter`, scale features, or pass model-specific parameters:
 
 ```python
+from MultiTrain import MultiClassifier
+
 train = MultiClassifier(
     custom_models=["LogisticRegression"],
     max_iter=3000,

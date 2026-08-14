@@ -1,6 +1,8 @@
 name: Publish to PyPI
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -31,7 +33,6 @@ jobs:
           python -m pip install -e ".[dev]" -c requirements.txt
 
       - name: Run release tests
-        # Warning behavior is centralized in pyproject.toml so release and CI agree.
         run: python -m pytest -q
 
       - name: Build and check distributions

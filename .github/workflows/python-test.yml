@@ -74,7 +74,6 @@ jobs:
         run: python -m ruff check .
 
       - name: Run test suite
-        # Warning behavior is centralized in pyproject.toml so local and CI runs agree.
         run: python -m pytest -q
 
   package:

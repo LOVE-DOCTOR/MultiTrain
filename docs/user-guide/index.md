@@ -1,6 +1,8 @@
-# User guide
+# How-to guides
 
-The user guide explains how each part of a MultiTrain run fits together.
+Use these guides when you have a specific training, preparation, inspection, or
+performance task. For a guided first run, start with the
+{doc}`../getting-started/quickstart`.
 
 ::::{grid} 1 2 2 2
 :gutter: 3
@@ -14,7 +16,7 @@ Splitting, fitting, probability metrics, and classification-specific options.
 :::{grid-item-card} Regression
 :link: regression
 :link-type: doc
-Regression targets, loss measurements, sorting, and fitted regressors.
+Regression targets, loss metrics, sorting, and fitted regressors.
 :::
 
 :::{grid-item-card} Data preparation
@@ -50,8 +52,6 @@ Model processes, estimator threads, shared transforms, memory, and GPUs.
 classification
 regression
 data-preparation
-model-catalog
-metrics
 custom-models
 artifacts
 text-pca-gpu

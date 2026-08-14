@@ -46,7 +46,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# Keep the accepted scaler names in one place so validation and pipeline setup agree.
 SUPPORTED_SCALERS = {
     'StandardScaler': StandardScaler(),
     'MinMaxScaler': MinMaxScaler(),
@@ -67,6 +66,57 @@ class MultiRegressor:
     of user-chosen names to estimator objects, and ``model_params`` applies
     validated overrides to the selected models. Fitted estimators, predictions,
     warnings, and failures remain available after training.
+
+    Parameters
+    ----------
+    n_jobs : int, default=1
+        Thread or process count passed to estimators that support internal
+        parallelism. The value cannot be zero.
+    random_state : int, default=42
+        Seed used when MultiTrain creates estimators. Pass a separate seed to
+        :meth:`split` to control the holdout partition.
+    custom_models : list of str, dict, or None, default=None
+        Built-in estimator names to fit, or a mapping of result names to
+        estimator objects. ``None`` selects the complete built-in catalog.
+    max_iter : int, default=1000
+        Shared iteration or estimator budget applied to built-in models that
+        expose a compatible parameter.
+    use_gpu : bool, default=False
+        Configure supported CatBoost and XGBoost estimators for GPU execution.
+        GPU execution is disabled on macOS.
+    device : str, default="0"
+        GPU device identifier forwarded to supported GPU estimators.
+    model_workers : int or None, default=None
+        Maximum number of estimators trained concurrently. ``None`` chooses a
+        bounded automatic value; ``-1`` permits all available CPU allocations.
+    model_params : dict or None, default=None
+        Parameter overrides keyed by selected model name. Nested pipeline
+        parameters use scikit-learn's ``step__parameter`` syntax.
+
+    Attributes
+    ----------
+    results_ : pandas.DataFrame or None
+        Result returned by the most recent successful :meth:`fit` call.
+    models_ : dict
+        Successfully fitted estimators keyed by result name.
+    predictions_ : dict
+        Cached test and optional training predictions, grouped by partition and
+        model name.
+    probabilities_ : dict
+        Empty test and training dictionaries retained for a consistent artifact
+        layout across classification and regression.
+    warnings_ : pandas.DataFrame
+        Model-attributed warning categories and messages from the latest fit.
+    failures_ : pandas.DataFrame
+        Model, execution stage, exception type, and message for failed models.
+
+    Examples
+    --------
+    >>> from MultiTrain import MultiRegressor
+    >>> train = MultiRegressor(
+    ...     custom_models=["LinearRegression"],
+    ...     n_jobs=1,
+    ... )
     """
 
     n_jobs: int = 1
@@ -207,7 +257,7 @@ class MultiRegressor:
             ``"onehot"``; each value is a list of feature names.
         fix_nan_custom : dict, False, or None, default=False
             Per-column missing-value strategies such as
-            ``{"age": "median", "city": "mode"}``.
+            ``{"age": "interpolate", "city": "ffill"}``.
         drop : list or None, default=None
             Feature columns to remove before the split.
 
@@ -215,6 +265,20 @@ class MultiRegressor:
         -------
         tuple
             ``(X_train, X_test, y_train, y_test)`` ready for :meth:`fit`.
+
+        Raises
+        ------
+        MultiTrainTypeError
+            If an argument has an unsupported type.
+        MultiTrainColumnMissingError
+            If the target, dropped column, or encoded column does not exist.
+        MultiTrainEncodingError
+            If categorical encoding instructions conflict or leave categorical
+            columns unencoded.
+        MultiTrainNaNError
+            If missing values remain without a configured strategy.
+        MultiTrainSplitError
+            If the dataset cannot produce a valid holdout split.
 
         Notes
         -----
@@ -233,7 +297,6 @@ class MultiRegressor:
         if not isinstance(auto_cat_encode, bool):
             raise MultiTrainTypeError("auto_cat_encode must be a boolean")
 
-        # Normalize file paths and dataframes into the same in-memory representation.
         if isinstance(data, pd.DataFrame):
             dataset = data.copy()
         elif isinstance(data, str):
@@ -291,7 +354,6 @@ class MultiRegressor:
                 )
             dataset.drop(drop, axis=1, inplace=True)
 
-        # The target must still exist after optional columns have been dropped.
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
@@ -341,7 +403,7 @@ class MultiRegressor:
         return_best_model: Optional[str] = None, # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
         n_components: Optional[Union[int, float]] = None,
     ):
-        """Fit and measure every selected regression model.
+        """Fit and calculate metrics for every selected regression model.
 
         MultiTrain validates the split, optionally scales and reduces one shared
         feature representation, trains each estimator on the complete training
@@ -354,14 +416,14 @@ class MultiRegressor:
         custom_metric : str or None, default=None
             Name of an additional supported scalar scikit-learn metric.
         show_train_score : bool, default=False
-            Include measurements calculated on the training partition.
+            Include metrics calculated on the training partition.
         sort : str or None, default=None
             Result column used to order the returned dataframe.
         pca : str or False, default=False
             Name of the scaler applied before a shared PCA transformation. Pass
             ``False`` to leave the features unchanged.
         return_best_model : str or None, default=None
-            Return only the row with the strongest value for this measurement.
+            Return only the row with the strongest value for this metric.
         n_components : int, float, or None, default=None
             Number of PCA components, or an explained-variance fraction between
             zero and one.
@@ -369,9 +431,22 @@ class MultiRegressor:
         Returns
         -------
         pandas.DataFrame
-            Measurements for the selected models. The same dataframe is stored in
+            Metrics for the selected models. The same dataframe is stored in
             :attr:`results_`; fitted estimators, predictions, warnings, and
             failures are stored in the other post-fit attributes.
+
+        Raises
+        ------
+        MultiTrainTypeError
+            If an argument or split item has an unsupported type.
+        MultiTrainMetricError
+            If a metric name or requested ordering is unsupported.
+        MultiTrainPCAError
+            If PCA configuration is invalid.
+
+        See Also
+        --------
+        split : Create and validate a regression train/test partition.
         """
         self._reset_fit_artifacts()
         if custom_metric is not None and not isinstance(custom_metric, str):
@@ -398,8 +473,6 @@ class MultiRegressor:
         else:
             pca_scaler = False
         
-        # The model factory receives this flag and configures only libraries with
-        # an explicit supported GPU API on the current platform.
         gpu_enabled = self.use_gpu and platform.system() != "Darwin"
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
@@ -426,7 +499,7 @@ class MultiRegressor:
             use_gpu=gpu_enabled,
         )
 
-        # Predictions are cached by the execution layer, so all measurements
+        # Predictions are cached by the execution layer, so all metrics
         # below describe the exact same output from each fitted estimator.
         results = {}
         for completed_model in completed:
@@ -460,7 +533,6 @@ class MultiRegressor:
                 "Time": completed_model.elapsed,
             }
     
-        # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
             final_dataframe = _display_table(
                 results=results,

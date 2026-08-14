@@ -1,8 +1,10 @@
-# Performance and large datasets
+# Control performance and memory
 
 ## Choose the two parallelism levels deliberately
 
 ```python
+from MultiTrain import MultiClassifier
+
 train = MultiClassifier(
     n_jobs=1,
     model_workers=4,

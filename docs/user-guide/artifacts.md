@@ -1,6 +1,9 @@
-# Post-fit artifacts
+# Inspect fitted outputs
 
 Each successful `fit` call replaces the artifacts from the previous call. If a new call fails during argument or data validation, the previous artifacts are cleared so stale models cannot be mistaken for current output.
+
+The snippets on this page assume that `train.fit(split)` has completed. Run the
+{doc}`../getting-started/quickstart` first if you need a complete setup.
 
 ## Results
 
@@ -68,4 +71,5 @@ if not train.failures_.empty:
     print(train.failures_)
 ```
 
-A failed estimator retains a `NaN` prediction array for alignment and a row of missing measurements, but it does not appear in `models_`.
+A failed estimator retains a `NaN` prediction array for alignment and a row of
+missing metrics, but it does not appear in `models_`.

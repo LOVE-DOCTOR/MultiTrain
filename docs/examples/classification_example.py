@@ -12,7 +12,6 @@ from sklearn.datasets import make_classification
 from MultiTrain import MultiClassifier
 
 
-# Build a DataFrame so the example follows the same path as a CSV-backed project.
 features, target = make_classification(
     n_samples=300,
     n_features=8,
@@ -26,8 +25,6 @@ frame = pd.DataFrame(
 )
 frame["target"] = target
 
-# A small selection keeps the example quick. Both models still receive every
-# row in the training partition.
 train = MultiClassifier(
     custom_models=["LogisticRegression", "DecisionTreeClassifier"],
     model_params={"DecisionTreeClassifier": {"max_depth": 4}},
@@ -39,8 +36,6 @@ split = train.split(frame, target="target", random_state=42)
 results = train.fit(split, show_train_score=True, sort="accuracy")
 print(results)
 
-# The fitted estimators and the predictions used above are available without a
-# second fit or predict call.
 print("\nFitted models:", list(train.models_))
 print(
     "Logistic test prediction shape:",

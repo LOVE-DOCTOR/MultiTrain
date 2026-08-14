@@ -1,6 +1,6 @@
 # Metrics and result ordering
 
-## Default classifier measurements
+## Default classifier metrics
 
 | Result column | Meaning | Direction when sorting |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ results = classifier.fit(
 )
 ```
 
-## Default regressor measurements
+## Default regressor metrics
 
 | Result column | Direction when sorting |
 | --- | --- |
@@ -53,9 +53,11 @@ Supported additional regression metrics are:
 - `mean_poisson_deviance`
 - `mean_tweedie_deviance`
 
-## Train measurements
+## Training metrics
 
-Set `show_train_score=True` to add columns ending in `_train`. A large difference between a training and test measurement can be useful evidence, but interpreting it depends on the dataset, split, and metric.
+Set `show_train_score=True` to add columns ending in `_train`. A large difference
+between a training and test metric can be useful evidence, but interpreting it
+depends on the dataset, split, and metric.
 
 ## Missing metric values
 
@@ -63,6 +65,7 @@ Set `show_train_score=True` to add columns ending in `_train`. A large differenc
 
 - a classifier does not expose probabilities required by log loss or Brier score;
 - a metric's mathematical domain is incompatible with the supplied target values;
-- a measurement is undefined for the observed labels.
+- a metric is undefined for the observed labels.
 
-Inspect {attr}`~MultiTrain.MultiClassifier.failures_` before treating an unavailable measurement as a failed fit.
+Inspect {attr}`~MultiTrain.MultiClassifier.failures_` before treating an
+unavailable metric as a failed fit.

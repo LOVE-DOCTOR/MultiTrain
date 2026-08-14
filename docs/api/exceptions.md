@@ -22,10 +22,14 @@ Every package-specific exception inherits from `MultiTrainError`, allowing calle
 ## Catching validation failures
 
 ```python
+import pandas as pd
+
 from MultiTrain import MultiClassifier, MultiTrainError
 
+frame = pd.DataFrame({"feature": [1, 2, 3, 4], "label": [0, 0, 1, 1]})
+
 try:
-    split = MultiClassifier().split(frame, target="label")
+    split = MultiClassifier().split(frame, target="missing_label")
 except MultiTrainError as error:
     print(f"MultiTrain rejected the input: {error}")
 ```
