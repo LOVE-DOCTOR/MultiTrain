@@ -18,7 +18,8 @@ import logging
 from numbers import Integral, Real
 import os
 import time
-from typing import Optional
+from typing import Optional, Tuple
+import warnings
 
 from joblib import Parallel, delayed, parallel_config
 import numpy as np
@@ -143,9 +144,10 @@ class ModelRunResult:
     """Cached outputs returned by ``_fit_model`` and consumed by public ``fit``.
 
     Label predictions feed ordinary metrics. Probability arrays feed log loss,
-    Brier score, and ROC AUC. A failed estimator still returns this structure,
-    but its predictions are NaN and ``error`` explains the original failure.
-    This lets other selected models finish instead of losing the entire table.
+    Brier score, and ROC AUC. The fitted estimator and captured warnings become
+    public post-fit artifacts. A failed estimator still returns this structure,
+    but its predictions are NaN and the error fields explain what failed and at
+    which execution stage. This lets unrelated selected models finish normally.
     """
 
     name: str
@@ -157,7 +159,71 @@ class ModelRunResult:
     train_probability: Optional[np.ndarray]
     model_classes: Optional[np.ndarray]
     elapsed: str
+    estimator: Optional[object] = None
+    warnings: Tuple[Tuple[str, str], ...] = ()
     error: Optional[str] = None
+    error_stage: Optional[str] = None
+    error_type: Optional[str] = None
+
+
+def build_run_artifacts(completed):
+    """Build the reusable fitted outputs exposed by the public model classes.
+
+    Classification and regression call this after ``run_models`` so both APIs
+    expose the same predictable artifact layout. Failed models retain their NaN
+    predictions for inspection, but only successfully fitted estimators appear
+    in ``models``.
+    """
+    predictions = {"test": {}, "train": {}}
+    probabilities = {"test": {}, "train": {}}
+    fitted_models = {}
+    warning_rows = []
+    failure_rows = []
+
+    for result in completed:
+        predictions["test"][result.name] = result.test_prediction
+        if result.train_prediction is not None:
+            predictions["train"][result.name] = result.train_prediction
+
+        if result.test_probability is not None:
+            probabilities["test"][result.name] = result.test_probability
+        if result.train_probability is not None:
+            probabilities["train"][result.name] = result.train_probability
+
+        if result.estimator is not None and result.error is None:
+            fitted_models[result.name] = result.estimator
+
+        warning_rows.extend(
+            {
+                "Model": result.name,
+                "Category": category,
+                "Message": message,
+            }
+            for category, message in result.warnings
+        )
+        if result.error is not None:
+            failure_rows.append(
+                {
+                    "Model": result.name,
+                    "Stage": result.error_stage,
+                    "Exception": result.error_type,
+                    "Message": result.error,
+                }
+            )
+
+    return {
+        "models": fitted_models,
+        "predictions": predictions,
+        "probabilities": probabilities,
+        "warnings": pd.DataFrame(
+            warning_rows,
+            columns=["Model", "Category", "Message"],
+        ),
+        "failures": pd.DataFrame(
+            failure_rows,
+            columns=["Model", "Stage", "Exception", "Message"],
+        ),
+    }
 
 
 def _as_shared_array(values):
@@ -396,60 +462,93 @@ def _fit_model(
     stored error after restoring result order.
     """
     start = time.perf_counter()
+    captured_warnings = []
+    stage = "preparation"
     try:
-        training_estimator = _prepare_training_estimator(
-            name,
-            model,
-            X_train,
-            task,
-            y_train=y_train,
-        )
-        training_estimator.fit(X_train, y_train)
-        test_prediction = np.asarray(training_estimator.predict(X_test))
-        train_prediction = (
-            np.asarray(training_estimator.predict(X_train))
-            if show_train_score
-            else None
-        )
-        if task == "classification":
-            test_probability = _classification_probabilities(
-                training_estimator, X_test
+        # Capture warnings for ``warnings_`` and then re-emit them through the
+        # caller's warning filters. This keeps ordinary warnings visible while
+        # still respecting projects that deliberately promote a category.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            training_estimator = _prepare_training_estimator(
+                name,
+                model,
+                X_train,
+                task,
+                y_train=y_train,
             )
-            train_probability = (
-                _classification_probabilities(training_estimator, X_train)
+            stage = "fit"
+            training_estimator.fit(X_train, y_train)
+            stage = "prediction"
+            test_prediction = np.asarray(training_estimator.predict(X_test))
+            train_prediction = (
+                np.asarray(training_estimator.predict(X_train))
                 if show_train_score
                 else None
             )
-            # Pipelines normally forward ``classes_`` from their final model.
-            # The fallback keeps class order available for compatible custom
-            # estimators that do not expose that attribute explicitly.
-            model_classes = np.asarray(
-                getattr(training_estimator, "classes_", np.unique(y_train))
-            )
-            test_roc_auc = _classification_roc_auc(
-                training_estimator,
-                X_test,
-                y_test,
-                probabilities=test_probability,
-            )
-            train_roc_auc = (
-                _classification_roc_auc(
-                    training_estimator,
-                    X_train,
-                    y_train,
-                    probabilities=train_probability,
+            if task == "classification":
+                stage = "probability prediction"
+                test_probability = _classification_probabilities(
+                    training_estimator, X_test
                 )
-                if show_train_score
-                else np.nan
+                train_probability = (
+                    _classification_probabilities(training_estimator, X_train)
+                    if show_train_score
+                    else None
+                )
+                # Pipelines normally forward ``classes_`` from their final model.
+                # The fallback keeps class order available for compatible custom
+                # estimators that do not expose that attribute explicitly.
+                model_classes = np.asarray(
+                    getattr(training_estimator, "classes_", np.unique(y_train))
+                )
+                stage = "ROC AUC scoring"
+                test_roc_auc = _classification_roc_auc(
+                    training_estimator,
+                    X_test,
+                    y_test,
+                    probabilities=test_probability,
+                )
+                train_roc_auc = (
+                    _classification_roc_auc(
+                        training_estimator,
+                        X_train,
+                        y_train,
+                        probabilities=train_probability,
+                    )
+                    if show_train_score
+                    else np.nan
+                )
+            else:
+                test_roc_auc = np.nan
+                train_roc_auc = np.nan
+                test_probability = None
+                train_probability = None
+                model_classes = None
+
+        captured_warnings = [
+            (warning.category.__name__, str(warning.message))
+            for warning in caught
+        ]
+        stage = "warning handling"
+        for warning in caught:
+            warnings.warn_explicit(
+                warning.message,
+                warning.category,
+                warning.filename,
+                warning.lineno,
             )
-        else:
-            test_roc_auc = np.nan
-            train_roc_auc = np.nan
-            test_probability = None
-            train_probability = None
-            model_classes = None
         error = None
+        error_stage = None
+        error_type = None
     except Exception as exc:
+        # If fitting failed after emitting a warning, preserve that context even
+        # though execution never reached the normal warning-copying block.
+        if not captured_warnings and "caught" in locals():
+            captured_warnings = [
+                (warning.category.__name__, str(warning.message))
+                for warning in caught
+            ]
         test_prediction = np.full(len(y_test), np.nan)
         train_prediction = (
             np.full(len(y_train), np.nan) if show_train_score else None
@@ -460,6 +559,9 @@ def _fit_model(
         train_probability = None
         model_classes = None
         error = str(exc)
+        error_stage = stage
+        error_type = type(exc).__name__
+        training_estimator = None
 
     return ModelRunResult(
         name=name,
@@ -471,7 +573,11 @@ def _fit_model(
         train_probability=train_probability,
         model_classes=model_classes,
         elapsed=_format_time(time.perf_counter() - start),
+        estimator=training_estimator,
+        warnings=tuple(captured_warnings),
         error=error,
+        error_stage=error_stage,
+        error_type=error_type,
     )
 
 

@@ -4,7 +4,7 @@ User-facing validation stays here, while shared preprocessing and model
 execution are delegated to the same utility modules used by classification.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Real
 import platform
 from typing import Dict, List, Optional, Union
@@ -32,7 +32,11 @@ from MultiTrain.utils.utils import (
     _validate_datasplits,
     _validate_supervised_dataset,
 )
-from MultiTrain.utils.execution import prepare_tabular_features, run_models
+from MultiTrain.utils.execution import (
+    build_run_artifacts,
+    prepare_tabular_features,
+    run_models,
+)
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -42,7 +46,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# Keep the accepted scaler names in one place so validation and pipeline setup agree.
 SUPPORTED_SCALERS = {
     'StandardScaler': StandardScaler(),
     'MinMaxScaler': MinMaxScaler(),
@@ -59,16 +62,77 @@ class MultiRegressor:
 
     ``n_jobs`` limits threads inside each estimator. ``model_workers`` controls
     process-level parallelism across estimators so models do not all claim every
-    CPU at the same time.
+    CPU at the same time. ``custom_models`` accepts built-in names or a mapping
+    of user-chosen names to estimator objects, and ``model_params`` applies
+    validated overrides to the selected models. Fitted estimators, predictions,
+    warnings, and failures remain available after training.
+
+    Parameters
+    ----------
+    n_jobs : int, default=1
+        Thread or process count passed to estimators that support internal
+        parallelism. The value cannot be zero.
+    random_state : int, default=42
+        Seed used when MultiTrain creates estimators. Pass a separate seed to
+        :meth:`split` to control the holdout partition.
+    custom_models : list of str, dict, or None, default=None
+        Built-in estimator names to fit, or a mapping of result names to
+        estimator objects. ``None`` selects the complete built-in catalog.
+    max_iter : int, default=1000
+        Shared iteration or estimator budget applied to built-in models that
+        expose a compatible parameter.
+    use_gpu : bool, default=False
+        Configure supported CatBoost and XGBoost estimators for GPU execution.
+        GPU execution is disabled on macOS.
+    device : str, default="0"
+        GPU device identifier forwarded to supported GPU estimators.
+    model_workers : int or None, default=None
+        Maximum number of estimators trained concurrently. ``None`` chooses a
+        bounded automatic value; ``-1`` permits all available CPU allocations.
+    model_params : dict or None, default=None
+        Parameter overrides keyed by selected model name. Nested pipeline
+        parameters use scikit-learn's ``step__parameter`` syntax.
+
+    Attributes
+    ----------
+    results_ : pandas.DataFrame or None
+        Result returned by the most recent successful :meth:`fit` call.
+    models_ : dict
+        Successfully fitted estimators keyed by result name.
+    predictions_ : dict
+        Cached test and optional training predictions, grouped by partition and
+        model name.
+    probabilities_ : dict
+        Empty test and training dictionaries retained for a consistent artifact
+        layout across classification and regression.
+    warnings_ : pandas.DataFrame
+        Model-attributed warning categories and messages from the latest fit.
+    failures_ : pandas.DataFrame
+        Model, execution stage, exception type, and message for failed models.
+
+    Examples
+    --------
+    >>> from MultiTrain import MultiRegressor
+    >>> train = MultiRegressor(
+    ...     custom_models=["LinearRegression"],
+    ...     n_jobs=1,
+    ... )
     """
 
     n_jobs: int = 1
     random_state: int = 42
-    custom_models: Optional[list] = None
+    custom_models: Optional[Union[list, dict]] = None
     max_iter: int = 1000
     use_gpu: bool = False
     device: str = '0'
     model_workers: Optional[int] = None
+    model_params: Optional[dict] = None
+    results_: Optional[pd.DataFrame] = field(init=False, default=None, repr=False)
+    models_: dict = field(init=False, default_factory=dict, repr=False)
+    predictions_: dict = field(init=False, default_factory=dict, repr=False)
+    probabilities_: dict = field(init=False, default_factory=dict, repr=False)
+    warnings_: pd.DataFrame = field(init=False, default_factory=pd.DataFrame, repr=False)
+    failures_: pd.DataFrame = field(init=False, default_factory=pd.DataFrame, repr=False)
     
     def __post_init__(self):
         """Validate configuration before loading data or constructing models."""
@@ -95,15 +159,27 @@ class MultiRegressor:
                     f'got {type(param_value).__name__}. Please provide a {expected_type.__name__} value.'
                 )
                 
-        if not isinstance(self.custom_models, (list, type(None))):
+        if not isinstance(self.custom_models, (list, dict, type(None))):
             raise MultiTrainTypeError(
-                f'Invalid type for custom_models: expected a list of custom models or None, '
-                f'got {type(self.custom_models).__name__}. Please provide a list or None.'
+                f'Invalid type for custom_models: expected a list, dictionary, or None, '
+                f'got {type(self.custom_models).__name__}.'
             )
-        if self.custom_models is not None and not all(
+        if isinstance(self.custom_models, list) and not all(
             isinstance(model, str) for model in self.custom_models
         ):
             raise MultiTrainTypeError("Every custom model name must be a string")
+        if self.model_params is not None and not isinstance(self.model_params, dict):
+            raise MultiTrainTypeError("model_params must be a dictionary or None")
+        if isinstance(self.model_params, dict):
+            for model_name, parameters in self.model_params.items():
+                if not isinstance(model_name, str) or not model_name:
+                    raise MultiTrainTypeError(
+                        "Every model_params key must be a non-empty string"
+                    )
+                if not isinstance(parameters, dict):
+                    raise MultiTrainTypeError(
+                        f"Parameters for {model_name} must be provided as a dictionary"
+                    )
         if self.n_jobs == 0:
             raise MultiTrainTypeError("n_jobs cannot be zero")
         if self.model_workers is not None and (
@@ -121,6 +197,27 @@ class MultiRegressor:
             raise MultiTrainTypeError("device cannot be empty")
 
         logger.debug('MultiTrain regressor initialized')
+
+    def _reset_fit_artifacts(self):
+        """Clear outputs from the previous run before validating a new one."""
+        self.results_ = None
+        self.models_ = {}
+        self.predictions_ = {"test": {}, "train": {}}
+        self.probabilities_ = {"test": {}, "train": {}}
+        self.warnings_ = pd.DataFrame(columns=["Model", "Category", "Message"])
+        self.failures_ = pd.DataFrame(
+            columns=["Model", "Stage", "Exception", "Message"]
+        )
+
+    def _store_fit_artifacts(self, completed, final_dataframe):
+        """Expose the estimators and cached outputs created by one fit call."""
+        artifacts = build_run_artifacts(completed)
+        self.results_ = final_dataframe
+        self.models_ = artifacts["models"]
+        self.predictions_ = artifacts["predictions"]
+        self.probabilities_ = artifacts["probabilities"]
+        self.warnings_ = artifacts["warnings"]
+        self.failures_ = artifacts["failures"]
             
     def split(
         self,
@@ -134,30 +231,59 @@ class MultiRegressor:
             Dict
         ] = False,  # Custom NaN handling, e.g., {'column1': 'ffill'}
         drop: list = None, # List of columns to drop, e.g., ['column1', 'column2']
-    ):  
-        """
-        Splits the dataset into training and testing sets after performing optional preprocessing steps.
+    ):
+        """Create training and test partitions for a regression problem.
 
-        How this connects to the rest of MultiTrain:
-        1. The complete source dataset is checked for invalid targets and values.
-        2. Train and test partitions are created before preprocessing.
-        3. ``_prepare_train_test`` learns encoding and missing-value behavior from
-           training rows only.
-        4. The returned tuple is consumed by ``fit`` and validated again there,
-           which also protects manually created scikit-learn splits.
+        The source data is validated before it is split. Missing-value rules and
+        categorical encoders are then learned from the training partition and
+        applied to the test partition, which prevents test data from influencing
+        preprocessing.
 
-        Parameters:
-        - data (Union[pd.DataFrame, str]): The input dataset or a filepath to a dataset.
-        - target (str): The name of the target column.
-        - random_state (int, optional): Random state for reproducibility. Default is 42.
-        - test_size (float, optional): Proportion of the dataset to include in the test split. Default is 0.2.
-        - auto_cat_encode (bool, optional): If True, automatically encode all categorical columns. Default is False.
-        - manual_encode (dict, optional): Dictionary specifying manual encoding for columns. Default is None.
-        - fix_nan_custom (Optional[Dict], optional): Custom NaN handling instructions. Default is False.
-        - drop (list, optional): List of columns to drop from the dataset. Default is None.
+        Parameters
+        ----------
+        data : pandas.DataFrame or str
+            Source dataframe or path to a CSV file.
+        target : str
+            Name of the numeric regression target column.
+        random_state : int, default=42
+            Seed passed to scikit-learn's train/test splitter.
+        test_size : float, default=0.2
+            Fraction of rows assigned to the test partition. It must be between
+            zero and one.
+        auto_cat_encode : bool, default=False
+            Automatically label-encode every categorical feature when true.
+        manual_encode : dict or None, default=None
+            Explicit encoding instructions. Supported keys are ``"label"`` and
+            ``"onehot"``; each value is a list of feature names.
+        fix_nan_custom : dict, False, or None, default=False
+            Per-column missing-value strategies such as
+            ``{"age": "interpolate", "city": "ffill"}``.
+        drop : list or None, default=None
+            Feature columns to remove before the split.
 
-        Returns:
-        - tuple: A tuple containing the training and testing data splits (X_train, X_test, y_train, y_test).
+        Returns
+        -------
+        tuple
+            ``(X_train, X_test, y_train, y_test)`` ready for :meth:`fit`.
+
+        Raises
+        ------
+        MultiTrainTypeError
+            If an argument has an unsupported type.
+        MultiTrainColumnMissingError
+            If the target, dropped column, or encoded column does not exist.
+        MultiTrainEncodingError
+            If categorical encoding instructions conflict or leave categorical
+            columns unencoded.
+        MultiTrainNaNError
+            If missing values remain without a configured strategy.
+        MultiTrainSplitError
+            If the dataset cannot produce a valid holdout split.
+
+        Notes
+        -----
+        An equivalent four-item tuple created with scikit-learn can be passed
+        directly to ``fit`` and is validated before training starts.
         """
 
         if not isinstance(target, str) or not target:
@@ -171,7 +297,6 @@ class MultiRegressor:
         if not isinstance(auto_cat_encode, bool):
             raise MultiTrainTypeError("auto_cat_encode must be a boolean")
 
-        # Normalize file paths and dataframes into the same in-memory representation.
         if isinstance(data, pd.DataFrame):
             dataset = data.copy()
         elif isinstance(data, str):
@@ -229,7 +354,6 @@ class MultiRegressor:
                 )
             dataset.drop(drop, axis=1, inplace=True)
 
-        # The target must still exist after optional columns have been dropped.
         if target not in dataset.columns:
             raise MultiTrainColumnMissingError(f"Target column {target} not found in columns")
 
@@ -278,30 +402,53 @@ class MultiRegressor:
         pca: Union[bool, str] = False,
         return_best_model: Optional[str] = None, # example 'mean_squared_error', 'r2_score', 'mean_absolute_error'
         n_components: Optional[Union[int, float]] = None,
-    ):  
+    ):
+        """Fit and calculate metrics for every selected regression model.
+
+        MultiTrain validates the split, optionally scales and reduces one shared
+        feature representation, trains each estimator on the complete training
+        partition, and calculates every result from cached predictions.
+
+        Parameters
+        ----------
+        datasplits : tuple
+            Four items ordered as ``X_train, X_test, y_train, y_test``.
+        custom_metric : str or None, default=None
+            Name of an additional supported scalar scikit-learn metric.
+        show_train_score : bool, default=False
+            Include metrics calculated on the training partition.
+        sort : str or None, default=None
+            Result column used to order the returned dataframe.
+        pca : str or False, default=False
+            Name of the scaler applied before a shared PCA transformation. Pass
+            ``False`` to leave the features unchanged.
+        return_best_model : str or None, default=None
+            Return only the row with the strongest value for this metric.
+        n_components : int, float, or None, default=None
+            Number of PCA components, or an explained-variance fraction between
+            zero and one.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Metrics for the selected models. The same dataframe is stored in
+            :attr:`results_`; fitted estimators, predictions, warnings, and
+            failures are stored in the other post-fit attributes.
+
+        Raises
+        ------
+        MultiTrainTypeError
+            If an argument or split item has an unsupported type.
+        MultiTrainMetricError
+            If a metric name or requested ordering is unsupported.
+        MultiTrainPCAError
+            If PCA configuration is invalid.
+
+        See Also
+        --------
+        split : Create and validate a regression train/test partition.
         """
-        Fits multiple models to the provided training data and evaluates them using specified metrics.
-
-        Execution flow:
-        1. ``_validate_datasplits`` checks the schema and regression targets.
-        2. ``prepare_tabular_features`` performs shared optional scaling and PCA.
-        3. ``run_models`` fits every selected estimator and caches predictions.
-        4. Metric helpers score those predictions, then ``_display_table`` applies
-           the requested ordering or returns one best-score row.
-
-        Parameters:
-        - datasplits (tuple): A tuple containing four elements: X_train, X_test, y_train, y_test.
-        - custom_metric (str, optional): A supported scalar scikit-learn metric name.
-        - show_train_score (bool, optional): If True, also calculates and displays training scores.
-        - sort (str, optional): Metric name to sort the final results. Examples include 'mean_squared_error', 'r2_score', etc.
-        - pca (bool or str, optional): Scaler to apply before the shared PCA transformation.
-        - return_best_model (str, optional): The metric to return the best model by, e.g., 'mean_squared_error'.
-        - n_components (int or float, optional): Component count or explained-variance target for PCA.
-
-        Returns:
-        - final_dataframe: A DataFrame containing measurements for every selected model.
-        """
-        
+        self._reset_fit_artifacts()
         if custom_metric is not None and not isinstance(custom_metric, str):
             raise MultiTrainTypeError("custom_metric must be a string or None")
         if not isinstance(show_train_score, bool):
@@ -326,13 +473,11 @@ class MultiRegressor:
         else:
             pca_scaler = False
         
-        # The model factory receives this flag and configures only libraries with
-        # an explicit supported GPU API on the current platform.
         gpu_enabled = self.use_gpu and platform.system() != "Darwin"
         model_names, model_list, X_train, X_test, y_train, y_test = _prep_model_names_list(
             datasplits, custom_metric, self.random_state, self.n_jobs,
             self.custom_models, "regression", self.max_iter,
-            gpu_enabled, self.device,
+            gpu_enabled, self.device, self.model_params,
         )
 
         prepared_train, prepared_test = prepare_tabular_features(
@@ -354,7 +499,7 @@ class MultiRegressor:
             use_gpu=gpu_enabled,
         )
 
-        # Predictions are cached by the execution layer, so all measurements
+        # Predictions are cached by the execution layer, so all metrics
         # below describe the exact same output from each fitted estimator.
         results = {}
         for completed_model in completed:
@@ -388,7 +533,6 @@ class MultiRegressor:
                 "Time": completed_model.elapsed,
             }
     
-        # Format and rank the accumulated model results only after every fit finishes.
         if custom_metric:
             final_dataframe = _display_table(
                 results=results,
@@ -404,6 +548,7 @@ class MultiRegressor:
                 return_best_model=return_best_model,
                 task='regression'
             )
+        self._store_fit_artifacts(completed, final_dataframe)
         return final_dataframe
     
 
@@ -411,7 +556,17 @@ class MultiRegressor:
 class subMultiRegressor(MultiRegressor):
     """Backward-compatible regressor alias retained for existing users."""
 
-    def __init__(self, n_jobs: int = 1, random_state: int = 42, custom_models: Optional[list] = None, max_iter: int = 1000, use_gpu: bool = False, device: str = '0', model_workers: Optional[int] = None):
+    def __init__(
+        self,
+        n_jobs: int = 1,
+        random_state: int = 42,
+        custom_models: Optional[Union[list, dict]] = None,
+        max_iter: int = 1000,
+        use_gpu: bool = False,
+        device: str = '0',
+        model_workers: Optional[int] = None,
+        model_params: Optional[dict] = None,
+    ):
         """Forward legacy constructor arguments to ``MultiRegressor``."""
 
         super().__init__(
@@ -422,6 +577,7 @@ class subMultiRegressor(MultiRegressor):
             use_gpu=use_gpu,
             device=device,
             model_workers=model_workers,
+            model_params=model_params,
         )
         
     def __post_init__(self):

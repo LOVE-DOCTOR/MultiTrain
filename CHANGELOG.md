@@ -1,5 +1,15 @@
 # WHAT'S NEW
 
+## Unreleased
+
+- Retain fitted estimators, cached predictions, classification probabilities, and the returned results dataframe after each fit.
+- Add structured per-model warning and failure diagnostics with failure-stage and exception details.
+- Accept named user-provided estimator objects while fitting a copy instead of mutating the original object.
+- Add validated per-model parameter overrides for built-in and user-provided estimators.
+- Expand the executable classification and regression notebooks with fitted artifacts, named estimators, parameter overrides, and diagnostic examples.
+- Add a complete Sphinx documentation website with generated API pages, executable examples, strict documentation CI, and GitHub Pages deployment.
+- Support documentation builds on Python 3.10 through Python 3.13 with version-compatible Sphinx tooling.
+
 ## 1.2.0
 
 - Modernized packaging around a single `pyproject.toml` source of truth.

@@ -5,6 +5,7 @@ instances, calculate measurements from cached predictions, and build the final
 comparison dataframe.
 """
 
+import copy
 import logging
 import platform
 import time
@@ -958,7 +959,62 @@ def _prepare_train_test(
     return train_copy, test_copy
 
 
-def _check_custom_models(custom_models, models):
+def _clone_custom_estimator(name, estimator):
+    """Return an unfitted copy so MultiTrain never mutates the user's object.
+
+    Scikit-learn's ``clone`` is preferred because it copies configuration rather
+    than learned state. ``deepcopy`` keeps small estimator-compatible objects
+    usable even when they do not implement scikit-learn's parameter protocol.
+    """
+    try:
+        return clone(estimator)
+    except (TypeError, AttributeError):
+        try:
+            return copy.deepcopy(estimator)
+        except Exception as exc:
+            raise MultiTrainModelError(
+                f"Unable to copy custom model {name}: {exc}"
+            ) from exc
+
+
+def _apply_model_params(model_names, model_list, model_params):
+    """Apply named parameter overrides after the final model set is known."""
+    if model_params is None:
+        return model_list
+    if not isinstance(model_params, dict):
+        raise MultiTrainTypeError("model_params must be a dictionary or None")
+
+    unknown_models = set(model_params) - set(model_names)
+    if unknown_models:
+        raise MultiTrainModelError(
+            "model_params contains models that are not selected: "
+            f"{sorted(unknown_models)}"
+        )
+
+    configured = []
+    for name, model in zip(model_names, model_list):
+        parameters = model_params.get(name)
+        if parameters is None:
+            configured.append(model)
+            continue
+        if not isinstance(parameters, dict):
+            raise MultiTrainTypeError(
+                f"Parameters for {name} must be provided as a dictionary"
+            )
+        if not hasattr(model, "set_params"):
+            raise MultiTrainModelError(
+                f"Model {name} does not support parameter overrides"
+            )
+        try:
+            configured.append(model.set_params(**parameters))
+        except (TypeError, ValueError) as exc:
+            raise MultiTrainModelError(
+                f"Invalid parameters for {name}: {exc}"
+            ) from exc
+    return configured
+
+
+def _check_custom_models(custom_models, models, model_params=None):
     """
     Check and retrieve custom models from the provided models dictionary.
 
@@ -967,8 +1023,9 @@ def _check_custom_models(custom_models, models):
     the final dataframe also preserve.
 
     Args:
-        custom_models (list): List of custom model names.
+        custom_models (list or dict): Built-in names or named estimator objects.
         models (dict): Dictionary of available models.
+        model_params (dict): Optional parameters keyed by selected model name.
 
     Returns:
         tuple: A tuple containing a list of model names and a list of model instances.
@@ -991,12 +1048,31 @@ def _check_custom_models(custom_models, models):
             if model_name not in models:
                 raise MultiTrainModelError(f"Model {model_name} not found in available models")
             model_list.append(models[model_name])
+    elif isinstance(custom_models, dict):
+        if not custom_models:
+            raise MultiTrainModelError("custom_models cannot be an empty dictionary")
+        model_names = []
+        model_list = []
+        for model_name, estimator in custom_models.items():
+            if not isinstance(model_name, str) or not model_name:
+                raise MultiTrainTypeError(
+                    "Every custom model dictionary key must be a non-empty string"
+                )
+            if not callable(getattr(estimator, "fit", None)) or not callable(
+                getattr(estimator, "predict", None)
+            ):
+                raise MultiTrainModelError(
+                    f"Custom model {model_name} must provide callable fit and predict methods"
+                )
+            model_names.append(model_name)
+            model_list.append(_clone_custom_estimator(model_name, estimator))
     else:
         raise MultiTrainTypeError(
-            f"custom_models must be a list or None. Got {type(custom_models)}"
+            "custom_models must be a list, a dictionary, or None. "
+            f"Got {type(custom_models)}"
         )
 
-    return model_names, model_list
+    return model_names, _apply_model_params(model_names, model_list, model_params)
 
 
 def _validate_datasplits(
@@ -1205,11 +1281,12 @@ def _prep_model_names_list(
     custom_metric: str, 
     random_state: int, 
     n_jobs: int, 
-    custom_models: list, 
+    custom_models: Optional[Union[list, dict]],
     class_type: str, 
     max_iter: int, 
     use_gpu: bool = False,
     device: str = "0",
+    model_params: dict = None,
 ) -> tuple:
     """
     Prepare model names and lists based on provided data splits and parameters.
@@ -1224,9 +1301,10 @@ def _prep_model_names_list(
         custom_metric (str): A custom metric to include.
         random_state (int): Seed for the random number generator.
         n_jobs (int): Number of parallel jobs to run.
-        custom_models (list): List of custom model names.
+        custom_models (list or dict): Built-in names or named estimator objects.
         class_type (str): Type of classification or regression.
         max_iter (int): Maximum number of iterations for iterative algorithms.
+        model_params (dict): Parameter overrides keyed by selected model name.
 
     Returns:
         tuple: A tuple containing model names, model list, and data splits.
@@ -1275,7 +1353,11 @@ def _prep_model_names_list(
         raise MultiTrainTypeError(f"Invalid class_type: {class_type}. Must be 'classification' or 'regression'")
 
     # Check for custom models and get model names and list
-    model_names, model_list = _check_custom_models(custom_models, models)
+    model_names, model_list = _check_custom_models(
+        custom_models,
+        models,
+        model_params=model_params,
+    )
 
     return model_names, model_list, X_train, X_test, y_train, y_test
 
